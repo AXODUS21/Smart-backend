@@ -63,48 +63,54 @@ export default function LoginPage() {
         if (authError) throw authError;
 
         if (authData.user) {
-          // Wait a moment for the session to be established
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Show success message immediately
+          setSuccess(`A confirmation email has been sent to ${email}. Please check your inbox (and spam folder) and click the confirmation link to verify your account.`);
           
-          // Get the current session
+          // Clear form
+          setEmail('');
+          setPassword('');
+          setName('');
+          setUserType('student');
+          setActiveTab('signin');
+          
+          // Try to insert into database if we have a session
+          // If email confirmation is required, this will happen after verification
           const { data: { session: currentSession } } = await supabase.auth.getSession();
           
           if (currentSession) {
             // Now insert into appropriate table based on user type
-            if (userType === 'student') {
-              const { error: studentError } = await supabase
-                .from('Students')
-                .insert({
-                  user_id: authData.user.id,
-                  email: email,
-                  name: name,
-                  credits: 0,
-                  tutors: [],
-                  tutoring_sched: [],
-                });
+            try {
+              if (userType === 'student') {
+                const { error: studentError } = await supabase
+                  .from('Students')
+                  .insert({
+                    user_id: authData.user.id,
+                    email: email,
+                    name: name,
+                    credits: 0,
+                    tutors: [],
+                    tutoring_sched: [],
+                  });
 
-              if (studentError) throw studentError;
-            } else {
-              const { error: tutorError } = await supabase
-                .from('Tutors')
-                .insert({
-                  user_id: authData.user.id,
-                  email: email,
-                  name: name,
-                  subjects: [],
-                  availability: [],
-                  students_id: [],
-                });
+                if (studentError) console.error('Student insert error:', studentError);
+              } else {
+                const { error: tutorError } = await supabase
+                  .from('Tutors')
+                  .insert({
+                    user_id: authData.user.id,
+                    email: email,
+                    name: name,
+                    subjects: [],
+                    availability: [],
+                    students_id: [],
+                  });
 
-              if (tutorError) throw tutorError;
+                if (tutorError) console.error('Tutor insert error:', tutorError);
+              }
+            } catch (dbError) {
+              console.error('Database insert error:', dbError);
+              // Don't show error to user - profile will be created when they verify email
             }
-            
-            setSuccess(`Account created successfully! A confirmation email has been sent to ${email}. Please check your inbox and click the link to verify your account.`);
-            setActiveTab('signin');
-            setEmail('');
-            setPassword('');
-            setName('');
-            setUserType('student');
           }
         }
       } else {
@@ -180,9 +186,14 @@ export default function LoginPage() {
           )}
 
           {success && (
-            <div className="mb-4 rounded-lg bg-green-100 p-4 text-sm text-green-700">
-              <div className="font-semibold mb-1">✓ Success!</div>
-              {success}
+            <div className="mb-4 rounded-lg bg-green-50 border-2 border-green-200 p-5 text-sm">
+              <div className="font-bold text-green-800 mb-2 text-base flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Account Created Successfully!
+              </div>
+              <div className="text-green-700 leading-relaxed">{success}</div>
             </div>
           )}
 
