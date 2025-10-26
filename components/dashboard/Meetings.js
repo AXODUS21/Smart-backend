@@ -202,27 +202,50 @@ export default function Meetings() {
         .from('Schedules')
         .select('student_id')
         .eq('id', bookingId)
-        .single();
+        .maybeSingle();
 
-      if (bookingError) throw bookingError;
+      if (bookingError) {
+        console.error('Error fetching booking:', bookingError);
+        throw new Error('Database error while fetching booking');
+      }
 
-      // Refund credits to student
-      const { data: studentData, error: studentError } = await supabase
-        .from('Students')
-        .select('credits')
-        .eq('id', bookingData.student_id)
-        .single();
+      if (!bookingData) {
+        throw new Error('Booking not found');
+      }
 
-      if (studentError) throw studentError;
+      if (!bookingData.student_id) {
+        throw new Error('Invalid booking data - no student ID');
+      }
 
-      const newCredits = (studentData.credits || 0) + creditsRequired;
-      
-      const { error: updateCreditsError } = await supabase
-        .from('Students')
-        .update({ credits: newCredits })
-        .eq('id', bookingData.student_id);
+      // Try to refund credits to student (optional - don't fail if student not found)
+      try {
+        const { data: studentData, error: studentError } = await supabase
+          .from('Students')
+          .select('credits')
+          .eq('id', bookingData.student_id)
+          .maybeSingle();
 
-      if (updateCreditsError) throw updateCreditsError;
+        if (studentError) {
+          console.warn('Error fetching student for credit refund:', studentError);
+        } else if (studentData) {
+          const newCredits = (studentData.credits || 0) + creditsRequired;
+          
+          const { error: updateCreditsError } = await supabase
+            .from('Students')
+            .update({ credits: newCredits })
+            .eq('id', bookingData.student_id);
+
+          if (updateCreditsError) {
+            console.warn('Error updating credits:', updateCreditsError);
+          } else {
+            console.log(`Successfully refunded ${creditsRequired} credits to student`);
+          }
+        } else {
+          console.warn(`Student with ID ${bookingData.student_id} not found - skipping credit refund`);
+        }
+      } catch (creditError) {
+        console.warn('Credit refund failed, but continuing with rejection:', creditError);
+      }
 
       // Update booking status to rejected
       const { error: updateBookingError } = await supabase
@@ -230,7 +253,10 @@ export default function Meetings() {
         .update({ status: 'rejected' })
         .eq('id', bookingId);
 
-      if (updateBookingError) throw updateBookingError;
+      if (updateBookingError) {
+        console.error('Error updating booking status:', updateBookingError);
+        throw new Error('Failed to reject booking');
+      }
 
       // Refresh bookings
       const { data: tutorData } = await supabase
@@ -256,7 +282,8 @@ export default function Meetings() {
       }
     } catch (error) {
       console.error('Error rejecting booking:', error);
-      alert('Error rejecting booking. Please try again.');
+      const errorMessage = error.message || 'Error rejecting booking. Please try again.';
+      alert(errorMessage);
     } finally {
       setProcessing(prev => ({ ...prev, [bookingId]: false }));
     }
@@ -613,7 +640,7 @@ export default function Meetings() {
                   value={meetingLink}
                   onChange={(e) => setMeetingLink(e.target.value)}
                   placeholder="https://zoom.us/j/123456789 or https://meet.google.com/abc-defg-hij"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                 />
                 <p className="text-sm text-gray-500 mt-2">
                   Please provide a valid meeting link (Zoom, Google Meet, Microsoft Teams, etc.)

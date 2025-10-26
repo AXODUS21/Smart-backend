@@ -224,7 +224,7 @@ export default function MeetingScheduler() {
               const tutor = acceptedTutors.find(t => t.tutor_id === e.target.value);
               setSelectedTutor(tutor);
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             required
           >
             <option value="">Choose a tutor</option>
@@ -247,7 +247,7 @@ export default function MeetingScheduler() {
             value={formData.subject}
             onChange={handleInputChange}
             placeholder="e.g., Mathematics, Physics"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             required
           />
         </div>
@@ -264,7 +264,7 @@ export default function MeetingScheduler() {
               value={formData.date}
               onChange={handleInputChange}
               min={new Date().toISOString().split('T')[0]}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               required
             />
           </div>
@@ -278,7 +278,7 @@ export default function MeetingScheduler() {
               name="startTime"
               value={formData.startTime}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               required
             />
           </div>
@@ -293,7 +293,7 @@ export default function MeetingScheduler() {
             name="duration"
             value={formData.duration}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
           >
             <option value={30}>30 minutes (1 credit)</option>
             <option value={60}>60 minutes (2 credits)</option>
@@ -313,7 +313,7 @@ export default function MeetingScheduler() {
             onChange={handleInputChange}
             placeholder="Any specific topics or questions you'd like to cover..."
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
           />
         </div>
 

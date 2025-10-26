@@ -165,7 +165,7 @@ export default function TutorHome() {
             value={newSubject}
             onChange={(e) => setNewSubject(e.target.value)}
             placeholder="Enter subject name..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
             onKeyPress={(e) => e.key === 'Enter' && handleAddSubject(newSubject)}
           />
           <button
