@@ -24,6 +24,7 @@ import FindTutors from "./dashboard/FindTutors";
 import Calendar from "./dashboard/Calendar";
 import TutorHome from "./dashboard/TutorHome";
 import StudentHome from "./dashboard/StudentHome";
+import Header from "./Header";
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("home");
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("");
 
   // Handle URL parameters for tab selection
   useEffect(() => {
@@ -57,6 +59,7 @@ export default function Dashboard() {
 
         if (studentData) {
           setUserRole("student");
+          setUserName(studentData.name || user.email);
         } else {
           // Check if user is in Tutors table
           const { data: tutorData } = await supabase
@@ -67,6 +70,7 @@ export default function Dashboard() {
 
           if (tutorData) {
             setUserRole("tutor");
+            setUserName(tutorData.name || user.email);
           }
         }
       } catch (error) {
@@ -175,11 +179,7 @@ export default function Dashboard() {
           sidebarOpen ? "ml-64" : "ml-20"
         } transition-all duration-300`}
       >
-        <header className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {tabs.find((t) => t.id === activeTab)?.label || "Dashboard"}
-          </h2>
-        </header>
+        <Header userName={userName} />
 
         <main className="flex-1 p-6">
           {activeTab === "home" && userRole === "student" && <StudentHome />}
