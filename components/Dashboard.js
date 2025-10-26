@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { 
   Wallet, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Users, 
   Search, 
   GraduationCap, 
@@ -15,6 +15,14 @@ import {
   LogOut,
   Video
 } from 'lucide-react';
+
+// Dashboard components
+import Credits from './dashboard/Credits';
+import Meetings from './dashboard/Meetings';
+import MyTutors from './dashboard/MyTutors';
+import FindTutors from './dashboard/FindTutors';
+import Calendar from './dashboard/Calendar';
+import MyStudents from './dashboard/MyStudents';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -75,7 +83,7 @@ export default function Dashboard() {
   ];
 
   const tutorTabs = [
-    { id: 'calendar', label: 'Calendar', icon: Calendar },
+    { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
     { id: 'meetings', label: 'Meetings', icon: Video },
     { id: 'students', label: 'My Students', icon: Users },
   ];
@@ -161,55 +169,13 @@ export default function Dashboard() {
             </div>
           )}
 
-          {activeTab === 'credits' && userRole === 'student' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">My Credits</h3>
-              <div className="text-4xl font-bold text-blue-600 mb-2">0</div>
-              <p className="text-gray-600">Available credits</p>
-            </div>
-          )}
-
-          {activeTab === 'meetings' && userRole === 'student' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">My Meetings</h3>
-              <p className="text-gray-600">No scheduled meetings yet.</p>
-            </div>
-          )}
-
-          {activeTab === 'tutors' && userRole === 'student' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">My Tutors</h3>
-              <p className="text-gray-600">No tutors assigned yet.</p>
-            </div>
-          )}
-
-          {activeTab === 'find-tutors' && userRole === 'student' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Find Tutors</h3>
-              <p className="text-gray-600">Browse available tutors here.</p>
-            </div>
-          )}
-
-          {activeTab === 'calendar' && userRole === 'tutor' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">My Calendar</h3>
-              <p className="text-gray-600">Manage your availability and schedule.</p>
-            </div>
-          )}
-
-          {activeTab === 'meetings' && userRole === 'tutor' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">My Meetings</h3>
-              <p className="text-gray-600">View and manage your upcoming meetings with students.</p>
-            </div>
-          )}
-
-          {activeTab === 'students' && userRole === 'tutor' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">My Students</h3>
-              <p className="text-gray-600">View and manage your students.</p>
-            </div>
-          )}
+          {activeTab === 'credits' && userRole === 'student' && <Credits />}
+          {activeTab === 'meetings' && userRole === 'student' && <Meetings />}
+          {activeTab === 'tutors' && userRole === 'student' && <MyTutors />}
+          {activeTab === 'find-tutors' && userRole === 'student' && <FindTutors />}
+          {activeTab === 'calendar' && userRole === 'tutor' && <Calendar />}
+          {activeTab === 'meetings' && userRole === 'tutor' && <Meetings />}
+          {activeTab === 'students' && userRole === 'tutor' && <MyStudents />}
         </main>
       </div>
     </div>
