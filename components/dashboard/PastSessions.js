@@ -55,11 +55,11 @@ export default function PastSessions() {
             subject: session.subject || "Tutoring Session",
             date: formatDate(session.start_time_utc),
             time: formatTime(session.start_time_utc, session.end_time_utc),
-            status: session.session_status || "completed", // This field needs to be added to the database
-            action: session.session_action || null, // This field needs to be added to the database
+            status: session.session_status || "completed",
+            action: session.session_action || null,
             credits_required: session.credits_required || 0,
             student_id: session.student_id,
-            review: session.tutor_review || null, // This field needs to be added to the database
+            review: session.tutor_review || null,
           }));
           setSessions(transformedSessions);
         }
@@ -102,24 +102,16 @@ export default function PastSessions() {
       if (action === "successful") {
         setShowReview(id);
       } else {
-        // For now, we'll use a custom status approach since the database fields don't exist yet
-        // TODO: Add these fields to the Schedules table:
-        // - session_status (text): 'completed', 'student-no-show', 'tutor-no-show', 'successful'
-        // - session_action (text): 'successful', 'student-no-show', 'tutor-no-show', 'review-submitted'
-        // - tutor_review (text): The review text from the tutor
-
-        // For demonstration, we'll update the existing status field
-        // In production, you should add the new fields to the database
+        // Update session status using the new database fields
         const newStatus =
           action === "student-no-show" ? "student-no-show" : "tutor-no-show";
 
         const { error } = await supabase
           .from("Schedules")
           .update({
-            status: newStatus, // Using existing status field temporarily
-            // TODO: Add these when database is updated:
-            // session_status: newStatus,
-            // session_action: action
+            session_status: newStatus,
+            session_action: action,
+            status: "confirmed" // Keep the main status as confirmed so session remains visible
           })
           .eq("id", id);
 
@@ -153,10 +145,7 @@ export default function PastSessions() {
             session.id === id
               ? {
                   ...session,
-                  status:
-                    action === "student-no-show"
-                      ? "student-no-show"
-                      : "tutor-no-show",
+                  status: newStatus,
                   action: action,
                 }
               : session
@@ -180,20 +169,14 @@ export default function PastSessions() {
     setProcessing((prev) => ({ ...prev, [id]: true }));
 
     try {
-      // Update session with review and mark as successful
-      // TODO: When database is updated, use these fields:
-      // session_status: "successful",
-      // session_action: "review-submitted",
-      // tutor_review: reviews[id]
-
+      // Update session with review and mark as successful using the new database fields
       const { error } = await supabase
         .from("Schedules")
         .update({
-          status: "successful", // Using existing status field temporarily
-          // TODO: Add these when database is updated:
-          // session_status: "successful",
-          // session_action: "review-submitted",
-          // tutor_review: reviews[id]
+          session_status: "successful",
+          session_action: "review-submitted",
+          tutor_review: reviews[id],
+          status: "confirmed" // Keep the main status as confirmed so session remains visible
         })
         .eq("id", id);
 
