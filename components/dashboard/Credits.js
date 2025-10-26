@@ -1,37 +1,44 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { Wallet, Plus, ShoppingCart } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { Zap } from "lucide-react";
 
 export default function Credits() {
   const { user } = useAuth();
   const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
-  const [creditAmount, setCreditAmount] = useState(1);
-  const [success, setSuccess] = useState('');
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [success, setSuccess] = useState("");
+
+  const creditPlans = [
+    { id: "starter", credits: 10, price: 29.99, savings: 0 },
+    { id: "popular", credits: 30, price: 79.99, savings: 10 },
+    { id: "pro", credits: 60, price: 149.99, savings: 20 },
+    { id: "elite", credits: 100, price: 229.99, savings: 30 },
+  ];
 
   // Fetch user credits
   useEffect(() => {
     const fetchCredits = async () => {
       if (!user) return;
-      
+
       try {
         const { data, error } = await supabase
-          .from('Students')
-          .select('credits')
-          .eq('user_id', user.id)
+          .from("Students")
+          .select("credits")
+          .eq("user_id", user.id)
           .single();
 
         if (error) {
-          console.error('Error fetching credits:', error);
+          console.error("Error fetching credits:", error);
         } else {
           setCredits(data?.credits || 0);
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.error("Error:", error);
       } finally {
         setLoading(false);
       }
@@ -42,17 +49,20 @@ export default function Credits() {
 
   // Handle credit purchase
   const handleBuyCredits = async () => {
-    if (!user || creditAmount <= 0) return;
+    if (!user || !selectedPlan) return;
+
+    const plan = creditPlans.find((p) => p.id === selectedPlan);
+    if (!plan) return;
 
     setPurchasing(true);
-    setSuccess('');
+    setSuccess("");
 
     try {
       // Get current credits
       const { data: currentData, error: fetchError } = await supabase
-        .from('Students')
-        .select('credits')
-        .eq('user_id', user.id)
+        .from("Students")
+        .select("credits")
+        .eq("user_id", user.id)
         .single();
 
       if (fetchError) {
@@ -60,13 +70,13 @@ export default function Credits() {
       }
 
       const currentCredits = currentData?.credits || 0;
-      const newCredits = currentCredits + creditAmount;
+      const newCredits = currentCredits + plan.credits;
 
       // Update credits in database
       const { error: updateError } = await supabase
-        .from('Students')
+        .from("Students")
         .update({ credits: newCredits })
-        .eq('user_id', user.id);
+        .eq("user_id", user.id);
 
       if (updateError) {
         throw updateError;
@@ -74,13 +84,18 @@ export default function Credits() {
 
       // Update local state
       setCredits(newCredits);
-      setSuccess(`Successfully purchased ${creditAmount} credit${creditAmount > 1 ? 's' : ''}!`);
-      
-      // Reset form
-      setCreditAmount(1);
+      setSuccess(
+        `Successfully purchased ${plan.credits} credit${
+          plan.credits > 1 ? "s" : ""
+        }!`
+      );
+      setSelectedPlan(null);
+
+      // Auto-dismiss success message
+      setTimeout(() => setSuccess(""), 5000);
     } catch (error) {
-      console.error('Error purchasing credits:', error);
-      alert('Error purchasing credits. Please try again.');
+      console.error("Error purchasing credits:", error);
+      alert("Error purchasing credits. Please try again.");
     } finally {
       setPurchasing(false);
     }
@@ -88,81 +103,70 @@ export default function Credits() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="space-y-6">
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-32 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-48"></div>
+          <div className="h-8 bg-gray-200 rounded w-48 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-64"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <Wallet className="h-6 w-6 text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-900">My Credits</h3>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+          Buy Credits
+        </h2>
+        <p className="text-slate-500">1 credit = 30 minutes of tutoring</p>
       </div>
 
-      {/* Current Credits Display */}
-      <div className="bg-blue-50 rounded-lg p-6 mb-6">
-        <div className="text-center">
-          <div className="text-4xl font-bold text-blue-600 mb-2">{credits}</div>
-          <p className="text-gray-600">Available Credits</p>
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 mb-6">
+        <div className="flex items-center gap-3">
+          <Zap className="text-orange-500" size={24} />
+          <div>
+            <p className="font-semibold text-slate-900">Current Balance</p>
+            <p className="text-2xl font-bold text-slate-900">
+              {credits} credits
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Credit Information */}
-      <div className="bg-gray-50 rounded-lg p-4 mb-6">
-        <p className="text-sm text-gray-600 text-center">
-          <span className="font-semibold">1 Credit = 30 minutes</span> of tutoring time
-        </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {creditPlans.map((plan) => (
+          <button
+            key={plan.id}
+            onClick={() => setSelectedPlan(plan.id)}
+            className={`p-6 rounded-lg border-2 transition-all text-left ${
+              selectedPlan === plan.id
+                ? "border-blue-600 bg-blue-50"
+                : "border-slate-200 hover:border-blue-300"
+            }`}
+          >
+            {plan.savings > 0 && (
+              <div className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded mb-3 inline-block">
+                Save {plan.savings}%
+              </div>
+            )}
+            <p className="text-3xl font-bold text-slate-900 mb-1">
+              {plan.credits}
+            </p>
+            <p className="text-sm text-slate-600 mb-4">credits</p>
+            <p className="text-2xl font-bold text-slate-900">${plan.price}</p>
+            <p className="text-xs text-slate-500 mt-2">
+              ${(plan.price / plan.credits).toFixed(2)}/credit
+            </p>
+          </button>
+        ))}
       </div>
 
-      {/* Purchase Credits Section */}
-      <div className="border-t pt-6">
-        <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Plus className="h-5 w-5 text-green-600" />
-          Purchase Credits
-        </h4>
-
-        <div className="space-y-4">
-          {/* Credit Amount Slider */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Number of Credits: <span className="font-bold text-blue-600">{creditAmount}</span>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="50"
-              value={creditAmount}
-              onChange={(e) => setCreditAmount(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>1</span>
-              <span>50</span>
-            </div>
-          </div>
-
-          {/* Price Display */}
-          <div className="bg-green-50 rounded-lg p-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700">Total Credits:</span>
-              <span className="text-lg font-semibold text-green-600">{creditAmount}</span>
-            </div>
-            <div className="flex justify-between items-center mt-1">
-              <span className="text-gray-700">Total Time:</span>
-              <span className="text-sm text-gray-600">{creditAmount * 30} minutes</span>
-            </div>
-          </div>
-
-          {/* Buy Button */}
+      {selectedPlan && (
+        <div className="space-y-3">
           <button
             onClick={handleBuyCredits}
-            disabled={purchasing || creditAmount <= 0}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+            disabled={purchasing}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 flex items-center justify-center gap-2"
           >
             {purchasing ? (
               <>
@@ -170,21 +174,17 @@ export default function Credits() {
                 Processing...
               </>
             ) : (
-              <>
-                <ShoppingCart className="h-4 w-4" />
-                Buy {creditAmount} Credit{creditAmount > 1 ? 's' : ''}
-              </>
+              "Purchase Credits"
             )}
           </button>
 
-          {/* Success Message */}
           {success && (
             <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
               {success}
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
