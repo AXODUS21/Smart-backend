@@ -12,7 +12,8 @@ import {
   BookOpen,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Video
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -68,13 +69,14 @@ export default function Dashboard() {
 
   const studentTabs = [
     { id: 'credits', label: 'Credits', icon: Wallet },
-    { id: 'meetings', label: 'Meetings', icon: Calendar },
+    { id: 'meetings', label: 'Meetings', icon: Video }, 
     { id: 'tutors', label: 'My Tutors', icon: Users },
     { id: 'find-tutors', label: 'Find Tutors', icon: Search },
   ];
 
   const tutorTabs = [
     { id: 'calendar', label: 'Calendar', icon: Calendar },
+    { id: 'meetings', label: 'Meetings', icon: Video },
     { id: 'students', label: 'My Students', icon: Users },
   ];
 
@@ -192,6 +194,13 @@ export default function Dashboard() {
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">My Calendar</h3>
               <p className="text-gray-600">Manage your availability and schedule.</p>
+            </div>
+          )}
+
+          {activeTab === 'meetings' && userRole === 'tutor' && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">My Meetings</h3>
+              <p className="text-gray-600">View and manage your upcoming meetings with students.</p>
             </div>
           )}
 
