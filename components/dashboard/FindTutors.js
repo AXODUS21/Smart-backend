@@ -3,16 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Search, UserPlus, Clock, BookOpen, Check, X, Users } from 'lucide-react';
+import { Search, Clock, BookOpen, Users } from 'lucide-react';
+import BookingModal from './BookingModal';
 
 export default function FindTutors() {
   const { user } = useAuth();
   const [tutors, setTutors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [requesting, setRequesting] = useState({});
-  const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedTutor, setSelectedTutor] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch all tutors
   useEffect(() => {
@@ -40,11 +41,17 @@ export default function FindTutors() {
     }
   }, [user]);
 
+  // Note: Removed request functionality - students now book directly through Meetings page
+  
   // Get unique subjects for filter
   const allSubjects = [...new Set(tutors.flatMap(tutor => tutor.subjects || []))];
 
-  // Filter tutors based on search and subject
+  // Filter tutors based on search, subject, and availability
   const filteredTutors = tutors.filter(tutor => {
+    // Check if tutor has availability
+    const hasAvailability = tutor.availability && Array.isArray(tutor.availability) && tutor.availability.length > 0;
+    if (!hasAvailability) return false;
+    
     const matchesSearch = !searchTerm || 
       tutor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tutor.email?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -55,45 +62,18 @@ export default function FindTutors() {
     return matchesSearch && matchesSubject;
   });
 
-  // Request a tutor
-  const handleRequestTutor = async (tutorId, tutorName) => {
-    setRequesting(prev => ({ ...prev, [tutorId]: true }));
-    setSuccess('');
-
-    try {
-      // Check if already requested
-      const { data: studentData, error: studentError } = await supabase
-        .from('Students')
-        .select('requested_tutors')
-        .eq('user_id', user.id)
-        .single();
-
-      if (studentError) throw studentError;
-
-      const currentRequests = studentData?.requested_tutors || [];
-      
-      if (currentRequests.some(req => req.tutor_id === tutorId)) {
-        setSuccess('You have already requested this tutor');
-        return;
-      }
-
-      // Use the database function to handle the request
-      const { data, error } = await supabase.rpc('request_tutor', {
-        p_tutor_id: tutorId,
-        p_student_id: user.id,
-        p_student_name: user.email
-      });
-
-      if (error) throw error;
-
-      setSuccess(`Request sent to ${tutorName}!`);
-    } catch (error) {
-      console.error('Error requesting tutor:', error);
-      alert('Error sending request. Please try again.');
-    } finally {
-      setRequesting(prev => ({ ...prev, [tutorId]: false }));
-    }
+  // Handle opening booking modal
+  const handleOpenBooking = (tutor) => {
+    setSelectedTutor(tutor);
+    setIsModalOpen(true);
   };
+
+  // Handle closing booking modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedTutor(null);
+  };
+
 
   if (loading) {
     return (
@@ -139,14 +119,6 @@ export default function FindTutors() {
           </div>
         </div>
       </div>
-
-      {/* Success Message */}
-      {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
-          <Check className="h-4 w-4" />
-          {success}
-        </div>
-      )}
 
       {/* Tutors List */}
       <div className="space-y-4">
@@ -210,22 +182,24 @@ export default function FindTutors() {
                 </div>
 
                 <button
-                  onClick={() => handleRequestTutor(tutor.user_id, tutor.name || tutor.email)}
-                  disabled={requesting[tutor.user_id]}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                  onClick={() => handleOpenBooking(tutor)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
                 >
-                  {requesting[tutor.user_id] ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <UserPlus className="h-4 w-4" />
-                  )}
-                  Request
+                  <BookOpen className="h-4 w-4" />
+                  Book Session
                 </button>
               </div>
             </div>
           ))
         )}
       </div>
+
+      {/* Booking Modal */}
+      <BookingModal 
+        tutor={selectedTutor} 
+        isOpen={isModalOpen} 
+        onClose={handleCloseModal} 
+      />
     </div>
   );
 }

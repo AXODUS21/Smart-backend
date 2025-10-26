@@ -20,13 +20,10 @@ import {
 // Dashboard components
 import Credits from './dashboard/Credits';
 import Meetings from './dashboard/Meetings';
-import MyTutors from './dashboard/MyTutors';
 import FindTutors from './dashboard/FindTutors';
 import Calendar from './dashboard/Calendar';
-import MyStudents from './dashboard/MyStudents';
 import TutorHome from './dashboard/TutorHome';
 import StudentHome from './dashboard/StudentHome';
-import PendingStudents from './dashboard/PendingStudents';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -34,6 +31,17 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
   const [loading, setLoading] = useState(true);
+
+  // Handle URL parameters for tab selection
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab) {
+        setActiveTab(tab);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     async function determineRole() {
@@ -83,7 +91,6 @@ export default function Dashboard() {
     { id: 'home', label: 'Home', icon: Home },
     { id: 'credits', label: 'Credits', icon: Wallet },
     { id: 'meetings', label: 'Meetings', icon: Video },
-    { id: 'tutors', label: 'My Tutors', icon: Users },
     { id: 'find-tutors', label: 'Find Tutors', icon: Search },
   ];
 
@@ -91,8 +98,6 @@ export default function Dashboard() {
     { id: 'home', label: 'Home', icon: Home },
     { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
     { id: 'meetings', label: 'Meetings', icon: Video },
-    { id: 'pending-students', label: 'Pending Students', icon: Users },
-    { id: 'students', label: 'My Students', icon: Users },
   ];
 
   const tabs = userRole === 'student' ? studentTabs : tutorTabs;
@@ -169,12 +174,9 @@ export default function Dashboard() {
           {activeTab === 'home' && userRole === 'tutor' && <TutorHome />}
           {activeTab === 'credits' && userRole === 'student' && <Credits />}
           {activeTab === 'meetings' && userRole === 'student' && <Meetings />}
-          {activeTab === 'tutors' && userRole === 'student' && <MyTutors />}
           {activeTab === 'find-tutors' && userRole === 'student' && <FindTutors />}
           {activeTab === 'calendar' && userRole === 'tutor' && <Calendar />}
           {activeTab === 'meetings' && userRole === 'tutor' && <Meetings />}
-          {activeTab === 'pending-students' && userRole === 'tutor' && <PendingStudents />}
-          {activeTab === 'students' && userRole === 'tutor' && <MyStudents />}
         </main>
       </div>
     </div>

@@ -23,24 +23,32 @@ export default function MeetingScheduler() {
     notes: ''
   });
 
-  // Fetch accepted tutors
+  // Fetch all tutors with availability
   useEffect(() => {
-    const fetchAcceptedTutors = async () => {
+    const fetchTutors = async () => {
       if (!user) return;
       
       try {
         const { data, error } = await supabase
-          .from('Students')
-          .select('requested_tutors')
-          .eq('user_id', user.id)
-          .single();
+          .from('Tutors')
+          .select('user_id, name, email, subjects, availability')
+          .not('user_id', 'eq', user.id); // Exclude current user
 
         if (error) {
-          console.error('Error fetching accepted tutors:', error);
+          console.error('Error fetching tutors:', error);
         } else {
-          const accepted = (data?.requested_tutors || [])
-            .filter(req => req.status === 'accepted');
-          setAcceptedTutors(accepted);
+          // Filter to only show tutors with availability
+          const tutorsWithAvailability = (data || []).filter(tutor => 
+            tutor.availability && Array.isArray(tutor.availability) && tutor.availability.length > 0
+          );
+          
+          // Format as accepted tutors for compatibility
+          const formattedTutors = tutorsWithAvailability.map(tutor => ({
+            tutor_id: tutor.user_id,
+            tutor_name: tutor.name || tutor.email
+          }));
+          
+          setAcceptedTutors(formattedTutors);
         }
       } catch (error) {
         console.error('Error:', error);
@@ -49,7 +57,7 @@ export default function MeetingScheduler() {
       }
     };
 
-    fetchAcceptedTutors();
+    fetchTutors();
   }, [user]);
 
   // Fetch tutor availability when tutor is selected
@@ -127,7 +135,7 @@ export default function MeetingScheduler() {
           end_time_utc: endTime.toISOString(),
           duration_min: formData.duration,
           credits_required: creditsRequired,
-          status: 'scheduled'
+          status: 'pending'
         })
         .select()
         .single();
@@ -182,8 +190,8 @@ export default function MeetingScheduler() {
         
         <div className="text-center py-8 text-gray-500">
           <User className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-          <p>No accepted tutors found.</p>
-          <p className="text-sm">You need to have accepted tutors to schedule meetings.</p>
+          <p>No tutors with available times found.</p>
+          <p className="text-sm">Tutors need to set their availability to schedule meetings.</p>
         </div>
       </div>
     );
