@@ -26,6 +26,7 @@ import Calendar from './dashboard/Calendar';
 import MyStudents from './dashboard/MyStudents';
 import TutorHome from './dashboard/TutorHome';
 import StudentHome from './dashboard/StudentHome';
+import PendingStudents from './dashboard/PendingStudents';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -90,6 +91,7 @@ export default function Dashboard() {
     { id: 'home', label: 'Home', icon: Home },
     { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
     { id: 'meetings', label: 'Meetings', icon: Video },
+    { id: 'pending-students', label: 'Pending Students', icon: Users },
     { id: 'students', label: 'My Students', icon: Users },
   ];
 
@@ -171,6 +173,7 @@ export default function Dashboard() {
           {activeTab === 'find-tutors' && userRole === 'student' && <FindTutors />}
           {activeTab === 'calendar' && userRole === 'tutor' && <Calendar />}
           {activeTab === 'meetings' && userRole === 'tutor' && <Meetings />}
+          {activeTab === 'pending-students' && userRole === 'tutor' && <PendingStudents />}
           {activeTab === 'students' && userRole === 'tutor' && <MyStudents />}
         </main>
       </div>
