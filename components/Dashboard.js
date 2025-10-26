@@ -22,7 +22,7 @@ import {
 // Dashboard components
 import Credits from "./dashboard/Credits";
 import Meetings from "./dashboard/Meetings";
-import FindTutors from "./dashboard/FindTutors";
+import BookSession from "./dashboard/BookSession";
 import Calendar from "./dashboard/Calendar";
 import TutorHome from "./dashboard/TutorHome";
 import StudentHome from "./dashboard/StudentHome";
@@ -193,7 +193,7 @@ export default function Dashboard() {
           {activeTab === "credits" && userRole === "student" && <Credits />}
           {activeTab === "meetings" && userRole === "student" && <Meetings />}
           {activeTab === "find-tutors" && userRole === "student" && (
-            <FindTutors />
+            <BookSession />
           )}
           {activeTab === "feedback" && userRole === "student" && (
             <StudentFeedback />
