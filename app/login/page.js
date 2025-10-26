@@ -3,13 +3,28 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, LogIn, UserPlus, GraduationCap, BookOpen } from 'lucide-react';
+
+const USER_ROLES = [
+  {
+    value: 'student',
+    label: 'Student - Looking for tutoring',
+    icon: GraduationCap,
+  },
+  {
+    value: 'tutor',
+    label: 'Tutor - Want to teach students',
+    icon: BookOpen,
+  },
+];
 
 export default function LoginPage() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [activeTab, setActiveTab] = useState('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [userType, setUserType] = useState('student');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -32,7 +47,7 @@ export default function LoginPage() {
     setSuccess('');
 
     try {
-      if (isSignUp) {
+      if (activeTab === 'signup') {
         // Sign up
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
@@ -40,9 +55,9 @@ export default function LoginPage() {
           options: {
             data: {
               name: name,
-              user_type: userType
-            }
-          }
+              user_type: userType,
+            },
+          },
         });
 
         if (authError) throw authError;
@@ -65,7 +80,7 @@ export default function LoginPage() {
                   name: name,
                   credits: 0,
                   tutors: [],
-                  tutoring_sched: []
+                  tutoring_sched: [],
                 });
 
               if (studentError) throw studentError;
@@ -78,17 +93,18 @@ export default function LoginPage() {
                   name: name,
                   subjects: [],
                   availability: [],
-                  students_id: []
+                  students_id: [],
                 });
 
               if (tutorError) throw tutorError;
             }
             
             setSuccess(`Account created successfully! A confirmation email has been sent to ${email}. Please check your inbox and click the link to verify your account.`);
-            setIsSignUp(false);
+            setActiveTab('signin');
             setEmail('');
             setPassword('');
             setName('');
+            setUserType('student');
           }
         }
       } else {
@@ -111,137 +127,237 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black px-4">
-      <div className="w-full max-w-md rounded-lg bg-white dark:bg-zinc-900 p-8 shadow-lg">
-        <h1 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-          {isSignUp ? 'Create Account' : 'Sign In'}
-        </h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-200">
+        <div className="p-8 space-y-1">
+          <h1 className="text-2xl font-bold text-center text-gray-900">
+            Welcome
+          </h1>
+          <p className="text-center text-sm text-gray-600">
+            Sign in to your account or create a new one
+          </p>
+        </div>
 
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-100 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-400">
-            {error}
+        <div className="px-8 pb-8">
+          {/* Tabs */}
+          <div className="grid w-full grid-cols-2 mb-6 rounded-lg bg-gray-100 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('signin');
+                setError('');
+                setSuccess('');
+              }}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'signin'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('signup');
+                setError('');
+                setSuccess('');
+              }}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'signup'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Sign Up
+            </button>
           </div>
-        )}
 
-        {success && (
-          <div className="mb-4 rounded-lg bg-green-100 dark:bg-green-900/20 p-4 text-sm text-green-700 dark:text-green-400">
-            <div className="font-semibold mb-1">✓ Success!</div>
-            {success}
-          </div>
-        )}
+          {error && (
+            <div className="mb-4 rounded-lg bg-red-100 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignUp && (
-            <>
-              <div>
-                <label htmlFor="name" className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Name
+          {success && (
+            <div className="mb-4 rounded-lg bg-green-100 p-4 text-sm text-green-700">
+              <div className="font-semibold mb-1">✓ Success!</div>
+              {success}
+            </div>
+          )}
+
+          {/* Sign In Form */}
+          {activeTab === 'signin' && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="signin-email" className="text-sm font-medium text-gray-700">
+                  Email
                 </label>
                 <input
-                  id="name"
+                  id="signin-email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="signin-password" className="text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="signin-password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-0 top-0 h-full px-3 py-2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  'Signing in...'
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    Sign In
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* Sign Up Form */}
+          {activeTab === 'signup' && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="signup-name" className="text-sm font-medium text-gray-700">
+                  Full Name
+                </label>
+                <input
+                  id="signup-name"
+                  name="fullName"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your full name"
                   required
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-zinc-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
-
-              <div>
-                <label htmlFor="userType" className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  I want to sign up as
+              <div className="space-y-2">
+                <label htmlFor="signup-email" className="text-sm font-medium text-gray-700">
+                  Email
                 </label>
-                <div className="flex gap-4">
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="radio"
-                      name="userType"
-                      value="student"
-                      checked={userType === 'student'}
-                      onChange={(e) => setUserType(e.target.value)}
-                      className="text-blue-600"
-                    />
-                    <span className="text-sm text-zinc-700 dark:text-zinc-300">Student</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="radio"
-                      name="userType"
-                      value="tutor"
-                      checked={userType === 'tutor'}
-                      onChange={(e) => setUserType(e.target.value)}
-                      className="text-blue-600"
-                    />
-                    <span className="text-sm text-zinc-700 dark:text-zinc-300">Tutor</span>
-                  </label>
+                <input
+                  id="signup-email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="signup-role" className="text-sm font-medium text-gray-700">
+                  I am a...
+                </label>
+                <div className="relative">
+                  <select
+                    id="signup-role"
+                    value={userType}
+                    onChange={(e) => setUserType(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer"
+                  >
+                    {USER_ROLES.map((role) => {
+                      const Icon = role.icon;
+                      return (
+                        <option key={role.value} value={role.value}>
+                          {role.label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg
+                      className="h-4 w-4 text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
                 </div>
               </div>
-            </>
-          )}
-
-          <div>
-            <label htmlFor="email" className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-zinc-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-zinc-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-zinc-900 dark:bg-zinc-50 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
-          {isSignUp ? (
-            <>
-              Already have an account?{' '}
+              <div className="space-y-2">
+                <label htmlFor="signup-password" className="text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="signup-password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Create a password"
+                    required
+                    minLength={6}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-0 top-0 h-full px-3 py-2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
               <button
-                onClick={() => setIsSignUp(false)}
-                className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Sign in
+                {loading ? (
+                  'Creating account...'
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    Sign Up
+                  </>
+                )}
               </button>
-            </>
-          ) : (
-            <>
-              Don't have an account?{' '}
-              <button
-                onClick={() => setIsSignUp(true)}
-                className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-              >
-                Sign up
-              </button>
-            </>
+            </form>
           )}
         </div>
       </div>
     </div>
   );
 }
-
