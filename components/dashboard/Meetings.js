@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Video, Calendar, Clock, BookOpen, Plus, Check, X, User } from 'lucide-react';
+import { Video, Calendar, Clock, BookOpen, Plus, Check, X, User, Link } from 'lucide-react';
 import MeetingScheduler from './MeetingScheduler';
 
 export default function Meetings() {
@@ -14,6 +14,8 @@ export default function Meetings() {
   const [tutorBookings, setTutorBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState({});
+  const [meetingLinkModal, setMeetingLinkModal] = useState({ isOpen: false, bookingId: null });
+  const [meetingLink, setMeetingLink] = useState('');
 
   // Determine user role
   useEffect(() => {
@@ -123,17 +125,36 @@ export default function Meetings() {
     fetchTutorBookings();
   }, [user, userRole]);
 
-  // Handle accepting a booking
-  const handleAcceptBooking = async (bookingId) => {
+  // Handle opening meeting link modal
+  const handleAcceptBooking = (bookingId) => {
+    setMeetingLinkModal({ isOpen: true, bookingId });
+    setMeetingLink('');
+  };
+
+  // Handle confirming booking with meeting link
+  const handleConfirmBookingWithLink = async () => {
+    if (!meetingLink.trim()) {
+      alert('Please enter a meeting link before accepting the booking.');
+      return;
+    }
+
+    const bookingId = meetingLinkModal.bookingId;
     setProcessing(prev => ({ ...prev, [bookingId]: 'accepting' }));
     
     try {
       const { error } = await supabase
         .from('Schedules')
-        .update({ status: 'confirmed' })
+        .update({ 
+          status: 'confirmed',
+          meeting_link: meetingLink.trim()
+        })
         .eq('id', bookingId);
 
       if (error) throw error;
+
+      // Close modal
+      setMeetingLinkModal({ isOpen: false, bookingId: null });
+      setMeetingLink('');
 
       // Refresh bookings
       const { data: tutorData } = await supabase
@@ -163,6 +184,12 @@ export default function Meetings() {
     } finally {
       setProcessing(prev => ({ ...prev, [bookingId]: false }));
     }
+  };
+
+  // Handle closing meeting link modal
+  const handleCloseMeetingLinkModal = () => {
+    setMeetingLinkModal({ isOpen: false, bookingId: null });
+    setMeetingLink('');
   };
 
   // Handle rejecting a booking
@@ -302,7 +329,7 @@ export default function Meetings() {
                         with {meeting.tutor?.name || 'Tutor'}
                       </div>
                       
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
                           {new Date(meeting.start_time_utc).toLocaleDateString()}
@@ -316,6 +343,21 @@ export default function Meetings() {
                           {meeting.duration_min} minutes ({meeting.credits_required} credits)
                         </div>
                       </div>
+                      
+                      {/* Meeting Link */}
+                      {meeting.meeting_link && (
+                        <div className="flex items-center gap-2">
+                          <Link className="h-4 w-4 text-blue-600" />
+                          <a
+                            href={meeting.meeting_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 text-sm underline"
+                          >
+                            Join Meeting
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -454,7 +496,7 @@ export default function Meetings() {
                       with {booking.student?.name || booking.student?.email || 'Student'}
                     </div>
                     
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
                         {new Date(booking.start_time_utc).toLocaleDateString()}
@@ -468,6 +510,21 @@ export default function Meetings() {
                         {booking.duration_min} minutes ({booking.credits_required} credits)
                       </div>
                     </div>
+                    
+                    {/* Meeting Link */}
+                    {booking.meeting_link && (
+                      <div className="flex items-center gap-2">
+                        <Link className="h-4 w-4 text-blue-600" />
+                        <a
+                          href={booking.meeting_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm underline"
+                        >
+                          Join Meeting
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -520,6 +577,73 @@ export default function Meetings() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Meeting Link Modal */}
+      {meetingLinkModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <Link className="h-6 w-6 text-blue-600" />
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Add Meeting Link
+                </h3>
+              </div>
+              <button
+                onClick={handleCloseMeetingLinkModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="mb-4">
+                <label htmlFor="meetingLink" className="block text-sm font-medium text-gray-700 mb-2">
+                  Meeting Link (Zoom, Google Meet, etc.)
+                </label>
+                <input
+                  type="url"
+                  id="meetingLink"
+                  value={meetingLink}
+                  onChange={(e) => setMeetingLink(e.target.value)}
+                  placeholder="https://zoom.us/j/123456789 or https://meet.google.com/abc-defg-hij"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  Please provide a valid meeting link (Zoom, Google Meet, Microsoft Teams, etc.)
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleCloseMeetingLinkModal}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmBookingWithLink}
+                  disabled={processing[meetingLinkModal.bookingId]}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                >
+                  {processing[meetingLinkModal.bookingId] === 'accepting' ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Accept & Confirm
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
