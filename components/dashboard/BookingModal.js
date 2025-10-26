@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Calendar, Clock, BookOpen, X, Check } from 'lucide-react';
+import { Calendar, Clock, BookOpen, X, Check, CreditCard } from 'lucide-react';
 
-export default function BookingModal({ tutor, isOpen, onClose }) {
+export default function BookingModal({ tutor, isOpen, onClose, studentCredits, subject }) {
   const { user } = useAuth();
   const [booking, setBooking] = useState({});
   const [success, setSuccess] = useState('');
@@ -55,7 +55,7 @@ export default function BookingModal({ tutor, isOpen, onClose }) {
         .insert({
           student_id: studentData.id,
           tutor_id: tutorData.id,
-          subject: 'General Session', // Default subject since students can't specify
+          subject: subject || 'General Session', // Use selected subject
           start_time_utc: startTime.toISOString(),
           end_time_utc: endTime.toISOString(),
           duration_min: duration,
@@ -108,16 +108,30 @@ export default function BookingModal({ tutor, isOpen, onClose }) {
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <Calendar className="h-6 w-6 text-blue-600" />
-            <h3 className="text-xl font-semibold text-gray-900">
-              Request Meeting with {tutor.name || tutor.email}
-            </h3>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">
+                Request Meeting with {tutor.name || tutor.email}
+              </h3>
+              {subject && (
+                <p className="text-sm text-gray-600">Subject: {subject}</p>
+              )}
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-4">
+            {/* Credits Display */}
+            <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg">
+              <CreditCard className="h-4 w-4 text-green-600" />
+              <span className="text-sm font-medium text-green-800">
+                {studentCredits || 0} Credits Available
+              </span>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
