@@ -64,6 +64,8 @@ export default function LoginPage() {
 
         if (authData.user) {
           // Show success message immediately
+          // Note: The database trigger will automatically create the profile
+          // when the user is created in the auth.users table
           setSuccess(`A confirmation email has been sent to ${email}. Please check your inbox (and spam folder) and click the confirmation link to verify your account.`);
           
           // Clear form
@@ -72,46 +74,6 @@ export default function LoginPage() {
           setName('');
           setUserType('student');
           setActiveTab('signin');
-          
-          // Try to insert into database if we have a session
-          // If email confirmation is required, this will happen after verification
-          const { data: { session: currentSession } } = await supabase.auth.getSession();
-          
-          if (currentSession) {
-            // Now insert into appropriate table based on user type
-            try {
-              if (userType === 'student') {
-                const { error: studentError } = await supabase
-                  .from('Students')
-                  .insert({
-                    user_id: authData.user.id,
-                    email: email,
-                    name: name,
-                    credits: 0,
-                    tutors: [],
-                    tutoring_sched: [],
-                  });
-
-                if (studentError) console.error('Student insert error:', studentError);
-              } else {
-                const { error: tutorError } = await supabase
-                  .from('Tutors')
-                  .insert({
-                    user_id: authData.user.id,
-                    email: email,
-                    name: name,
-                    subjects: [],
-                    availability: [],
-                    students_id: [],
-                  });
-
-                if (tutorError) console.error('Tutor insert error:', tutorError);
-              }
-            } catch (dbError) {
-              console.error('Database insert error:', dbError);
-              // Don't show error to user - profile will be created when they verify email
-            }
-          }
         }
       } else {
         // Sign in
