@@ -1,79 +1,198 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { BookOpen, Plus, X, Check } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { Users, Clock, TrendingUp, Award } from "lucide-react";
 
 export default function TutorHome() {
   const { user } = useAuth();
   const [subjects, setSubjects] = useState([]);
-  const [newSubject, setNewSubject] = useState('');
+  const [newSubject, setNewSubject] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState('');
+  const [success, setSuccess] = useState("");
+  const [tutorName, setTutorName] = useState("");
+  const [metrics, setMetrics] = useState({
+    totalStudents: 0,
+    hoursTaught: 0,
+    avgRating: 0,
+    creditsEarned: 0,
+  });
+  const [upcomingSessions, setUpcomingSessions] = useState([]);
 
-  // Common subjects for quick selection
-  const commonSubjects = [
-    'Mathematics', 'Physics', 'Chemistry', 'Biology', 'English',
-    'History', 'Geography', 'Computer Science', 'Economics',
-    'Psychology', 'Spanish', 'French', 'German', 'Art',
-    'Music', 'Physical Education', 'Statistics', 'Calculus',
-    'Algebra', 'Geometry', 'Trigonometry', 'Literature'
+  const metricsData = [
+    {
+      title: "Total Students",
+      value: metrics.totalStudents.toString(),
+      icon: Users,
+      bgColor: "bg-blue-500",
+      lightBg: "bg-blue-50",
+    },
+    {
+      title: "Hours Taught",
+      value: metrics.hoursTaught.toString(),
+      icon: Clock,
+      bgColor: "bg-purple-500",
+      lightBg: "bg-purple-50",
+    },
+    {
+      title: "Avg Rating",
+      value: metrics.avgRating > 0 ? metrics.avgRating.toFixed(1) : "N/A",
+      icon: Award,
+      bgColor: "bg-emerald-500",
+      lightBg: "bg-emerald-50",
+    },
+    {
+      title: "Credits Earned",
+      value: metrics.creditsEarned.toString(),
+      icon: TrendingUp,
+      bgColor: "bg-orange-500",
+      lightBg: "bg-orange-50",
+    },
   ];
 
-  // Fetch tutor's subjects
+  const allSubjects = [
+    "Mathematics",
+    "Physics",
+    "Chemistry",
+    "English",
+    "Biology",
+    "History",
+    "Computer Science",
+    "Economics",
+    "Geography",
+    "Spanish",
+    "French",
+    "German",
+    "Art",
+    "Music",
+    "Physical Education",
+    "Statistics",
+    "Calculus",
+    "Algebra",
+    "Geometry",
+    "Trigonometry",
+    "Literature",
+    "Psychology",
+  ];
+
+  // Fetch tutor data and metrics
   useEffect(() => {
-    const fetchSubjects = async () => {
+    const fetchData = async () => {
       if (!user) return;
-      
+
       try {
-        const { data, error } = await supabase
-          .from('Tutors')
-          .select('subjects')
-          .eq('user_id', user.id)
+        // Get tutor info
+        const { data: tutorData, error: tutorError } = await supabase
+          .from("Tutors")
+          .select("id, name, subjects")
+          .eq("user_id", user.id)
           .single();
 
-        if (error) {
-          console.error('Error fetching subjects:', error);
+        if (tutorError) {
+          console.error("Error fetching tutor data:", tutorError);
         } else {
-          setSubjects(data?.subjects || []);
+          setTutorName(tutorData?.name || user.email);
+          setSubjects(tutorData?.subjects || []);
+        }
+
+        // Get tutor ID
+        const { data: tutorInfo } = await supabase
+          .from("Tutors")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
+
+        if (tutorInfo) {
+          // Fetch all sessions
+          const { data: sessions, error: sessionsError } = await supabase
+            .from("Schedules")
+            .select("*")
+            .eq("tutor_id", tutorInfo.id);
+
+          if (sessionsError) {
+            console.error("Error fetching sessions:", sessionsError);
+          } else if (sessions) {
+            // Calculate metrics
+            const confirmedSessions = sessions.filter(
+              (s) => s.status === "confirmed"
+            );
+
+            // Total unique students
+            const uniqueStudents = new Set(sessions.map((s) => s.student_id));
+
+            // Hours taught
+            const hoursTaught = confirmedSessions.reduce(
+              (total, session) => total + (session.duration_min || 0) / 60,
+              0
+            );
+
+            // Credits earned
+            const creditsEarned = confirmedSessions.reduce(
+              (total, session) => total + (session.credits_required || 0),
+              0
+            );
+
+            setMetrics({
+              totalStudents: uniqueStudents.size,
+              hoursTaught: Math.round(hoursTaught * 10) / 10,
+              avgRating: 4.9, // Default or fetch from ratings table if available
+              creditsEarned,
+            });
+
+            // Get upcoming sessions (next 3)
+            const upcoming = sessions
+              .filter(
+                (s) =>
+                  s.status === "confirmed" &&
+                  new Date(s.start_time_utc) > new Date()
+              )
+              .sort(
+                (a, b) =>
+                  new Date(a.start_time_utc) - new Date(b.start_time_utc)
+              )
+              .slice(0, 3);
+
+            setUpcomingSessions(upcoming);
+          }
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.error("Error:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSubjects();
+    fetchData();
   }, [user]);
 
   // Add a new subject
   const handleAddSubject = async (subject) => {
-    if (!subject.trim() || subjects.includes(subject.trim())) return;
+    if (!subject || subjects.includes(subject)) return;
 
     setSaving(true);
-    setSuccess('');
+    setSuccess("");
 
     try {
-      const updatedSubjects = [...subjects, subject.trim()];
-      
+      const updatedSubjects = [...subjects, subject];
+
       const { error } = await supabase
-        .from('Tutors')
+        .from("Tutors")
         .update({ subjects: updatedSubjects })
-        .eq('user_id', user.id);
+        .eq("user_id", user.id);
 
       if (error) {
         throw error;
       }
 
       setSubjects(updatedSubjects);
-      setNewSubject('');
-      setSuccess(`Added "${subject.trim()}" to your subjects!`);
+      setNewSubject("");
+      setSuccess(`Added "${subject}" to your subjects!`);
+      setTimeout(() => setSuccess(""), 3000);
     } catch (error) {
-      console.error('Error adding subject:', error);
-      alert('Error adding subject. Please try again.');
+      console.error("Error adding subject:", error);
+      alert("Error adding subject. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -82,15 +201,17 @@ export default function TutorHome() {
   // Remove a subject
   const handleRemoveSubject = async (subjectToRemove) => {
     setSaving(true);
-    setSuccess('');
+    setSuccess("");
 
     try {
-      const updatedSubjects = subjects.filter(subject => subject !== subjectToRemove);
-      
+      const updatedSubjects = subjects.filter(
+        (subject) => subject !== subjectToRemove
+      );
+
       const { error } = await supabase
-        .from('Tutors')
+        .from("Tutors")
         .update({ subjects: updatedSubjects })
-        .eq('user_id', user.id);
+        .eq("user_id", user.id);
 
       if (error) {
         throw error;
@@ -98,18 +219,39 @@ export default function TutorHome() {
 
       setSubjects(updatedSubjects);
       setSuccess(`Removed "${subjectToRemove}" from your subjects.`);
+      setTimeout(() => setSuccess(""), 3000);
     } catch (error) {
-      console.error('Error removing subject:', error);
-      alert('Error removing subject. Please try again.');
+      console.error("Error removing subject:", error);
+      alert("Error removing subject. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
-  // Add from common subjects
-  const handleAddCommonSubject = (subject) => {
-    handleAddSubject(subject);
+  // Format date for display
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const options = { month: "short", day: "numeric", year: "numeric" };
+    return date.toLocaleDateString("en-US", options);
   };
+
+  // Format time for display
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    const hours = date.getHours() % 12 || 12;
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    const ampm = date.getHours() >= 12 ? "PM" : "AM";
+    return `${hours}:${minutes} ${ampm}`;
+  };
+
+  // Get today's date
+  const today = new Date();
+  const todayFormatted = today.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   if (loading) {
     return (
@@ -123,92 +265,136 @@ export default function TutorHome() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <BookOpen className="h-6 w-6 text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-900">My Teaching Subjects</h3>
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+          Welcome Back, {tutorName}
+        </h2>
+        <p className="text-slate-500">{todayFormatted}</p>
       </div>
 
-      {/* Current Subjects */}
-      <div className="mb-6">
-        <h4 className="text-md font-semibold text-gray-700 mb-3">Your Subjects ({subjects.length})</h4>
-        {subjects.length === 0 ? (
-          <p className="text-gray-500 italic">No subjects added yet. Add some subjects to start teaching!</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {subjects.map((subject, index) => (
-              <div
-                key={index}
-                className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-2"
-              >
-                <span>{subject}</span>
-                <button
-                  onClick={() => handleRemoveSubject(subject)}
-                  disabled={saving}
-                  className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {metricsData.map((metric, index) => {
+          const Icon = metric.icon;
+          return (
+            <div
+              key={index}
+              className={`${metric.bgColor} rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow`}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className={`${metric.lightBg} p-3 rounded-lg`}>
+                  <Icon
+                    size={24}
+                    className={metric.bgColor.replace("bg-", "text-")}
+                  />
+                </div>
               </div>
-            ))}
-          </div>
-        )}
+              <p className="text-white/80 text-sm font-medium mb-1">
+                {metric.title}
+              </p>
+              <p className="text-3xl font-bold">{metric.value}</p>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Add New Subject */}
-      <div className="border-t pt-6">
-        <h4 className="text-md font-semibold text-gray-700 mb-3">Add New Subject</h4>
-        
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={newSubject}
-            onChange={(e) => setNewSubject(e.target.value)}
-            placeholder="Enter subject name..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-            onKeyPress={(e) => e.key === 'Enter' && handleAddSubject(newSubject)}
-          />
-          <button
-            onClick={() => handleAddSubject(newSubject)}
-            disabled={saving || !newSubject.trim()}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
-          >
-            {saving ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Manage Subjects */}
+        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+            Subjects You Teach
+          </h3>
+
+          {/* Success Message */}
+          {success && (
+            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg text-sm">
+              {success}
+            </div>
+          )}
+
+          <div className="space-y-3 mb-4">
+            {subjects.length === 0 ? (
+              <p className="text-slate-500 italic">
+                No subjects added yet. Add some subjects to start teaching!
+              </p>
             ) : (
-              <Plus className="h-4 w-4" />
-            )}
-            Add
-          </button>
-        </div>
-
-        {/* Common Subjects */}
-        <div className="mb-4">
-          <p className="text-sm text-gray-600 mb-2">Quick add from common subjects:</p>
-          <div className="flex flex-wrap gap-2">
-            {commonSubjects
-              .filter(subject => !subjects.includes(subject))
-              .slice(0, 12)
-              .map((subject) => (
-                <button
+              subjects.map((subject) => (
+                <div
                   key={subject}
-                  onClick={() => handleAddCommonSubject(subject)}
-                  disabled={saving}
-                  className="bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-700 px-3 py-1 rounded-full text-sm transition-colors duration-200"
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                 >
-                  {subject}
-                </button>
-              ))}
+                  <span className="font-medium text-slate-900">{subject}</span>
+                  <button
+                    onClick={() => handleRemoveSubject(subject)}
+                    disabled={saving}
+                    className="text-red-600 hover:text-red-700 font-medium text-sm disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <select
+              value={newSubject}
+              onChange={(e) => setNewSubject(e.target.value)}
+              className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+            >
+              <option value="">Add a subject...</option>
+              {allSubjects
+                .filter((s) => !subjects.includes(s))
+                .map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+            </select>
+            <button
+              onClick={() => handleAddSubject(newSubject)}
+              disabled={saving || !newSubject}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Adding..." : "Add"}
+            </button>
           </div>
         </div>
 
-        {/* Success Message */}
-        {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
-            <Check className="h-4 w-4" />
-            {success}
+        {/* Upcoming Sessions */}
+        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+            Upcoming Sessions
+          </h3>
+          <div className="space-y-3">
+            {upcomingSessions.length === 0 ? (
+              <p className="text-slate-500 italic">
+                No upcoming sessions scheduled.
+              </p>
+            ) : (
+              upcomingSessions.map((session, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                >
+                  <div>
+                    <p className="font-medium text-slate-900">
+                      {session.subject}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {formatDate(session.start_time_utc)} •{" "}
+                      {formatTime(session.start_time_utc)}
+                    </p>
+                  </div>
+                  <span className="text-sm font-medium text-blue-600">
+                    {(session.duration_min / 60).toFixed(1)}{" "}
+                    {session.duration_min / 60 === 1 ? "hour" : "hours"}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
