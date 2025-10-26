@@ -282,11 +282,8 @@ export default function TutorHome() {
               className={`${metric.bgColor} rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow`}
             >
               <div className="flex items-start justify-between mb-4">
-                <div className={`${metric.lightBg} p-3 rounded-lg`}>
-                  <Icon
-                    size={24}
-                    className={metric.bgColor.replace("bg-", "text-")}
-                  />
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <Icon size={24} className="text-white" />
                 </div>
               </div>
               <p className="text-white/80 text-sm font-medium mb-1">
