@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   LogOut,
-  Video
+  Video,
+  Home
 } from 'lucide-react';
 
 // Dashboard components
@@ -23,6 +24,8 @@ import MyTutors from './dashboard/MyTutors';
 import FindTutors from './dashboard/FindTutors';
 import Calendar from './dashboard/Calendar';
 import MyStudents from './dashboard/MyStudents';
+import TutorHome from './dashboard/TutorHome';
+import StudentHome from './dashboard/StudentHome';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -76,13 +79,15 @@ export default function Dashboard() {
   }
 
   const studentTabs = [
+    { id: 'home', label: 'Home', icon: Home },
     { id: 'credits', label: 'Credits', icon: Wallet },
-    { id: 'meetings', label: 'Meetings', icon: Video }, 
+    { id: 'meetings', label: 'Meetings', icon: Video },
     { id: 'tutors', label: 'My Tutors', icon: Users },
     { id: 'find-tutors', label: 'Find Tutors', icon: Search },
   ];
 
   const tutorTabs = [
+    { id: 'home', label: 'Home', icon: Home },
     { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
     { id: 'meetings', label: 'Meetings', icon: Video },
     { id: 'students', label: 'My Students', icon: Users },
@@ -158,17 +163,8 @@ export default function Dashboard() {
         </header>
 
         <main className="flex-1 p-6">
-          {activeTab === 'home' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Welcome back, {user?.email}!
-              </h3>
-              <p className="text-gray-600">
-                Select an option from the sidebar to get started.
-              </p>
-            </div>
-          )}
-
+          {activeTab === 'home' && userRole === 'student' && <StudentHome />}
+          {activeTab === 'home' && userRole === 'tutor' && <TutorHome />}
           {activeTab === 'credits' && userRole === 'student' && <Credits />}
           {activeTab === 'meetings' && userRole === 'student' && <Meetings />}
           {activeTab === 'tutors' && userRole === 'student' && <MyTutors />}
