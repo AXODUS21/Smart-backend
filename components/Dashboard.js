@@ -92,16 +92,16 @@ export default function Dashboard() {
   }
 
   const studentTabs = [
-    { id: "home", label: "Home", icon: Home },
-    { id: "credits", label: "Credits", icon: Wallet },
-    { id: "meetings", label: "Meetings", icon: Video },
-    { id: "find-tutors", label: "Find Tutors", icon: Search },
+    { id: "home", label: "Dashboard", icon: Home },
+    { id: "find-tutors", label: "Book Sessions", icon: Search },
+    { id: "meetings", label: "Calendar", icon: Video },
+    { id: "credits", label: "Buy Credits", icon: Wallet },
   ];
 
   const tutorTabs = [
-    { id: "home", label: "Home", icon: Home },
+    { id: "home", label: "Dashboard", icon: Home },
     { id: "calendar", label: "Calendar", icon: CalendarIcon },
-    { id: "meetings", label: "Meetings", icon: Video },
+    { id: "meetings", label: "Booking Request", icon: Video },
   ];
 
   const tabs = userRole === "student" ? studentTabs : tutorTabs;
