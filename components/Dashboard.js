@@ -15,6 +15,8 @@ import {
   LogOut,
   Video,
   Home,
+  Clock,
+  MessageSquare,
 } from "lucide-react";
 
 // Dashboard components
@@ -24,6 +26,8 @@ import FindTutors from "./dashboard/FindTutors";
 import Calendar from "./dashboard/Calendar";
 import TutorHome from "./dashboard/TutorHome";
 import StudentHome from "./dashboard/StudentHome";
+import PastSessions from "./dashboard/PastSessions";
+import StudentFeedback from "./dashboard/StudentFeedback";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -95,6 +99,7 @@ export default function Dashboard() {
     { id: "home", label: "Dashboard", icon: Home },
     { id: "find-tutors", label: "Book Sessions", icon: Search },
     { id: "meetings", label: "Calendar", icon: Video },
+    { id: "feedback", label: "Feedback", icon: MessageSquare },
     { id: "credits", label: "Buy Credits", icon: Wallet },
   ];
 
@@ -102,6 +107,7 @@ export default function Dashboard() {
     { id: "home", label: "Dashboard", icon: Home },
     { id: "calendar", label: "Calendar", icon: CalendarIcon },
     { id: "meetings", label: "Booking Request", icon: Video },
+    { id: "past-sessions", label: "Past Sessions", icon: Clock },
   ];
 
   const tabs = userRole === "student" ? studentTabs : tutorTabs;
@@ -189,8 +195,14 @@ export default function Dashboard() {
           {activeTab === "find-tutors" && userRole === "student" && (
             <FindTutors />
           )}
+          {activeTab === "feedback" && userRole === "student" && (
+            <StudentFeedback />
+          )}
           {activeTab === "calendar" && userRole === "tutor" && <Calendar />}
           {activeTab === "meetings" && userRole === "tutor" && <Meetings />}
+          {activeTab === "past-sessions" && userRole === "tutor" && (
+            <PastSessions />
+          )}
         </main>
       </div>
     </div>
