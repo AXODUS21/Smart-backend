@@ -114,6 +114,31 @@ export default function Credits() {
 
   return (
     <div className="space-y-6">
+      {/* Low credit warning notification */}
+      {credits < 4 && (
+        <div className="flex items-center gap-4 bg-orange-100 border-l-4 border-orange-500 text-orange-800 px-4 py-3 rounded mb-2">
+          <Zap className="text-orange-500" size={28} />
+          <div className="flex-1">
+            <div className="font-bold">Low Credits Warning</div>
+            <div className="text-sm">
+              Your balance is getting low. Please consider buying more credits!
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              // Scroll to credit plans section or just focus. (No-op here, can be refined if you add refs)
+              const plans = document.querySelector('[data-credit-plans]');
+              if (plans) {
+                plans.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+              setSelectedPlan(null); // Force plans to reset if needed
+            }}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-2 rounded-lg shadow transition-colors"
+          >
+            Buy Credits
+          </button>
+        </div>
+      )}
       <div>
         <h2 className="text-2xl font-semibold text-slate-900 mb-2">
           Buy Credits

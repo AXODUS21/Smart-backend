@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Clock, Zap, TrendingUp, Star } from "lucide-react";
+import Link from "next/link";
 
-export default function StudentHome() {
+export default function StudentHome({ setActiveTab }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
@@ -194,6 +195,22 @@ export default function StudentHome() {
 
   return (
     <div className="space-y-8">
+      {/* Low credit warning notification */}
+      {metrics.creditsAvailable < 4 && (
+        <div className="flex items-center gap-4 bg-orange-100 border-l-4 border-orange-500 text-orange-800 px-4 py-3 rounded mb-2">
+          <Zap className="text-orange-500" size={28} />
+          <div className="flex-1">
+            <div className="font-bold">Low Credits Warning</div>
+            <div className="text-sm">Your credits are running low. Please purchase more to keep booking sessions!</div>
+          </div>
+          <button
+            onClick={() => setActiveTab && setActiveTab("credits")}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-2 rounded-lg shadow transition-colors"
+          >
+            Buy Credits
+          </button>
+        </div>
+      )}
       <div>
         <h2 className="text-2xl font-semibold text-slate-900 mb-2">
           Welcome Back, {studentName || user?.email}

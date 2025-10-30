@@ -188,7 +188,9 @@ export default function Dashboard() {
         <Header userName={userName} />
 
         <main className="flex-1 p-6">
-          {activeTab === "home" && userRole === "student" && <StudentHome />}
+          {activeTab === "home" && userRole === "student" && (
+            <StudentHome setActiveTab={setActiveTab} />
+          )}
           {activeTab === "home" && userRole === "tutor" && <TutorHome />}
           {activeTab === "credits" && userRole === "student" && <Credits />}
           {activeTab === "meetings" && userRole === "student" && <Meetings />}
