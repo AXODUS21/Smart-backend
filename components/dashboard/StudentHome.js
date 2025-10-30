@@ -17,6 +17,7 @@ export default function StudentHome() {
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [studentName, setStudentName] = useState("");
+  const [assignments, setAssignments] = useState([]);
 
   useEffect(() => {
     if (!user) return;
@@ -97,6 +98,15 @@ export default function StudentHome() {
     };
 
     fetchData();
+  }, [user]);
+
+  useEffect(() => {
+    async function fetchAssignments() {
+      if (!user) return;
+      const { data } = await supabase.from('Assignments').select('*, tutor:tutor_id (name, email)').eq('student_id', user.id).order('created_at', {ascending: false});
+      setAssignments(data || []);
+    }
+    fetchAssignments();
   }, [user]);
 
   const getTimeAgo = (date) => {
@@ -211,6 +221,16 @@ export default function StudentHome() {
             </div>
           );
         })}
+      </div>
+
+      <div className="my-6">
+        <h2 style={{fontWeight: 'bold'}}>Your Assignments</h2>
+        <ul>{assignments.length === 0 ? <li>No assignments yet.</li> : assignments.map(a => <li key={a.id} style={{margin: '8px 0'}}>
+          <strong>{a.title}</strong> from {a.tutor?.name || a.tutor?.email || 'Tutor'}: {a.description}
+          {a.file_url && <a href={a.file_url} target="_blank" rel="noopener noreferrer">Download</a>}
+          <br/>
+          <span style={{fontSize: '0.9em', color: '#666'}}>Uploaded: {new Date(a.created_at).toLocaleString()}</span>
+        </li>)}</ul>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
