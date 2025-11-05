@@ -22,7 +22,8 @@ export default function TutorProfile() {
   const [subjects, setSubjects] = useState([]); // Array of {subject: string, grade_level: string}
   const [newSubject, setNewSubject] = useState("");
   const [newSubjectGradeLevel, setNewSubjectGradeLevel] = useState("");
-  const [certifications, setCertifications] = useState("");
+  const [certifications, setCertifications] = useState([]);
+  const [newCertification, setNewCertification] = useState("");
   const [catalog, setCatalog] = useState([]); // rows from subjectcatalog
   const [gradeLevels, setGradeLevels] = useState([]); // from catalog
   const [subjectsForSelectedGrade, setSubjectsForSelectedGrade] = useState([]);
