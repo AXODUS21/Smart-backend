@@ -129,14 +129,26 @@ export default function MyTutors() {
                             <span className="text-sm font-medium text-gray-700">Subjects:</span>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {tutor.subjects.map((subject, index) => (
-                              <span
-                                key={index}
-                                className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm"
-                              >
-                                {subject}
-                              </span>
-                            ))}
+                            {tutor.subjects.map((subjectObj, index) => {
+                              const subject = typeof subjectObj === 'string' 
+                                ? subjectObj 
+                                : subjectObj.subject;
+                              const gradeLevel = typeof subjectObj === 'object' 
+                                ? subjectObj.grade_level 
+                                : null;
+                              return (
+                                <span
+                                  key={index}
+                                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm"
+                                  title={gradeLevel ? `${subject} - ${gradeLevel}` : subject}
+                                >
+                                  {subject}
+                                  {gradeLevel && (
+                                    <span className="text-blue-600 ml-1">({gradeLevel})</span>
+                                  )}
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
                       )}

@@ -57,9 +57,16 @@ export default function BookSession() {
     fetchData();
   }, [user]);
 
-  // Get unique subjects from tutors
+  // Get unique subjects from tutors (extract subject names from objects)
   const subjects = [
-    ...new Set(tutors.flatMap((tutor) => tutor.subjects || [])),
+    ...new Set(
+      tutors.flatMap((tutor) => {
+        if (!tutor.subjects) return [];
+        return tutor.subjects.map((subj) =>
+          typeof subj === 'string' ? subj : subj.subject
+        );
+      })
+    ),
   ];
 
   // Get tutors for selected subject
@@ -68,11 +75,12 @@ export default function BookSession() {
       tutor.availability &&
       Array.isArray(tutor.availability) &&
       tutor.availability.length > 0;
-    return (
-      hasAvailability &&
-      tutor.subjects &&
-      tutor.subjects.includes(selectedSubject)
-    );
+    if (!hasAvailability || !tutor.subjects) return false;
+    // Check if tutor teaches the selected subject (at any grade level)
+    return tutor.subjects.some((subj) => {
+      const subjectName = typeof subj === 'string' ? subj : subj.subject;
+      return subjectName === selectedSubject;
+    });
   });
 
   // Get selected tutor data

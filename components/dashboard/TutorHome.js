@@ -8,7 +8,6 @@ import { Users, Clock, TrendingUp, Award } from "lucide-react";
 export default function TutorHome() {
   const { user } = useAuth();
   const [subjects, setSubjects] = useState([]);
-  const [newSubject, setNewSubject] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
@@ -102,7 +101,15 @@ export default function TutorHome() {
           console.error("Error fetching tutor data:", tutorError);
         } else {
           setTutorName(tutorData?.name || user.email);
-          setSubjects(tutorData?.subjects || []);
+          // Handle both old format (text array) and new format (object array)
+          const subjectsData = tutorData?.subjects || [];
+          const normalizedSubjects = subjectsData.map((subj) => {
+            if (typeof subj === 'string') {
+              return { subject: subj, grade_level: null };
+            }
+            return subj;
+          });
+          setSubjects(normalizedSubjects);
         }
 
         // Get tutor ID
@@ -183,45 +190,15 @@ export default function TutorHome() {
   // Fetch assignments uploaded by tutor
   useEffect(() => { async function fetchAssignments() { if(!user) return; const { data } = await supabase.from('Assignments').select('*').eq('tutor_id', user.id).order('created_at', { ascending: false }); setAssignments(data || []); } fetchAssignments(); }, [user]);
 
-  // Add a new subject
-  const handleAddSubject = async (subject) => {
-    if (!subject || subjects.includes(subject)) return;
-
+  // Remove a subject (by index since subjects are now objects)
+  const handleRemoveSubject = async (indexToRemove) => {
     setSaving(true);
     setSuccess("");
 
     try {
-      const updatedSubjects = [...subjects, subject];
-
-      const { error } = await supabase
-        .from("Tutors")
-        .update({ subjects: updatedSubjects })
-        .eq("user_id", user.id);
-
-      if (error) {
-        throw error;
-      }
-
-      setSubjects(updatedSubjects);
-      setNewSubject("");
-      setSuccess(`Added "${subject}" to your subjects!`);
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (error) {
-      console.error("Error adding subject:", error);
-      alert("Error adding subject. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Remove a subject
-  const handleRemoveSubject = async (subjectToRemove) => {
-    setSaving(true);
-    setSuccess("");
-
-    try {
+      const subjectToRemove = subjects[indexToRemove];
       const updatedSubjects = subjects.filter(
-        (subject) => subject !== subjectToRemove
+        (_, index) => index !== indexToRemove
       );
 
       const { error } = await supabase
@@ -234,7 +211,7 @@ export default function TutorHome() {
       }
 
       setSubjects(updatedSubjects);
-      setSuccess(`Removed "${subjectToRemove}" from your subjects.`);
+      setSuccess(`Removed "${subjectToRemove.subject || subjectToRemove}" from your subjects.`);
       setTimeout(() => setSuccess(""), 3000);
     } catch (error) {
       console.error("Error removing subject:", error);
@@ -437,49 +414,43 @@ export default function TutorHome() {
           <div className="space-y-3 mb-4">
             {subjects.length === 0 ? (
               <p className="text-slate-500 italic">
-                No subjects added yet. Add some subjects to start teaching!
+                No subjects added yet. Go to your Profile to add subjects with grade levels!
               </p>
             ) : (
-              subjects.map((subject) => (
-                <div
-                  key={subject}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                >
-                  <span className="font-medium text-slate-900">{subject}</span>
-                  <button
-                    onClick={() => handleRemoveSubject(subject)}
-                    disabled={saving}
-                    className="text-red-600 hover:text-red-700 font-medium text-sm disabled:opacity-50"
+              subjects.map((subjectObj, index) => {
+                const subject = typeof subjectObj === 'string' ? subjectObj : subjectObj.subject;
+                const gradeLevel = typeof subjectObj === 'object' ? subjectObj.grade_level : null;
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                   >
-                    Remove
-                  </button>
-                </div>
-              ))
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-900">{subject}</span>
+                      {gradeLevel && (
+                        <>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-sm text-slate-600">{gradeLevel}</span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleRemoveSubject(index)}
+                      disabled={saving}
+                      className="text-red-600 hover:text-red-700 font-medium text-sm disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
 
-          <div className="flex gap-2">
-            <select
-              value={newSubject}
-              onChange={(e) => setNewSubject(e.target.value)}
-              className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-            >
-              <option value="">Add a subject...</option>
-              {allSubjects
-                .filter((s) => !subjects.includes(s))
-                .map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-            </select>
-            <button
-              onClick={() => handleAddSubject(newSubject)}
-              disabled={saving || !newSubject}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? "Adding..." : "Add"}
-            </button>
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              💡 <strong>Tip:</strong> To add subjects with grade levels, go to your <strong>Profile</strong> page.
+            </p>
           </div>
         </div>
 

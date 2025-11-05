@@ -19,9 +19,9 @@ export default function TutorProfile() {
   const [skills, setSkills] = useState([]);
   const [newSkill, setNewSkill] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
-  const [subjects, setSubjects] = useState([]);
+  const [subjects, setSubjects] = useState([]); // Array of {subject: string, grade_level: string}
   const [newSubject, setNewSubject] = useState("");
-  const [gradeLevel, setGradeLevel] = useState("");
+  const [newSubjectGradeLevel, setNewSubjectGradeLevel] = useState("");
   const [certifications, setCertifications] = useState([]);
   const [newCertification, setNewCertification] = useState("");
 
@@ -77,8 +77,15 @@ export default function TutorProfile() {
           setExperiences(tutorData?.experience || []);
           setSkills(tutorData?.skills || []);
           setPhotoUrl(tutorData?.photo_url || "");
-          setSubjects(tutorData?.subjects || []);
-          setGradeLevel(tutorData?.grade_level || "");
+          // Handle both old format (text array) and new format (object array)
+          const subjectsData = tutorData?.subjects || [];
+          const normalizedSubjects = subjectsData.map((subj) => {
+            if (typeof subj === 'string') {
+              return { subject: subj, grade_level: null };
+            }
+            return subj;
+          });
+          setSubjects(normalizedSubjects);
           setCertifications(tutorData?.certifications || []);
         }
       } catch (error) {
@@ -125,21 +132,39 @@ export default function TutorProfile() {
     setSkills(skills.filter((skill) => skill !== skillToRemove));
   };
 
-  // Add subject
+  // Add subject with grade level
   const handleAddSubject = () => {
-    if (!newSubject || subjects.includes(newSubject)) {
-      setError("Please select a subject that isn't already added");
+    if (!newSubject) {
+      setError("Please select a subject");
       setTimeout(() => setError(""), 3000);
       return;
     }
-    setSubjects([...subjects, newSubject]);
+    if (!newSubjectGradeLevel) {
+      setError("Please select a grade level for this subject");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    // Check if this subject-grade combination already exists
+    const exists = subjects.some(
+      (s) => s.subject === newSubject && s.grade_level === newSubjectGradeLevel
+    );
+    if (exists) {
+      setError("This subject-grade level combination is already added");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    setSubjects([
+      ...subjects,
+      { subject: newSubject, grade_level: newSubjectGradeLevel },
+    ]);
     setNewSubject("");
+    setNewSubjectGradeLevel("");
     setError("");
   };
 
   // Remove subject
-  const handleRemoveSubject = (subjectToRemove) => {
-    setSubjects(subjects.filter((subject) => subject !== subjectToRemove));
+  const handleRemoveSubject = (indexToRemove) => {
+    setSubjects(subjects.filter((_, index) => index !== indexToRemove));
   };
 
   // Add certification
@@ -176,7 +201,6 @@ export default function TutorProfile() {
           skills,
           photo_url: photoUrl,
           subjects,
-          grade_level: gradeLevel,
           certifications,
         })
         .eq("user_id", user.id);
@@ -273,62 +297,79 @@ export default function TutorProfile() {
           )}
         </div>
 
-        {/* Grade Level */}
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Grade Level</h3>
-          <select
-            value={gradeLevel}
-            onChange={(e) => setGradeLevel(e.target.value)}
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-          >
-            <option value="">Select grade level...</option>
-            {gradeLevels.map((level) => (
-              <option key={level} value={level}>
-                {level}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Subjects */}
+        {/* Subjects with Grade Levels */}
         <div className="lg:col-span-2 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Subjects</h3>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {subjects.map((subject) => (
-              <span
-                key={subject}
-                className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-              >
-                {subject}
-                <button
-                  onClick={() => handleRemoveSubject(subject)}
-                  className="text-blue-600 hover:text-blue-800"
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+            Subjects & Grade Levels
+          </h3>
+          <p className="text-sm text-slate-500 mb-4">
+            Add subjects and specify the grade level for each one
+          </p>
+          <div className="space-y-2 mb-4">
+            {subjects.length === 0 ? (
+              <p className="text-slate-500 italic text-sm">
+                No subjects added yet. Add subjects with their grade levels below.
+              </p>
+            ) : (
+              subjects.map((subjectObj, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200"
                 >
-                  <X size={14} />
-                </button>
-              </span>
-            ))}
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium text-slate-900">
+                      {subjectObj.subject}
+                    </span>
+                    <span className="text-slate-500">•</span>
+                    <span className="text-sm text-slate-600">
+                      {subjectObj.grade_level || "No grade level specified"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveSubject(index)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
-          <div className="flex gap-2">
-            <select
-              value={newSubject}
-              onChange={(e) => setNewSubject(e.target.value)}
-              className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-            >
-              <option value="">Add a subject...</option>
-              {allSubjects
-                .filter((s) => !subjects.includes(s))
-                .map((s) => (
+          <div className="space-y-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="flex gap-2">
+              <select
+                value={newSubject}
+                onChange={(e) => setNewSubject(e.target.value)}
+                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+              >
+                <option value="">Select a subject...</option>
+                {allSubjects.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
                 ))}
-            </select>
+              </select>
+              <select
+                value={newSubjectGradeLevel}
+                onChange={(e) => setNewSubjectGradeLevel(e.target.value)}
+                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                disabled={!newSubject}
+              >
+                <option value="">Select grade level...</option>
+                {gradeLevels.map((level) => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               onClick={handleAddSubject}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              disabled={!newSubject || !newSubjectGradeLevel}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Plus size={18} />
+              Add Subject
             </button>
           </div>
         </div>

@@ -57,9 +57,16 @@ export default function FindTutors() {
     }
   }, [user]);
 
-  // Get unique subjects for filter
+  // Get unique subjects for filter (extract subject names from objects)
   const allSubjects = [
-    ...new Set(tutors.flatMap((tutor) => tutor.subjects || [])),
+    ...new Set(
+      tutors.flatMap((tutor) => {
+        if (!tutor.subjects) return [];
+        return tutor.subjects.map((subj) =>
+          typeof subj === 'string' ? subj : subj.subject
+        );
+      })
+    ),
   ];
 
   // Filter tutors based on search, subject, and availability
@@ -78,7 +85,11 @@ export default function FindTutors() {
 
     const matchesSubject =
       !selectedSubject ||
-      (tutor.subjects && tutor.subjects.includes(selectedSubject));
+      (tutor.subjects &&
+        tutor.subjects.some((subj) => {
+          const subjectName = typeof subj === 'string' ? subj : subj.subject;
+          return subjectName === selectedSubject;
+        }));
 
     return matchesSearch && matchesSubject;
   });
@@ -89,11 +100,12 @@ export default function FindTutors() {
       tutor.availability &&
       Array.isArray(tutor.availability) &&
       tutor.availability.length > 0;
-    return (
-      hasAvailability &&
-      tutor.subjects &&
-      tutor.subjects.includes(selectedSubject)
-    );
+    if (!hasAvailability || !tutor.subjects) return false;
+    // Check if tutor teaches the selected subject (at any grade level)
+    return tutor.subjects.some((subj) => {
+      const subjectName = typeof subj === 'string' ? subj : subj.subject;
+      return subjectName === selectedSubject;
+    });
   });
 
   // Handle subject selection
