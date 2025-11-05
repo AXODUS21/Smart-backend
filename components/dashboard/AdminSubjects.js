@@ -5,13 +5,6 @@ import { supabase } from "@/lib/supabase";
 import { Plus, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 
 export default function AdminSubjects() {
-  const [gradeLevels, setGradeLevels] = useState([
-    "Elementary (K-5)",
-    "Middle School (6-8)",
-    "High School (9-12)",
-    "College/University",
-    "All Levels",
-  ]);
   const [selectedGrade, setSelectedGrade] = useState("");
   const [subjects, setSubjects] = useState([]);
   const [newSubject, setNewSubject] = useState("");
@@ -42,6 +35,10 @@ export default function AdminSubjects() {
     }
   };
 
+  const gradeOptions = useMemo(() => {
+    return Array.from(new Set((subjects || []).map((s) => s.grade_level))).filter(Boolean);
+  }, [subjects]);
+
   const subjectsByGrade = useMemo(() => {
     const map = new Map();
     subjects.forEach((s) => {
@@ -52,8 +49,8 @@ export default function AdminSubjects() {
   }, [subjects]);
 
   const handleAddSubject = async () => {
-    if (!selectedGrade || !newSubject.trim()) {
-      setError("Select grade and enter subject name");
+    if (!selectedGrade.trim() || !newSubject.trim()) {
+      setError("Enter grade level and subject name");
       setTimeout(() => setError(""), 2000);
       return;
     }
@@ -61,7 +58,7 @@ export default function AdminSubjects() {
     try {
       const { error } = await supabase
         .from("subjectcatalog")
-        .insert({ grade_level: selectedGrade, subject: newSubject.trim(), active: true });
+        .insert({ grade_level: selectedGrade.trim(), subject: newSubject.trim(), active: true });
       if (error) throw error;
       setNewSubject("");
       await fetchSubjects();
@@ -120,16 +117,18 @@ export default function AdminSubjects() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label className="block text-sm text-gray-700 mb-1">Grade Level</label>
-            <select
+            <input
+              list="grade-options"
               value={selectedGrade}
               onChange={(e) => setSelectedGrade(e.target.value)}
+              placeholder="Type a grade level (e.g., High School (9-12))"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            >
-              <option value="">Select grade level...</option>
-              {gradeLevels.map((g) => (
-                <option key={g} value={g}>{g}</option>
+            />
+            <datalist id="grade-options">
+              {gradeOptions.map((g) => (
+                <option key={g} value={g} />
               ))}
-            </select>
+            </datalist>
           </div>
           <div>
             <label className="block text-sm text-gray-700 mb-1">Subject</label>
@@ -137,7 +136,7 @@ export default function AdminSubjects() {
               type="text"
               value={newSubject}
               onChange={(e) => setNewSubject(e.target.value)}
-              placeholder="e.g., Algebra"
+              placeholder="Type a subject (e.g., Algebra II)"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
@@ -157,7 +156,7 @@ export default function AdminSubjects() {
         {loading ? (
           <div className="text-gray-600">Loading...</div>
         ) : (
-          gradeLevels.map((g) => (
+          Array.from(new Set((subjects || []).map((s) => s.grade_level))).map((g) => (
             <div key={g} className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">{g}</h3>
               <div className="space-y-2">
