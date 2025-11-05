@@ -17,6 +17,7 @@ import {
   Home,
   Clock,
   MessageSquare,
+  User,
 } from "lucide-react";
 
 // Dashboard components
@@ -28,6 +29,7 @@ import TutorHome from "./dashboard/TutorHome";
 import StudentHome from "./dashboard/StudentHome";
 import PastSessions from "./dashboard/PastSessions";
 import StudentFeedback from "./dashboard/StudentFeedback";
+import TutorProfile from "./dashboard/TutorProfile";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -108,6 +110,7 @@ export default function Dashboard() {
     { id: "calendar", label: "Calendar", icon: CalendarIcon },
     { id: "meetings", label: "Booking Request", icon: Video },
     { id: "past-sessions", label: "Past Sessions", icon: Clock },
+    { id: "profile", label: "Profile", icon: User },
   ];
 
   const tabs = userRole === "student" ? studentTabs : tutorTabs;
@@ -185,7 +188,14 @@ export default function Dashboard() {
           sidebarOpen ? "ml-64" : "ml-20"
         } transition-all duration-300`}
       >
-        <Header userName={userName} />
+        <Header 
+          userName={userName} 
+          onProfileClick={() => {
+            if (userRole === "tutor") {
+              setActiveTab("profile");
+            }
+          }}
+        />
 
         <main className="flex-1 p-6">
           {activeTab === "home" && userRole === "student" && (
@@ -205,6 +215,7 @@ export default function Dashboard() {
           {activeTab === "past-sessions" && userRole === "tutor" && (
             <PastSessions />
           )}
+          {activeTab === "profile" && userRole === "tutor" && <TutorProfile />}
         </main>
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import { Search, Bell, MessageCircle } from "lucide-react";
 
-export default function Header({ userName }) {
+export default function Header({ userName, onProfileClick }) {
   return (
     <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
       <div className="flex-1 max-w-md">
@@ -27,9 +27,13 @@ export default function Header({ userName }) {
           <Bell size={20} className="text-slate-600" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+        <button
+          onClick={onProfileClick}
+          className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold hover:from-blue-500 hover:to-blue-700 transition-all cursor-pointer shadow-md hover:shadow-lg"
+          title="View Profile"
+        >
           {userName.charAt(0)}
-        </div>
+        </button>
       </div>
     </div>
   );
