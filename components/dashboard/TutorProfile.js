@@ -22,41 +22,49 @@ export default function TutorProfile() {
   const [subjects, setSubjects] = useState([]); // Array of {subject: string, grade_level: string}
   const [newSubject, setNewSubject] = useState("");
   const [newSubjectGradeLevel, setNewSubjectGradeLevel] = useState("");
-  const [certifications, setCertifications] = useState([]);
-  const [newCertification, setNewCertification] = useState("");
+  const [certifications, setCertifications] = useState("");
+  const [catalog, setCatalog] = useState([]); // rows from subjectcatalog
+  const [gradeLevels, setGradeLevels] = useState([]); // from catalog
+  const [subjectsForSelectedGrade, setSubjectsForSelectedGrade] = useState([]);
 
-  const allSubjects = [
-    "Mathematics",
-    "Physics",
-    "Chemistry",
-    "English",
-    "Biology",
-    "History",
-    "Computer Science",
-    "Economics",
-    "Geography",
-    "Spanish",
-    "French",
-    "German",
-    "Art",
-    "Music",
-    "Physical Education",
-    "Statistics",
-    "Calculus",
-    "Algebra",
-    "Geometry",
-    "Trigonometry",
-    "Literature",
-    "Psychology",
-  ];
+  useEffect(() => {
+    const fetchCatalog = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("subjectcatalog")
+          .select("grade_level, subject")
+          .eq("active", true);
+        if (error) throw error;
+        const rows = data || [];
+        setCatalog(rows);
+        const grades = Array.from(new Set(rows.map((r) => r.grade_level)));
+        setGradeLevels(grades);
+      } catch (e) {
+        console.error("Error fetching subject catalog:", e);
+      }
+    };
+    fetchCatalog();
+  }, []);
 
-  const gradeLevels = [
-    "Elementary (K-5)",
-    "Middle School (6-8)",
-    "High School (9-12)",
-    "College/University",
-    "All Levels",
-  ];
+  useEffect(() => {
+    if (!newSubjectGradeLevel) {
+      setSubjectsForSelectedGrade([]);
+      setNewSubject("");
+      return;
+    }
+    const list = catalog
+      .filter((r) => r.grade_level === newSubjectGradeLevel)
+      .map((r) => r.subject)
+      .sort((a, b) => a.localeCompare(b));
+    setSubjectsForSelectedGrade(list);
+    if (!list.includes(newSubject)) {
+      setNewSubject("");
+    }
+  }, [newSubjectGradeLevel, catalog]);
+
+  const allSubjects = undefined;
+
+  // Removed hardcoded gradeLevels; we now use dynamic gradeLevels from catalog
 
   // Fetch tutor profile data
   useEffect(() => {
@@ -338,27 +346,27 @@ export default function TutorProfile() {
           <div className="space-y-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
             <div className="flex gap-2">
               <select
-                value={newSubject}
-                onChange={(e) => setNewSubject(e.target.value)}
-                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-              >
-                <option value="">Select a subject...</option>
-                {allSubjects.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <select
                 value={newSubjectGradeLevel}
                 onChange={(e) => setNewSubjectGradeLevel(e.target.value)}
                 className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-                disabled={!newSubject}
               >
                 <option value="">Select grade level...</option>
                 {gradeLevels.map((level) => (
                   <option key={level} value={level}>
                     {level}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={newSubject}
+                onChange={(e) => setNewSubject(e.target.value)}
+                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                disabled={!newSubjectGradeLevel}
+              >
+                <option value="">Select a subject...</option>
+                {subjectsForSelectedGrade.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
                   </option>
                 ))}
               </select>

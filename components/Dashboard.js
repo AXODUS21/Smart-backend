@@ -39,6 +39,7 @@ import AdminAnalytics from "./dashboard/AdminAnalytics";
 import AdminUsers from "./dashboard/AdminUsers";
 import AdminJobs from "./dashboard/AdminJobs";
 import AdminTasks from "./dashboard/AdminTasks";
+import AdminSubjects from "./dashboard/AdminSubjects";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -142,6 +143,7 @@ export default function Dashboard() {
     { id: "users", label: "Users", icon: Users },
     { id: "jobs", label: "Jobs", icon: Briefcase },
     { id: "tasks", label: "Tasks", icon: CheckSquare },
+    { id: "subjects", label: "Subjects", icon: CheckSquare },
   ];
 
   const tabs = 
@@ -243,6 +245,7 @@ export default function Dashboard() {
           {activeTab === "users" && userRole === "admin" && <AdminUsers />}
           {activeTab === "jobs" && userRole === "admin" && <AdminJobs />}
           {activeTab === "tasks" && userRole === "admin" && <AdminTasks />}
+          {activeTab === "subjects" && userRole === "admin" && <AdminSubjects />}
           {activeTab === "credits" && userRole === "student" && <Credits />}
           {activeTab === "meetings" && userRole === "student" && <Meetings />}
           {activeTab === "find-tutors" && userRole === "student" && (
