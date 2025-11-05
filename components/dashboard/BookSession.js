@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 export default function BookSession() {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
+  const [selectedGradeLevel, setSelectedGradeLevel] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedTutor, setSelectedTutor] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -60,29 +61,53 @@ export default function BookSession() {
     fetchData();
   }, [user]);
 
-  // Get unique subjects from tutors (extract subject names from objects)
-  const subjects = [
+  // Get unique grade levels from tutors (from subject objects)
+  const gradeLevels = [
     ...new Set(
       tutors.flatMap((tutor) => {
         if (!tutor.subjects) return [];
-        return tutor.subjects.map((subj) =>
-          typeof subj === 'string' ? subj : subj.subject
-        );
+        return tutor.subjects
+          .filter((subj) => typeof subj === 'object' && subj.grade_level)
+          .map((subj) => subj.grade_level);
       })
     ),
-  ];
+  ].sort();
 
-  // Get tutors for selected subject
+  // Get unique subjects filtered by selected grade level
+  const subjects = selectedGradeLevel
+    ? [
+        ...new Set(
+          tutors.flatMap((tutor) => {
+            if (!tutor.subjects) return [];
+            return tutor.subjects
+              .filter(
+                (subj) =>
+                  (typeof subj === 'object' &&
+                    subj.grade_level === selectedGradeLevel)
+              )
+              .map((subj) => (typeof subj === 'string' ? subj : subj.subject));
+          })
+        ),
+      ]
+    : [];
+
+  // Get tutors for selected subject and grade level
   const tutorsForSubject = tutors.filter((tutor) => {
     const hasAvailability =
       tutor.availability &&
       Array.isArray(tutor.availability) &&
       tutor.availability.length > 0;
     if (!hasAvailability || !tutor.subjects) return false;
-    // Check if tutor teaches the selected subject (at any grade level)
+    // Check if tutor teaches the selected subject at the selected grade level
     return tutor.subjects.some((subj) => {
-      const subjectName = typeof subj === 'string' ? subj : subj.subject;
-      return subjectName === selectedSubject;
+      if (typeof subj === 'object') {
+        const subjectName = subj.subject;
+        const gradeLevel = subj.grade_level;
+        return (
+          subjectName === selectedSubject && gradeLevel === selectedGradeLevel
+        );
+      }
+      return false;
     });
   });
 
@@ -217,7 +242,7 @@ export default function BookSession() {
 
   // Handle booking confirmation
   const handleBooking = async () => {
-    if (!selectedTutor || !selectedDate || !selectedTime || !selectedDuration) {
+    if (!selectedGradeLevel || !selectedSubject || !selectedTutor || !selectedDate || !selectedTime || !selectedDuration) {
       alert("Please complete all selections before booking.");
       return;
     }
@@ -288,6 +313,7 @@ export default function BookSession() {
         student_id: studentData.id,
         tutor_id: tutorData.id,
         subject: selectedSubject,
+        grade_level: selectedGradeLevel,
         start_time_utc: startTime.toISOString(),
         end_time_utc: endTime.toISOString(),
         duration_min: durationMinutes,
@@ -307,11 +333,12 @@ export default function BookSession() {
       if (updateCreditsError) throw updateCreditsError;
 
       alert(
-        `Session booked!\nTutor: ${selectedTutor}\nDate: ${selectedDate}\nTime: ${selectedTime}\nDuration: ${selectedDuration}\nCredits used: ${creditsRequired}`
+        `Session booked!\nTutor: ${selectedTutor}\nGrade Level: ${selectedGradeLevel}\nSubject: ${selectedSubject}\nDate: ${selectedDate}\nTime: ${selectedTime}\nDuration: ${selectedDuration}\nCredits used: ${creditsRequired}`
       );
 
       // Reset form
       setStep(1);
+      setSelectedGradeLevel("");
       setSelectedSubject("");
       setSelectedTutor("");
       setSelectedDate("");
@@ -349,48 +376,98 @@ export default function BookSession() {
         <h2 className="text-2xl font-semibold text-slate-900 mb-2">
           Book a Session
         </h2>
-        <p className="text-slate-500">Step {step} of 5</p>
+        <p className="text-slate-500">Step {step} of 6</p>
       </div>
 
       <div className="bg-white rounded-lg p-8 shadow-sm border border-slate-200">
-        {/* Step 1: Subject Selection */}
+        {/* Step 1: Grade Level Selection */}
         {step === 1 && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                Select a Grade Level
+              </h3>
+              {gradeLevels.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <p>No grade levels available.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {gradeLevels.map((grade) => (
+                    <button
+                      key={grade}
+                      onClick={() => {
+                        setSelectedGradeLevel(grade);
+                        setSelectedSubject("");
+                        setSelectedTutor("");
+                        setSelectedDate("");
+                        setSelectedTime("");
+                        setSelectedDuration("");
+                        setStep(2);
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        selectedGradeLevel === grade
+                          ? "border-blue-600 bg-blue-50"
+                          : "border-slate-200 hover:border-blue-300"
+                      }`}
+                    >
+                      <p className="font-medium text-slate-900">{grade}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Subject Selection */}
+        {step === 2 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4">
                 Select a Subject
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {subjects.map((subject) => (
-                  <button
-                    key={subject}
-                    onClick={() => {
-                      setSelectedSubject(subject);
-                      setStep(2);
-                    }}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      selectedSubject === subject
-                        ? "border-blue-600 bg-blue-50"
-                        : "border-slate-200 hover:border-blue-300"
-                    }`}
-                  >
-                    <p className="font-medium text-slate-900">{subject}</p>
-                  </button>
-                ))}
-              </div>
+              {subjects.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <p>No subjects available for {selectedGradeLevel}.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {subjects.map((subject) => (
+                    <button
+                      key={subject}
+                      onClick={() => {
+                        setSelectedSubject(subject);
+                        setSelectedTutor("");
+                        setSelectedDate("");
+                        setSelectedTime("");
+                        setSelectedDuration("");
+                        setStep(3);
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        selectedSubject === subject
+                          ? "border-blue-600 bg-blue-50"
+                          : "border-slate-200 hover:border-blue-300"
+                      }`}
+                    >
+                      <p className="font-medium text-slate-900">{subject}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Step 2: Tutor Selection */}
-        {step === 2 && (
+        {/* Step 3: Tutor Selection */}
+        {step === 3 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4">
                 Select a Tutor
               </h3>
               <p className="text-sm text-slate-600 mb-4">
-                Available tutors for {selectedSubject}
+                Available tutors for {selectedSubject} at {selectedGradeLevel}
               </p>
               <div className="space-y-3">
                 {tutorsForSubject.map((tutor) => (
@@ -419,7 +496,7 @@ export default function BookSession() {
                         <button
                           onClick={() => {
                             setSelectedTutor(tutor.name || "Tutor");
-                            setStep(3);
+                            setStep(4);
                           }}
                           className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                         >
@@ -434,8 +511,8 @@ export default function BookSession() {
           </div>
         )}
 
-        {/* Step 3: Date Selection */}
-        {step === 3 && (
+        {/* Step 4: Date Selection */}
+        {step === 4 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4">
@@ -482,8 +559,8 @@ export default function BookSession() {
           </div>
         )}
 
-        {/* Step 4: Time Selection */}
-        {step === 4 && (
+        {/* Step 5: Time Selection */}
+        {step === 5 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4">
@@ -511,7 +588,7 @@ export default function BookSession() {
                       onClick={() => {
                         setSelectedTime(slot.time);
                         setSelectedDuration(""); // Reset duration when time changes
-                        setStep(5);
+                        setStep(6);
                       }}
                       className={`p-4 rounded-lg border-2 transition-all ${
                         selectedTime === slot.time
@@ -528,8 +605,8 @@ export default function BookSession() {
           </div>
         )}
 
-        {/* Step 5: Duration Selection */}
-        {step === 5 && (
+        {/* Step 6: Duration Selection */}
+        {step === 6 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4">
@@ -777,7 +854,7 @@ export default function BookSession() {
                 onClick={() => {
                   setSelectedTutor(selectedTutorForDetails.name || "Tutor");
                   setIsDetailsModalOpen(false);
-                  setStep(3);
+                  setStep(4);
                 }}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
               >
