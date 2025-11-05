@@ -189,22 +189,7 @@ export default function BookSession() {
     const availableDurations = [];
 
     durations.forEach((duration) => {
-      const durationMinutes =
-        duration === "30 mins"
-          ? 30
-          : duration === "1 hour"
-          ? 60
-          : duration === "1.5 hours"
-          ? 90
-          : duration === "2 hours"
-          ? 120
-          : duration === "2.5 hours"
-          ? 150
-          : duration === "3 hours"
-          ? 180
-          : duration === "3.5 hours"
-          ? 210
-          : 240;
+      const durationMinutes = duration === "30 mins" ? 30 : 60;
 
       if (durationMinutes <= remainingMinutes) {
         availableDurations.push(duration);
@@ -217,12 +202,6 @@ export default function BookSession() {
   const durations = [
     "30 mins",
     "1 hour",
-    "1.5 hours",
-    "2 hours",
-    "2.5 hours",
-    "3 hours",
-    "3.5 hours",
-    "4 hours",
   ];
 
   // Calculate credits needed based on duration
@@ -230,12 +209,6 @@ export default function BookSession() {
     const durationMap = {
       "30 mins": 1,
       "1 hour": 2,
-      "1.5 hours": 3,
-      "2 hours": 4,
-      "2.5 hours": 5,
-      "3 hours": 6,
-      "3.5 hours": 7,
-      "4 hours": 8,
     };
     return durationMap[duration] || 0;
   };
@@ -290,22 +263,7 @@ export default function BookSession() {
       startTime.setHours(hour24, parseInt(minutes), 0, 0);
 
       const endTime = new Date(startTime);
-      const durationMinutes =
-        selectedDuration === "30 mins"
-          ? 30
-          : selectedDuration === "1 hour"
-          ? 60
-          : selectedDuration === "1.5 hours"
-          ? 90
-          : selectedDuration === "2 hours"
-          ? 120
-          : selectedDuration === "2.5 hours"
-          ? 150
-          : selectedDuration === "3 hours"
-          ? 180
-          : selectedDuration === "3.5 hours"
-          ? 210
-          : 240;
+      const durationMinutes = selectedDuration === "30 mins" ? 30 : 60;
       endTime.setMinutes(endTime.getMinutes() + durationMinutes);
 
       // Create booking request
@@ -539,7 +497,7 @@ export default function BookSession() {
                         key={date}
                         onClick={() => {
                           setSelectedDate(date);
-                          setStep(4);
+                          setStep(5);
                         }}
                         className={`p-4 rounded-lg border-2 transition-all ${
                           selectedDate === date
