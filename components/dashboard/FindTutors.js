@@ -217,9 +217,6 @@ export default function FindTutors() {
                           <p className="font-medium text-slate-900">
                             {tutor.name || "Tutor"}
                           </p>
-                          <p className="text-sm text-slate-500">
-                            {tutor.email}
-                          </p>
                         </div>
                         <ChevronRight className="text-slate-400" />
                       </div>

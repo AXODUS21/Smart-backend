@@ -117,10 +117,6 @@ export default function MyTutors() {
                         </span>
                       </div>
                       
-                      <div className="text-sm text-gray-600 mb-3">
-                        {tutor.email}
-                      </div>
-                      
                       {/* Subjects */}
                       {tutor.subjects && tutor.subjects.length > 0 && (
                         <div className="mb-3">

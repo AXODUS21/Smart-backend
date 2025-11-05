@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, X, User, Award, Briefcase, GraduationCap, Link as LinkIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 
@@ -16,6 +16,9 @@ export default function BookSession() {
   const [tutors, setTutors] = useState([]);
   const [studentCredits, setStudentCredits] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [selectedTutorForDetails, setSelectedTutorForDetails] = useState(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   // Fetch tutors and student data
   useEffect(() => {
@@ -391,24 +394,40 @@ export default function BookSession() {
               </p>
               <div className="space-y-3">
                 {tutorsForSubject.map((tutor) => (
-                  <button
+                  <div
                     key={tutor.user_id}
-                    onClick={() => {
-                      setSelectedTutor(tutor.name || "Tutor");
-                      setStep(3);
-                    }}
-                    className="w-full p-4 rounded-lg border-2 border-slate-200 hover:border-blue-300 transition-all text-left"
+                    className="w-full p-4 rounded-lg border-2 border-slate-200 hover:border-blue-300 transition-all"
                   >
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium text-slate-900">
                           {tutor.name || "Tutor"}
                         </p>
-                        <p className="text-sm text-slate-500">{tutor.email}</p>
                       </div>
-                      <ChevronRight className="text-slate-400" />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTutorForDetails(tutor);
+                            setIsDetailsModalOpen(true);
+                            setImageError(false); // Reset image error when opening modal
+                          }}
+                          className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedTutor(tutor.name || "Tutor");
+                            setStep(3);
+                          }}
+                          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                        >
+                          <ChevronRight className="text-slate-400" />
+                        </button>
+                      </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -584,6 +603,190 @@ export default function BookSession() {
           )}
         </div>
       </div>
+
+      {/* Tutor Details Modal */}
+      {isDetailsModalOpen && selectedTutorForDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                {selectedTutorForDetails.photo_url && !imageError ? (
+                  <img
+                    src={selectedTutorForDetails.photo_url}
+                    alt={selectedTutorForDetails.name || "Tutor"}
+                    className="w-12 h-12 rounded-full object-cover border-2 border-slate-200"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                    {(selectedTutorForDetails.name || "T").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900">
+                    {selectedTutorForDetails.name || "Tutor"}
+                  </h3>
+                  <p className="text-sm text-slate-500">Tutor Profile</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Bio */}
+              {selectedTutorForDetails.bio && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <User className="h-5 w-5 text-blue-600" />
+                    <h4 className="text-lg font-semibold text-slate-900">About</h4>
+                  </div>
+                  <p className="text-slate-700 leading-relaxed">{selectedTutorForDetails.bio}</p>
+                </div>
+              )}
+
+              {/* Subjects */}
+              {selectedTutorForDetails.subjects && selectedTutorForDetails.subjects.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <GraduationCap className="h-5 w-5 text-blue-600" />
+                    <h4 className="text-lg font-semibold text-slate-900">Subjects & Grade Levels</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTutorForDetails.subjects.map((subjectObj, index) => {
+                      const subject = typeof subjectObj === 'string' ? subjectObj : subjectObj.subject;
+                      const gradeLevel = typeof subjectObj === 'object' ? subjectObj.grade_level : null;
+                      return (
+                        <div
+                          key={index}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-800 rounded-lg text-sm"
+                        >
+                          <span className="font-medium">{subject}</span>
+                          {gradeLevel && (
+                            <span className="text-blue-600 ml-2">• {gradeLevel}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Skills */}
+              {selectedTutorForDetails.skills && selectedTutorForDetails.skills.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Award className="h-5 w-5 text-purple-600" />
+                    <h4 className="text-lg font-semibold text-slate-900">Skills</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTutorForDetails.skills.map((skill, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1.5 bg-purple-50 text-purple-800 rounded-full text-sm"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Experience */}
+              {selectedTutorForDetails.experience && selectedTutorForDetails.experience.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Briefcase className="h-5 w-5 text-emerald-600" />
+                    <h4 className="text-lg font-semibold text-slate-900">Experience</h4>
+                  </div>
+                  <div className="space-y-4">
+                    {selectedTutorForDetails.experience.map((exp, index) => (
+                      <div
+                        key={index}
+                        className="p-4 bg-slate-50 rounded-lg border border-slate-200"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h5 className="font-semibold text-slate-900">{exp.title}</h5>
+                            <p className="text-sm text-slate-600">{exp.company}</p>
+                            {exp.duration && (
+                              <p className="text-sm text-slate-500 mt-1">{exp.duration}</p>
+                            )}
+                          </div>
+                        </div>
+                        {exp.description && (
+                          <p className="text-sm text-slate-700 mt-2">{exp.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Certifications */}
+              {selectedTutorForDetails.certifications && selectedTutorForDetails.certifications.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <LinkIcon className="h-5 w-5 text-orange-600" />
+                    <h4 className="text-lg font-semibold text-slate-900">Certifications</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedTutorForDetails.certifications.map((cert, index) => (
+                      <a
+                        key={index}
+                        href={cert}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-3 bg-orange-50 text-orange-800 rounded-lg hover:bg-orange-100 transition-colors text-sm"
+                      >
+                        <LinkIcon className="h-4 w-4" />
+                        <span className="truncate">{cert}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty State */}
+              {!selectedTutorForDetails.bio &&
+                (!selectedTutorForDetails.skills || selectedTutorForDetails.skills.length === 0) &&
+                (!selectedTutorForDetails.experience || selectedTutorForDetails.experience.length === 0) &&
+                (!selectedTutorForDetails.certifications || selectedTutorForDetails.certifications.length === 0) && (
+                  <div className="text-center py-8 text-slate-500">
+                    <User className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+                    <p>This tutor hasn't added profile details yet.</p>
+                  </div>
+                )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="px-6 py-2 border border-slate-200 rounded-lg text-slate-900 font-medium hover:bg-slate-50 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedTutor(selectedTutorForDetails.name || "Tutor");
+                  setIsDetailsModalOpen(false);
+                  setStep(3);
+                }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                Book This Tutor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
