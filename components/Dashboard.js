@@ -34,6 +34,7 @@ import StudentHome from "./dashboard/StudentHome";
 import PastSessions from "./dashboard/PastSessions";
 import StudentFeedback from "./dashboard/StudentFeedback";
 import TutorProfile from "./dashboard/TutorProfile";
+import StudentProfile from "./dashboard/StudentProfile";
 import AdminDashboard from "./dashboard/AdminDashboard";
 import AdminAnalytics from "./dashboard/AdminAnalytics";
 import AdminUsers from "./dashboard/AdminUsers";
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("home");
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
+  const [studentModeEnabled, setStudentModeEnabled] = useState(false);
 
   // Handle URL parameters for tab selection
   useEffect(() => {
@@ -113,6 +115,25 @@ export default function Dashboard() {
     determineRole();
   }, [user]);
 
+  // Load persisted student mode from localStorage per user
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const key = `student_mode_${user.id}`;
+      const v = localStorage.getItem(key);
+      if (v === "true") setStudentModeEnabled(true);
+    } catch {}
+  }, [user]);
+
+  const handleChangeStudentMode = (enabled) => {
+    setStudentModeEnabled(enabled);
+    if (user) {
+      try {
+        localStorage.setItem(`student_mode_${user.id}`, enabled ? "true" : "false");
+      } catch {}
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -121,13 +142,16 @@ export default function Dashboard() {
     );
   }
 
-  const studentTabs = [
+  const studentTabsBase = [
     { id: "home", label: "Dashboard", icon: Home },
     { id: "find-tutors", label: "Book Sessions", icon: Search },
     { id: "meetings", label: "Calendar", icon: Video },
     { id: "feedback", label: "Feedback", icon: MessageSquare },
-    { id: "credits", label: "Buy Credits", icon: Wallet },
+    { id: "profile", label: "Profile", icon: User },
   ];
+  const studentTabs = studentModeEnabled
+    ? studentTabsBase // hide Buy Credits
+    : [...studentTabsBase, { id: "credits", label: "Buy Credits", icon: Wallet }];
 
   const tutorTabs = [
     { id: "home", label: "Dashboard", icon: Home },
@@ -229,7 +253,7 @@ export default function Dashboard() {
         <Header 
           userName={userName} 
           onProfileClick={() => {
-            if (userRole === "tutor") {
+            if (userRole === "tutor" || userRole === "student") {
               setActiveTab("profile");
             }
           }}
@@ -260,6 +284,13 @@ export default function Dashboard() {
             <PastSessions />
           )}
           {activeTab === "profile" && userRole === "tutor" && <TutorProfile />}
+          {activeTab === "profile" && userRole === "student" && (
+            <StudentProfile
+              studentModeEnabled={studentModeEnabled}
+              onChangeStudentMode={handleChangeStudentMode}
+              onCancel={() => setActiveTab("home")}
+            />
+          )}
         </main>
       </div>
     </div>
