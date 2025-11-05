@@ -397,65 +397,8 @@ export default function TutorHome() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Manage Subjects */}
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            Subjects You Teach
-          </h3>
-
-          {/* Success Message */}
-          {success && (
-            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg text-sm">
-              {success}
-            </div>
-          )}
-
-          <div className="space-y-3 mb-4">
-            {subjects.length === 0 ? (
-              <p className="text-slate-500 italic">
-                No subjects added yet. Go to your Profile to add subjects with grade levels!
-              </p>
-            ) : (
-              subjects.map((subjectObj, index) => {
-                const subject = typeof subjectObj === 'string' ? subjectObj : subjectObj.subject;
-                const gradeLevel = typeof subjectObj === 'object' ? subjectObj.grade_level : null;
-                return (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-900">{subject}</span>
-                      {gradeLevel && (
-                        <>
-                          <span className="text-slate-400">•</span>
-                          <span className="text-sm text-slate-600">{gradeLevel}</span>
-                        </>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleRemoveSubject(index)}
-                      disabled={saving}
-                      className="text-red-600 hover:text-red-700 font-medium text-sm disabled:opacity-50"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              💡 <strong>Tip:</strong> To add subjects with grade levels, go to your <strong>Profile</strong> page.
-            </p>
-          </div>
-        </div>
-
-        {/* Upcoming Sessions */}
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+      {/* Upcoming Sessions */}
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">
             Upcoming Sessions
           </h3>
@@ -488,7 +431,7 @@ export default function TutorHome() {
             )}
           </div>
         </div>
-      </div>
+      
     </div>
   );
 }

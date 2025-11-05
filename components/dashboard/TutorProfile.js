@@ -141,8 +141,8 @@ export default function TutorProfile() {
     setSkills(skills.filter((skill) => skill !== skillToRemove));
   };
 
-  // Add subject with grade level
-  const handleAddSubject = () => {
+  // Add subject with grade level (immediately persist to DB)
+  const handleAddSubject = async () => {
     if (!newSubject) {
       setError("Please select a subject");
       setTimeout(() => setError(""), 3000);
@@ -162,18 +162,55 @@ export default function TutorProfile() {
       setTimeout(() => setError(""), 3000);
       return;
     }
-    setSubjects([
+    const updated = [
       ...subjects,
       { subject: newSubject, grade_level: newSubjectGradeLevel },
-    ]);
-    setNewSubject("");
-    setNewSubjectGradeLevel("");
+    ];
+    setSaving(true);
+    setSuccess("");
     setError("");
+    try {
+      const { error } = await supabase
+        .from("Tutors")
+        .update({ subjects: updated })
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setSubjects(updated);
+      setNewSubject("");
+      setNewSubjectGradeLevel("");
+      setSuccess("Subject added.");
+      setTimeout(() => setSuccess(""), 2500);
+    } catch (e) {
+      console.error("Error adding subject:", e);
+      setError("Error adding subject. Please try again.");
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Remove subject
-  const handleRemoveSubject = (indexToRemove) => {
-    setSubjects(subjects.filter((_, index) => index !== indexToRemove));
+  // Remove subject (immediately persist to DB)
+  const handleRemoveSubject = async (indexToRemove) => {
+    const updated = subjects.filter((_, index) => index !== indexToRemove);
+    setSaving(true);
+    setSuccess("");
+    setError("");
+    try {
+      const { error } = await supabase
+        .from("Tutors")
+        .update({ subjects: updated })
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setSubjects(updated);
+      setSuccess("Subject removed.");
+      setTimeout(() => setSuccess(""), 2500);
+    } catch (e) {
+      console.error("Error removing subject:", e);
+      setError("Error removing subject. Please try again.");
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Add certification
