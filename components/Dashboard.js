@@ -18,6 +18,10 @@ import {
   Clock,
   MessageSquare,
   User,
+  Shield,
+  BarChart3,
+  Briefcase,
+  CheckSquare,
 } from "lucide-react";
 
 // Dashboard components
@@ -30,6 +34,11 @@ import StudentHome from "./dashboard/StudentHome";
 import PastSessions from "./dashboard/PastSessions";
 import StudentFeedback from "./dashboard/StudentFeedback";
 import TutorProfile from "./dashboard/TutorProfile";
+import AdminDashboard from "./dashboard/AdminDashboard";
+import AdminAnalytics from "./dashboard/AdminAnalytics";
+import AdminUsers from "./dashboard/AdminUsers";
+import AdminJobs from "./dashboard/AdminJobs";
+import AdminTasks from "./dashboard/AdminTasks";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -56,6 +65,20 @@ export default function Dashboard() {
       if (!user) return;
 
       try {
+        // First check if user is an admin
+        const { data: adminData } = await supabase
+          .from("admins")
+          .select("id, name, email")
+          .eq("user_id", user.id)
+          .single();
+
+        if (adminData) {
+          setUserRole("admin");
+          setUserName(adminData.name || user.email);
+          setLoading(false);
+          return;
+        }
+
         // Check if user is in Students table
         const { data: studentData } = await supabase
           .from("Students")
@@ -113,7 +136,18 @@ export default function Dashboard() {
     { id: "profile", label: "Profile", icon: User },
   ];
 
-  const tabs = userRole === "student" ? studentTabs : tutorTabs;
+  const adminTabs = [
+    { id: "home", label: "Dashboard", icon: Home },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
+    { id: "users", label: "Users", icon: Users },
+    { id: "jobs", label: "Jobs", icon: Briefcase },
+    { id: "tasks", label: "Tasks", icon: CheckSquare },
+  ];
+
+  const tabs = 
+    userRole === "student" ? studentTabs : 
+    userRole === "tutor" ? tutorTabs : 
+    userRole === "admin" ? adminTabs : [];
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -127,12 +161,14 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             {userRole === "student" ? (
               <GraduationCap className="w-8 h-8 text-blue-600" />
-            ) : (
+            ) : userRole === "tutor" ? (
               <BookOpen className="w-8 h-8 text-green-600" />
+            ) : (
+              <Shield className="w-8 h-8 text-purple-600" />
             )}
             {sidebarOpen && (
               <span className="font-bold text-gray-900">
-                {userRole === "student" ? "Student" : "Tutor"}
+                {userRole === "student" ? "Student" : userRole === "tutor" ? "Tutor" : "Admin"}
               </span>
             )}
           </div>
@@ -202,6 +238,11 @@ export default function Dashboard() {
             <StudentHome setActiveTab={setActiveTab} />
           )}
           {activeTab === "home" && userRole === "tutor" && <TutorHome />}
+          {activeTab === "home" && userRole === "admin" && <AdminDashboard />}
+          {activeTab === "analytics" && userRole === "admin" && <AdminAnalytics />}
+          {activeTab === "users" && userRole === "admin" && <AdminUsers />}
+          {activeTab === "jobs" && userRole === "admin" && <AdminJobs />}
+          {activeTab === "tasks" && userRole === "admin" && <AdminTasks />}
           {activeTab === "credits" && userRole === "student" && <Credits />}
           {activeTab === "meetings" && userRole === "student" && <Meetings />}
           {activeTab === "find-tutors" && userRole === "student" && (
