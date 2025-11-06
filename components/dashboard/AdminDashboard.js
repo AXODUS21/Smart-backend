@@ -11,6 +11,8 @@ import {
   AlertCircle,
   DollarSign,
   Clock,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -28,6 +30,7 @@ export default function AdminDashboard() {
   const [newStudents, setNewStudents] = useState([]);
   const [expiringCredits, setExpiringCredits] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAllStudents, setShowAllStudents] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -45,7 +48,7 @@ export default function AdminDashboard() {
       ] = await Promise.all([
         supabase
           .from("Students")
-          .select("id, created_at, credits", { count: "exact" }),
+          .select("id, name, email, created_at, credits", { count: "exact" }),
         supabase.from("Tutors").select("id", { count: "exact" }),
         supabase.from("admins").select("id", { count: "exact" }),
         supabase
@@ -84,21 +87,42 @@ export default function AdminDashboard() {
       // Get newly enrolled students (last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const newStudentsList = students
-        .filter((s) => new Date(s.created_at) >= sevenDaysAgo)
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 10);
+      const sevenDaysAgoISO = sevenDaysAgo.toISOString();
+      const now = new Date();
+      
+      // Fetch students from the last 7 days using Supabase query
+      const { data: newStudentsQuery, error: newStudentsError } = await supabase
+        .from("Students")
+        .select("id, name, email, created_at, credits")
+        .gte("created_at", sevenDaysAgoISO)
+        .order("created_at", { ascending: false });
+
+      if (newStudentsError) {
+        console.error("Error fetching new students:", newStudentsError);
+      }
+
+      // Filter out students older than 7 days (double check)
+      const newStudentsList = (newStudentsQuery || []).filter((student) => {
+        const createdAt = new Date(student.created_at);
+        const daysDiff = (now - createdAt) / (1000 * 60 * 60 * 24);
+        return daysDiff <= 7;
+      });
 
       // Get students with low credits (less than 5 credits)
-      const expiringStudents = students
-        .filter(
-          (s) =>
-            (parseFloat(s.credits) || 0) < 5 && (parseFloat(s.credits) || 0) > 0
-        )
-        .sort(
-          (a, b) => (parseFloat(a.credits) || 0) - (parseFloat(b.credits) || 0)
-        )
-        .slice(0, 10);
+      // Fetch all students with credits to properly filter
+      const { data: allStudentsData, error: allStudentsError } = await supabase
+        .from("Students")
+        .select("id, name, email, credits")
+        .gt("credits", 0)
+        .lt("credits", 5)
+        .order("credits", { ascending: true })
+        .limit(10);
+
+      if (allStudentsError) {
+        console.error("Error fetching students with low credits:", allStudentsError);
+      }
+
+      const expiringStudents = allStudentsData || [];
 
       setStats({
         totalStudents,
@@ -249,28 +273,69 @@ export default function AdminDashboard() {
               <p>No new students in the last 7 days</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {newStudents.map((student) => (
-                <div
-                  key={student.id}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+            <>
+              <div className="space-y-3">
+                {(showAllStudents ? newStudents : newStudents.slice(0, 5)).map(
+                  (student) => {
+                    const createdAt = new Date(student.created_at);
+                    const daysAgo = Math.floor(
+                      (new Date() - createdAt) / (1000 * 60 * 60 * 24)
+                    );
+                    return (
+                      <div
+                        key={student.id}
+                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                      >
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {student.name || "Unnamed Student"}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            {student.email || "No email"}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            {daysAgo === 0
+                              ? "Today"
+                              : daysAgo === 1
+                              ? "1 day ago"
+                              : `${daysAgo} days ago`}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-slate-900">
+                            {parseFloat(student.credits || 0).toFixed(0)} credits
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {createdAt.toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+              {newStudents.length > 5 && (
+                <button
+                  onClick={() => setShowAllStudents(!showAllStudents)}
+                  className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors"
                 >
-                  <div>
-                    <p className="font-medium text-slate-900">
-                      {student.name || "Unnamed Student"}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {new Date(student.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-slate-900">
-                      {parseFloat(student.credits || 0).toFixed(0)} credits
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  {showAllStudents ? (
+                    <>
+                      <ChevronUp className="w-4 h-4" />
+                      Show Less
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      View More ({newStudents.length - 5} more)
+                    </>
+                  )}
+                </button>
+              )}
+            </>
           )}
         </div>
 
