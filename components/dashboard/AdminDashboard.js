@@ -343,7 +343,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
           <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-orange-500" />
-            Students Nearing Credit Expiration
+            Students Running Low on Credit
           </h3>
           {expiringCredits.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
