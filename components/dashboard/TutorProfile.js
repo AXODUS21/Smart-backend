@@ -314,7 +314,7 @@ export default function TutorProfile() {
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="Tell students about yourself, your teaching style, and what makes you a great tutor..."
-            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder-slate-500"
+            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
             rows={5}
           />
         </div>
@@ -327,7 +327,7 @@ export default function TutorProfile() {
             value={photoUrl}
             onChange={(e) => setPhotoUrl(e.target.value)}
             placeholder="https://example.com/photo.jpg"
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder-slate-500"
+            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
           />
           {photoUrl && (
             <div className="mt-4">
@@ -446,7 +446,7 @@ export default function TutorProfile() {
               onChange={(e) => setNewSkill(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleAddSkill()}
               placeholder="Enter a skill..."
-              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder-slate-500"
+              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
             />
             <button
               onClick={handleAddSkill}
@@ -495,7 +495,7 @@ export default function TutorProfile() {
                 setNewExperience({ ...newExperience, title: e.target.value })
               }
               placeholder="Job Title"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder-slate-500"
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
             />
             <input
               type="text"
@@ -504,7 +504,7 @@ export default function TutorProfile() {
                 setNewExperience({ ...newExperience, company: e.target.value })
               }
               placeholder="Company/Organization"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder-slate-500"
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
             />
             <input
               type="text"
@@ -513,7 +513,7 @@ export default function TutorProfile() {
                 setNewExperience({ ...newExperience, duration: e.target.value })
               }
               placeholder="Duration (e.g., 2020-2023)"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder-slate-500"
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
             />
             <textarea
               value={newExperience.description}
@@ -521,7 +521,7 @@ export default function TutorProfile() {
                 setNewExperience({ ...newExperience, description: e.target.value })
               }
               placeholder="Description (optional)"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder-slate-500"
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
               rows={2}
             />
             <button
@@ -568,7 +568,7 @@ export default function TutorProfile() {
               value={newCertification}
               onChange={(e) => setNewCertification(e.target.value)}
               placeholder="https://example.com/certification"
-              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder-slate-500"
+              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
             />
             <button
               onClick={handleAddCertification}

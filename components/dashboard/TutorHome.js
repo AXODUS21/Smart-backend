@@ -342,7 +342,7 @@ export default function TutorHome() {
           <h2 style={{ fontWeight: 'bold' }}>Withdrawable Balance</h2>
           {/* Add balance info as desired */}
           <form onSubmit={handleWithdrawSubmit}>
-            <input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="Amount" />
+            <input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="Amount" className="placeholder:text-slate-500" />
             <button type="submit">Request Withdrawal</button>
           </form>
           <div>{withdrawMessage}</div>
@@ -356,8 +356,8 @@ export default function TutorHome() {
         <div>
           <h2 style={{ fontWeight: 'bold' }}>Upload Assignment</h2>
           <form onSubmit={handleAssignmentUpload}>
-            <input type="text" value={assignmentUpload.title} onChange={e => setAssignmentUpload(u => ({ ...u, title: e.target.value }))} placeholder="Assignment Title" />
-            <textarea value={assignmentUpload.description} onChange={e => setAssignmentUpload(u => ({ ...u, description: e.target.value }))} placeholder="Description (optional)" />
+            <input type="text" value={assignmentUpload.title} onChange={e => setAssignmentUpload(u => ({ ...u, title: e.target.value }))} placeholder="Assignment Title" className="placeholder:text-slate-500" />
+            <textarea value={assignmentUpload.description} onChange={e => setAssignmentUpload(u => ({ ...u, description: e.target.value }))} placeholder="Description (optional)" className="placeholder:text-slate-500" />
             <select value={assignmentUpload.studentId} onChange={e => setAssignmentUpload(u => ({ ...u, studentId: e.target.value }))}>
               <option value="">Select Student...</option>
               {students.map(id => (

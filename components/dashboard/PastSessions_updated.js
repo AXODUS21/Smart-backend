@@ -307,7 +307,7 @@ export default function PastSessions() {
                     onChange={(e) =>
                       setReviews({ ...reviews, [session.id]: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3 h-24"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3 h-24 placeholder:text-slate-500"
                   />
                   <div className="flex gap-2">
                     <button

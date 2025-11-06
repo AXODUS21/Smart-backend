@@ -777,7 +777,7 @@ export default function Meetings() {
                   value={meetingLink}
                   onChange={(e) => setMeetingLink(e.target.value)}
                   placeholder="https://zoom.us/j/123456789 or https://meet.google.com/abc-defg-hij"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-slate-500"
                 />
                 <p className="text-sm text-gray-500 mt-2">
                   Please provide a valid meeting link (Zoom, Google Meet,

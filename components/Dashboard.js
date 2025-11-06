@@ -10,7 +10,7 @@ import {
   Search,
   GraduationCap,
   BookOpen,
-  Menu,
+  ChevronRight,
   X,
   LogOut,
   Video,
@@ -146,10 +146,14 @@ export default function Dashboard() {
     { id: "subjects", label: "Subjects", icon: CheckSquare },
   ];
 
-  const tabs = 
-    userRole === "student" ? studentTabs : 
-    userRole === "tutor" ? tutorTabs : 
-    userRole === "admin" ? adminTabs : [];
+  const tabs =
+    userRole === "student"
+      ? studentTabs
+      : userRole === "tutor"
+      ? tutorTabs
+      : userRole === "admin"
+      ? adminTabs
+      : [];
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -170,7 +174,11 @@ export default function Dashboard() {
             )}
             {sidebarOpen && (
               <span className="font-bold text-gray-900">
-                {userRole === "student" ? "Student" : userRole === "tutor" ? "Tutor" : "Admin"}
+                {userRole === "student"
+                  ? "Student"
+                  : userRole === "tutor"
+                  ? "Tutor"
+                  : "Admin"}
               </span>
             )}
           </div>
@@ -179,9 +187,9 @@ export default function Dashboard() {
             className="p-2 hover:bg-gray-100 rounded-lg"
           >
             {sidebarOpen ? (
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 text-slate-700" />
             ) : (
-              <Menu className="w-5 h-5" />
+              <ChevronRight className="w-5 h-5 text-slate-700" />
             )}
           </button>
         </div>
@@ -226,8 +234,8 @@ export default function Dashboard() {
           sidebarOpen ? "ml-64" : "ml-20"
         } transition-all duration-300`}
       >
-        <Header 
-          userName={userName} 
+        <Header
+          userName={userName}
           onProfileClick={() => {
             if (userRole === "tutor") {
               setActiveTab("profile");
@@ -241,11 +249,15 @@ export default function Dashboard() {
           )}
           {activeTab === "home" && userRole === "tutor" && <TutorHome />}
           {activeTab === "home" && userRole === "admin" && <AdminDashboard />}
-          {activeTab === "analytics" && userRole === "admin" && <AdminAnalytics />}
+          {activeTab === "analytics" && userRole === "admin" && (
+            <AdminAnalytics />
+          )}
           {activeTab === "users" && userRole === "admin" && <AdminUsers />}
           {activeTab === "jobs" && userRole === "admin" && <AdminJobs />}
           {activeTab === "tasks" && userRole === "admin" && <AdminTasks />}
-          {activeTab === "subjects" && userRole === "admin" && <AdminSubjects />}
+          {activeTab === "subjects" && userRole === "admin" && (
+            <AdminSubjects />
+          )}
           {activeTab === "credits" && userRole === "student" && <Credits />}
           {activeTab === "meetings" && userRole === "student" && <Meetings />}
           {activeTab === "find-tutors" && userRole === "student" && (

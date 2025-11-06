@@ -36,7 +36,9 @@ export default function AdminSubjects() {
   };
 
   const gradeOptions = useMemo(() => {
-    return Array.from(new Set((subjects || []).map((s) => s.grade_level))).filter(Boolean);
+    return Array.from(
+      new Set((subjects || []).map((s) => s.grade_level))
+    ).filter(Boolean);
   }, [subjects]);
 
   const subjectsByGrade = useMemo(() => {
@@ -56,9 +58,11 @@ export default function AdminSubjects() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("subjectcatalog")
-        .insert({ grade_level: selectedGrade.trim(), subject: newSubject.trim(), active: true });
+      const { error } = await supabase.from("subjectcatalog").insert({
+        grade_level: selectedGrade.trim(),
+        subject: newSubject.trim(),
+        active: true,
+      });
       if (error) throw error;
       setNewSubject("");
       await fetchSubjects();
@@ -71,23 +75,9 @@ export default function AdminSubjects() {
     }
   };
 
-  const handleToggleActive = async (row) => {
-    try {
-      const { error } = await supabase
-        .from("subjectcatalog")
-        .update({ active: !row.active })
-        .eq("id", row.id);
-      if (error) throw error;
-      await fetchSubjects();
-    } catch (e) {
-      console.error(e);
-      setError("Failed to update");
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
   const handleDelete = async (row) => {
-    if (!confirm(`Delete subject "${row.subject}" from ${row.grade_level}?`)) return;
+    if (!confirm(`Delete subject "${row.subject}" from ${row.grade_level}?`))
+      return;
     try {
       const { error } = await supabase
         .from("subjectcatalog")
@@ -103,26 +93,34 @@ export default function AdminSubjects() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Subject Catalog</h1>
-        <p className="text-gray-600">Control which subjects tutors can choose per grade level</p>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+          Subject Catalog
+        </h2>
+        <p className="text-slate-500">
+          Control which subjects tutors can choose per grade level
+        </p>
       </div>
 
       {error && (
-        <div className="p-3 rounded bg-red-100 text-red-700 text-sm">{error}</div>
+        <div className="p-3 rounded bg-red-100 text-red-700 text-sm">
+          {error}
+        </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Grade Level</label>
+            <label className="block text-sm text-slate-700 mb-1">
+              Grade Level
+            </label>
             <input
               list="grade-options"
               value={selectedGrade}
               onChange={(e) => setSelectedGrade(e.target.value)}
               placeholder="Type a grade level (e.g., High School (9-12))"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg placeholder:text-slate-500"
             />
             <datalist id="grade-options">
               {gradeOptions.map((g) => (
@@ -131,13 +129,13 @@ export default function AdminSubjects() {
             </datalist>
           </div>
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Subject</label>
+            <label className="block text-sm text-slate-700 mb-1">Subject</label>
             <input
               type="text"
               value={newSubject}
               onChange={(e) => setNewSubject(e.target.value)}
               placeholder="Type a subject (e.g., Algebra II)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg placeholder:text-slate-500"
             />
           </div>
           <div className="flex items-end">
@@ -152,38 +150,58 @@ export default function AdminSubjects() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
         {loading ? (
-          <div className="text-gray-600">Loading...</div>
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-48 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-64"></div>
+          </div>
         ) : (
-          Array.from(new Set((subjects || []).map((s) => s.grade_level))).map((g) => (
-            <div key={g} className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">{g}</h3>
-              <div className="space-y-2">
-                {(subjectsByGrade.get(g) || []).map((row) => (
-                  <div key={row.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium text-gray-900">{row.subject}</span>
-                      <span className={`text-xs px-2 py-1 rounded-full ${row.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
-                        {row.active ? "Active" : "Inactive"}
-                      </span>
+          Array.from(new Set((subjects || []).map((s) => s.grade_level))).map(
+            (g) => (
+              <div key={g} className="mb-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-3">
+                  {g}
+                </h3>
+                <div className="space-y-2">
+                  {(subjectsByGrade.get(g) || []).map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium text-slate-900">
+                          {row.subject}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            row.active
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {row.active ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleDelete(row)}
+                          className="px-2 py-1 text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleToggleActive(row)} className="px-2 py-1 text-gray-700 hover:text-gray-900">
-                        {row.active ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
-                      </button>
-                      <button onClick={() => handleDelete(row)} className="px-2 py-1 text-red-600 hover:text-red-700">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                  ))}
+                  {(subjectsByGrade.get(g) || []).length === 0 && (
+                    <div className="text-sm text-slate-500">
+                      No subjects added for this grade yet.
                     </div>
-                  </div>
-                ))}
-                {(subjectsByGrade.get(g) || []).length === 0 && (
-                  <div className="text-sm text-gray-500">No subjects added for this grade yet.</div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            )
+          )
         )}
       </div>
     </div>

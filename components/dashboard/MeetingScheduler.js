@@ -247,7 +247,7 @@ export default function MeetingScheduler() {
             value={formData.subject}
             onChange={handleInputChange}
             placeholder="e.g., Mathematics, Physics"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-slate-500"
             required
           />
         </div>
@@ -313,7 +313,7 @@ export default function MeetingScheduler() {
             onChange={handleInputChange}
             placeholder="Any specific topics or questions you'd like to cover..."
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-slate-500"
           />
         </div>
 

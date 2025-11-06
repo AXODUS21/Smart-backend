@@ -36,12 +36,24 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch all stats
-      const [studentsData, tutorsData, adminsData, bookingsData, schedulesData] = await Promise.all([
-        supabase.from("Students").select("id, created_at, credits", { count: "exact" }),
+      const [
+        studentsData,
+        tutorsData,
+        adminsData,
+        bookingsData,
+        schedulesData,
+      ] = await Promise.all([
+        supabase
+          .from("Students")
+          .select("id, created_at, credits", { count: "exact" }),
         supabase.from("Tutors").select("id", { count: "exact" }),
         supabase.from("admins").select("id", { count: "exact" }),
-        supabase.from("Schedules").select("id, status, credits_required", { count: "exact" }),
-        supabase.from("Schedules").select("id, status, credits_required, start_time_utc"),
+        supabase
+          .from("Schedules")
+          .select("id, status, credits_required", { count: "exact" }),
+        supabase
+          .from("Schedules")
+          .select("id, status, credits_required, start_time_utc"),
       ]);
 
       const students = studentsData.data || [];
@@ -54,8 +66,12 @@ export default function AdminDashboard() {
       const totalTutors = tutorsData.count || 0;
       const totalAdmins = adminsData.count || 0;
       const totalBookings = bookingsData.count || 0;
-      const pendingBookings = bookings.filter((b) => b.status === "pending").length;
-      const confirmedBookings = bookings.filter((b) => b.status === "confirmed").length;
+      const pendingBookings = bookings.filter(
+        (b) => b.status === "pending"
+      ).length;
+      const confirmedBookings = bookings.filter(
+        (b) => b.status === "confirmed"
+      ).length;
 
       // Calculate revenue (assuming 1 credit = $10, 70% to tutor, 30% to company)
       const totalCreditsUsed = bookings
@@ -75,8 +91,13 @@ export default function AdminDashboard() {
 
       // Get students with low credits (less than 5 credits)
       const expiringStudents = students
-        .filter((s) => (parseFloat(s.credits) || 0) < 5 && (parseFloat(s.credits) || 0) > 0)
-        .sort((a, b) => (parseFloat(a.credits) || 0) - (parseFloat(b.credits) || 0))
+        .filter(
+          (s) =>
+            (parseFloat(s.credits) || 0) < 5 && (parseFloat(s.credits) || 0) > 0
+        )
+        .sort(
+          (a, b) => (parseFloat(a.credits) || 0) - (parseFloat(b.credits) || 0)
+        )
         .slice(0, 10);
 
       setStats({
@@ -99,130 +120,151 @@ export default function AdminDashboard() {
     }
   };
 
+  const metricData = [
+    {
+      title: "Total Students",
+      value: stats.totalStudents.toString(),
+      icon: GraduationCap,
+      bgColor: "bg-blue-500",
+    },
+    {
+      title: "Total Tutors",
+      value: stats.totalTutors.toString(),
+      icon: BookOpen,
+      bgColor: "bg-emerald-500",
+    },
+    {
+      title: "Total Bookings",
+      value: stats.totalBookings.toString(),
+      icon: Calendar,
+      bgColor: "bg-purple-500",
+    },
+    {
+      title: "Pending Bookings",
+      value: stats.pendingBookings.toString(),
+      icon: Clock,
+      bgColor: "bg-orange-500",
+    },
+  ];
+
+  const revenueData = [
+    {
+      title: "Total Revenue",
+      value: `$${stats.totalRevenue.toFixed(2)}`,
+      icon: DollarSign,
+      bgColor: "bg-emerald-500",
+    },
+    {
+      title: "Company Share",
+      value: `$${stats.companyShare.toFixed(2)}`,
+      icon: TrendingUp,
+      bgColor: "bg-blue-500",
+    },
+    {
+      title: "Tutor Earnings",
+      value: `$${stats.tutorEarnings.toFixed(2)}`,
+      icon: Users,
+      bgColor: "bg-purple-500",
+    },
+  ];
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-600">Loading dashboard...</div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-48"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-1">Overview of platform statistics and recent activity</p>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+          Admin Dashboard
+        </h2>
+        <p className="text-slate-500">
+          Overview of platform statistics and recent activity
+        </p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Students</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalStudents}</p>
+        {metricData.map((metric, index) => {
+          const Icon = metric.icon;
+          return (
+            <div
+              key={index}
+              className={`${metric.bgColor} rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow`}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <Icon size={24} className="text-white" />
+                </div>
+              </div>
+              <p className="text-white/80 text-sm font-medium mb-1">
+                {metric.title}
+              </p>
+              <p className="text-3xl font-bold">{metric.value}</p>
             </div>
-            <GraduationCap className="w-12 h-12 text-blue-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Tutors</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalTutors}</p>
-            </div>
-            <BookOpen className="w-12 h-12 text-green-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Bookings</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalBookings}</p>
-            </div>
-            <Calendar className="w-12 h-12 text-purple-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Pending Bookings</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pendingBookings}</p>
-            </div>
-            <Clock className="w-12 h-12 text-orange-500" />
-          </div>
-        </div>
+          );
+        })}
       </div>
 
       {/* Revenue Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                ${stats.totalRevenue.toFixed(2)}
+        {revenueData.map((metric, index) => {
+          const Icon = metric.icon;
+          return (
+            <div
+              key={index}
+              className={`${metric.bgColor} rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow`}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <Icon size={24} className="text-white" />
+                </div>
+              </div>
+              <p className="text-white/80 text-sm font-medium mb-1">
+                {metric.title}
               </p>
+              <p className="text-2xl font-bold">{metric.value}</p>
             </div>
-            <DollarSign className="w-10 h-10 text-green-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Company Share</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                ${stats.companyShare.toFixed(2)}
-              </p>
-            </div>
-            <TrendingUp className="w-10 h-10 text-blue-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Tutor Earnings</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                ${stats.tutorEarnings.toFixed(2)}
-              </p>
-            </div>
-            <Users className="w-10 h-10 text-purple-500" />
-          </div>
-        </div>
+          );
+        })}
       </div>
 
       {/* New Students and Expiring Credits */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Newly Enrolled Students */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <Users className="w-5 h-5" />
             Newly Enrolled Students (Last 7 Days)
-          </h2>
+          </h3>
           {newStudents.length === 0 ? (
-            <p className="text-gray-500 text-sm">No new students in the last 7 days</p>
+            <div className="text-center py-8 text-gray-500">
+              <p>No new students in the last 7 days</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {newStudents.map((student) => (
                 <div
                   key={student.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-slate-900">
                       {student.name || "Unnamed Student"}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-slate-500">
                       {new Date(student.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-slate-900">
                       {parseFloat(student.credits || 0).toFixed(0)} credits
                     </p>
                   </div>
@@ -233,13 +275,15 @@ export default function AdminDashboard() {
         </div>
 
         {/* Students Nearing Credit Expiration */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-orange-500" />
             Students Nearing Credit Expiration
-          </h2>
+          </h3>
           {expiringCredits.length === 0 ? (
-            <p className="text-gray-500 text-sm">No students with low credits</p>
+            <div className="text-center py-8 text-gray-500">
+              <p>No students with low credits</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {expiringCredits.map((student) => (
@@ -248,10 +292,12 @@ export default function AdminDashboard() {
                   className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-slate-900">
                       {student.name || "Unnamed Student"}
                     </p>
-                    <p className="text-sm text-gray-500">{student.email || "No email"}</p>
+                    <p className="text-sm text-slate-500">
+                      {student.email || "No email"}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-orange-600">
@@ -267,4 +313,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

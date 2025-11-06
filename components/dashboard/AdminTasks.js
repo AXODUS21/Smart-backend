@@ -174,18 +174,21 @@ export default function AdminTasks() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-600">Loading tasks...</div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-48"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Administrative Tasks</h1>
-          <p className="text-gray-600 mt-1">Manage administrative tasks unrelated to teaching</p>
+          <h2 className="text-2xl font-semibold text-slate-900 mb-2">Administrative Tasks</h2>
+          <p className="text-slate-500">Manage administrative tasks unrelated to teaching</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -197,7 +200,7 @@ export default function AdminTasks() {
       </div>
 
       {/* Status Filter */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
         <div className="flex gap-4">
           {["all", "pending", "in_progress", "completed", "cancelled"].map((status) => (
             <button
@@ -206,7 +209,7 @@ export default function AdminTasks() {
               className={`px-4 py-2 rounded-lg transition-colors ${
                 statusFilter === status
                   ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
               {status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ")}
@@ -220,13 +223,13 @@ export default function AdminTasks() {
         {filteredTasks().map((task) => (
           <div
             key={task.id}
-            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+            className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-lg transition-shadow"
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{task.title}</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">{task.title}</h3>
                 {task.description && (
-                  <p className="text-sm text-gray-600 mb-3">{task.description}</p>
+                  <p className="text-sm text-slate-600 mb-3">{task.description}</p>
                 )}
               </div>
               <div className="flex gap-2">
@@ -247,15 +250,15 @@ export default function AdminTasks() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Status</span>
+                <span className="text-sm text-slate-600">Status</span>
                 {getStatusBadge(task.status)}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Priority</span>
+                <span className="text-sm text-slate-600">Priority</span>
                 {getPriorityBadge(task.priority)}
               </div>
               {task.due_date && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
                   <Calendar className="w-4 h-4" />
                   <span>{new Date(task.due_date).toLocaleDateString()}</span>
                 </div>
@@ -290,9 +293,9 @@ export default function AdminTasks() {
       </div>
 
       {filteredTasks().length === 0 && (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
-          <CheckSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No tasks found</p>
+        <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-slate-200">
+          <CheckSquare className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+          <p className="text-slate-500">No tasks found</p>
         </div>
       )}
 
@@ -300,36 +303,36 @@ export default function AdminTasks() {
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Add New Task</h2>
+            <div className="p-6 border-b border-slate-200">
+              <h2 className="text-xl font-bold text-slate-900">Add New Task</h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>
                 <input
                   type="text"
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2 placeholder:text-slate-500"
                   placeholder="Enter task title"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
                 <textarea
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2 placeholder:text-slate-500"
                   rows={3}
                   placeholder="Enter task description"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
                 <select
                   value={newTask.priority}
                   onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -338,22 +341,22 @@ export default function AdminTasks() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
                 <input
                   type="date"
                   value={newTask.due_date}
                   onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2"
                 />
               </div>
             </div>
-            <div className="p-6 border-t border-gray-200 flex gap-3">
+            <div className="p-6 border-t border-slate-200 flex gap-3">
               <button
                 onClick={() => {
                   setShowAddModal(false);
                   setNewTask({ title: "", description: "", priority: "medium", due_date: "" });
                 }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -372,34 +375,34 @@ export default function AdminTasks() {
       {editingTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Edit Task</h2>
+            <div className="p-6 border-b border-slate-200">
+              <h2 className="text-xl font-bold text-slate-900">Edit Task</h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>
                 <input
                   type="text"
                   value={editingTask.title}
                   onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
                 <textarea
                   value={editingTask.description || ""}
                   onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2"
                   rows={3}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
                 <select
                   value={editingTask.priority}
                   onChange={(e) => setEditingTask({ ...editingTask, priority: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -408,21 +411,21 @@ export default function AdminTasks() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
                 <input
                   type="date"
                   value={editingTask.due_date ? editingTask.due_date.split("T")[0] : ""}
                   onChange={(e) =>
                     setEditingTask({ ...editingTask, due_date: e.target.value || null })
                   }
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2"
                 />
               </div>
             </div>
-            <div className="p-6 border-t border-gray-200 flex gap-3">
+            <div className="p-6 border-t border-slate-200 flex gap-3">
               <button
                 onClick={() => setEditingTask(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50"
               >
                 Cancel
               </button>

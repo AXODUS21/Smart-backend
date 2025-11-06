@@ -95,33 +95,57 @@ export default function AdminUsers() {
     setViewingUser(user);
   };
 
+  const userStatsData = [
+    {
+      title: "Total Students",
+      value: users.students.length.toString(),
+      icon: GraduationCap,
+      bgColor: "bg-blue-500",
+    },
+    {
+      title: "Total Tutors",
+      value: users.tutors.length.toString(),
+      icon: BookOpen,
+      bgColor: "bg-emerald-500",
+    },
+    {
+      title: "Total Admins",
+      value: users.admins.length.toString(),
+      icon: Shield,
+      bgColor: "bg-purple-500",
+    },
+  ];
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-600">Loading users...</div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-48"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-        <p className="text-gray-600 mt-1">View and manage all users (students, tutors, and admins)</p>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-2">User Management</h2>
+        <p className="text-slate-500">View and manage all users (students, tutors, and admins)</p>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500"
               />
             </div>
           </div>
@@ -129,7 +153,7 @@ export default function AdminUsers() {
             <select
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Roles</option>
               <option value="student">Students</option>
@@ -142,79 +166,71 @@ export default function AdminUsers() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Students</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{users.students.length}</p>
+        {userStatsData.map((metric, index) => {
+          const Icon = metric.icon;
+          return (
+            <div
+              key={index}
+              className={`${metric.bgColor} rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow`}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <Icon size={24} className="text-white" />
+                </div>
+              </div>
+              <p className="text-white/80 text-sm font-medium mb-1">
+                {metric.title}
+              </p>
+              <p className="text-3xl font-bold">{metric.value}</p>
             </div>
-            <GraduationCap className="w-12 h-12 text-blue-500" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Tutors</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{users.tutors.length}</p>
-            </div>
-            <BookOpen className="w-12 h-12 text-green-500" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Admins</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{users.admins.length}</p>
-            </div>
-            <Shield className="w-12 h-12 text-purple-500" />
-          </div>
-        </div>
+          );
+        })}
       </div>
 
       {/* Users List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">All Users</h2>
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900">All Users</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   User
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Role
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Joined
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-200">
               {filteredUsers().map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr key={user.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">{getRoleIcon(user.role)}</div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-slate-900">
                           {user.name || "Unnamed User"}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">{getRoleBadge(user.role)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                     {user.email || "No email"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                     {new Date(user.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -231,7 +247,7 @@ export default function AdminUsers() {
             </tbody>
           </table>
           {filteredUsers().length === 0 && (
-            <div className="text-center py-12 text-gray-500">No users found</div>
+            <div className="text-center py-12 text-slate-500">No users found</div>
           )}
         </div>
       </div>
@@ -240,12 +256,12 @@ export default function AdminUsers() {
       {viewingUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-slate-200">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">User Details</h2>
+                <h2 className="text-xl font-bold text-slate-900">User Details</h2>
                 <button
                   onClick={() => setViewingUser(null)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-slate-400 hover:text-slate-600"
                 >
                   ✕
                 </button>
@@ -253,27 +269,27 @@ export default function AdminUsers() {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">Name</p>
-                <p className="text-lg text-gray-900">{viewingUser.name || "N/A"}</p>
+                <p className="text-sm font-medium text-slate-500">Name</p>
+                <p className="text-lg text-slate-900">{viewingUser.name || "N/A"}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Email</p>
-                <p className="text-lg text-gray-900">{viewingUser.email || "N/A"}</p>
+                <p className="text-sm font-medium text-slate-500">Email</p>
+                <p className="text-lg text-slate-900">{viewingUser.email || "N/A"}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Role</p>
+                <p className="text-sm font-medium text-slate-500">Role</p>
                 {getRoleBadge(viewingUser.role)}
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Joined</p>
-                <p className="text-lg text-gray-900">
+                <p className="text-sm font-medium text-slate-500">Joined</p>
+                <p className="text-lg text-slate-900">
                   {new Date(viewingUser.created_at).toLocaleString()}
                 </p>
               </div>
               {viewingUser.role === "student" && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Credits</p>
-                  <p className="text-lg text-gray-900">
+                  <p className="text-sm font-medium text-slate-500">Credits</p>
+                  <p className="text-lg text-slate-900">
                     {parseFloat(viewingUser.credits || 0).toFixed(0)}
                   </p>
                 </div>
@@ -281,8 +297,8 @@ export default function AdminUsers() {
               {viewingUser.role === "tutor" && (
                 <>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Subjects</p>
-                    <p className="text-lg text-gray-900">
+                    <p className="text-sm font-medium text-slate-500">Subjects</p>
+                    <p className="text-lg text-slate-900">
                       {viewingUser.subjects?.length > 0
                         ? viewingUser.subjects.map((s) => s.subject || s).join(", ")
                         : "None"}
@@ -290,14 +306,14 @@ export default function AdminUsers() {
                   </div>
                   {viewingUser.bio && (
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Bio</p>
-                      <p className="text-lg text-gray-900">{viewingUser.bio}</p>
+                      <p className="text-sm font-medium text-slate-500">Bio</p>
+                      <p className="text-lg text-slate-900">{viewingUser.bio}</p>
                     </div>
                   )}
                 </>
               )}
             </div>
-            <div className="p-6 border-t border-gray-200">
+            <div className="p-6 border-t border-slate-200">
               <button
                 onClick={() => setViewingUser(null)}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
