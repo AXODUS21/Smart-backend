@@ -41,6 +41,8 @@ import AdminUsers from "./dashboard/AdminUsers";
 import AdminJobs from "./dashboard/AdminJobs";
 import AdminTasks from "./dashboard/AdminTasks";
 import AdminSubjects from "./dashboard/AdminSubjects";
+import StudentReview from "./dashboard/StudentReview";
+import AdminParentsReview from "./dashboard/AdminParentsReview";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -168,11 +170,14 @@ export default function Dashboard() {
     { id: "jobs", label: "Jobs", icon: Briefcase },
     { id: "tasks", label: "Tasks", icon: CheckSquare },
     { id: "subjects", label: "Subjects", icon: CheckSquare },
+    { id: "parents-review", label: "Parents Review", icon: MessageSquare },
   ];
 
   const tabs =
     userRole === "student"
-      ? studentTabs
+      ? (studentModeEnabled
+          ? studentTabs
+          : [...studentTabs, { id: "review", label: "Review", icon: MessageSquare }])
       : userRole === "tutor"
       ? tutorTabs
       : userRole === "admin"
@@ -290,6 +295,9 @@ export default function Dashboard() {
           {activeTab === "feedback" && userRole === "student" && (
             <StudentFeedback />
           )}
+          {activeTab === "review" && userRole === "student" && (
+            <StudentReview />
+          )}
           {activeTab === "calendar" && userRole === "tutor" && <Calendar />}
           {activeTab === "meetings" && userRole === "tutor" && <Meetings />}
           {activeTab === "past-sessions" && userRole === "tutor" && (
@@ -302,6 +310,9 @@ export default function Dashboard() {
               onChangeStudentMode={handleChangeStudentMode}
               onCancel={() => setActiveTab("home")}
             />
+          )}
+          {activeTab === "parents-review" && userRole === "admin" && (
+            <AdminParentsReview />
           )}
         </main>
       </div>
