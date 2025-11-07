@@ -206,7 +206,11 @@ export default function TutorAssignments() {
             console.error("Storage upload error:", storageError);
             // Don't block assignment creation if file upload fails
             // Just show a warning but allow the assignment to be created
-            setError("Warning: File upload failed, but assignment will be created without attachment. Error: " + storageError.message);
+            if (storageError.message?.includes("Bucket not found") || storageError.message?.includes("not found")) {
+              setError("Storage bucket 'assignments' not found. Please create it in Supabase Dashboard > Storage. Assignment will be created without attachment.");
+            } else {
+              setError("Warning: File upload failed, but assignment will be created without attachment. Error: " + storageError.message);
+            }
             // Continue without file
           } else if (storageData) {
             // Get public URL
