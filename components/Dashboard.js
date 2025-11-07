@@ -22,6 +22,7 @@ import {
   BarChart3,
   Briefcase,
   CheckSquare,
+  Megaphone,
 } from "lucide-react";
 
 // Dashboard components
@@ -45,6 +46,7 @@ import StudentReview from "./dashboard/StudentReview";
 import AdminParentsReview from "./dashboard/AdminParentsReview";
 import TutorAssignments from "./dashboard/TutorAssignments";
 import StudentAssignments from "./dashboard/StudentAssignments";
+import AdminAnnouncements from "./dashboard/AdminAnnouncements";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -174,6 +176,7 @@ export default function Dashboard() {
     { id: "jobs", label: "Jobs", icon: Briefcase },
     { id: "tasks", label: "Tasks", icon: CheckSquare },
     { id: "subjects", label: "Subjects", icon: CheckSquare },
+    { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
   ];
 
@@ -296,6 +299,9 @@ export default function Dashboard() {
           {activeTab === "tasks" && userRole === "admin" && <AdminTasks />}
           {activeTab === "subjects" && userRole === "admin" && (
             <AdminSubjects />
+          )}
+          {activeTab === "announcements" && userRole === "admin" && (
+            <AdminAnnouncements />
           )}
           {activeTab === "credits" && userRole === "student" && <Credits />}
           {activeTab === "meetings" && userRole === "student" && <Meetings />}

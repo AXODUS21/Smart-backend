@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Users, Clock, TrendingUp, Award } from "lucide-react";
+import { Users, Clock, TrendingUp, Award, Megaphone } from "lucide-react";
 
 export default function TutorHome() {
   const { user } = useAuth();
@@ -27,6 +27,7 @@ export default function TutorHome() {
   const [assignmentUpload, setAssignmentUpload] = useState({ title: "", description: "", file: null, studentId: "" });
   const [assignmentMsg, setAssignmentMsg] = useState("");
   const [students, setStudents] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
 
   const metricsData = [
     {
@@ -190,6 +191,38 @@ export default function TutorHome() {
   // Fetch assignments uploaded by tutor
   useEffect(() => { async function fetchAssignments() { if(!user) return; const { data } = await supabase.from('Assignments').select('*').eq('tutor_id', user.id).order('created_at', { ascending: false }); setAssignments(data || []); } fetchAssignments(); }, [user]);
 
+  // Fetch announcements for tutors
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("Announcements")
+          .select("*")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+
+        // Filter client-side for tutors
+        const filtered = (data || []).filter(
+          (ann) =>
+            !ann.target_audience ||
+            ann.target_audience.length === 0 ||
+            ann.target_audience.includes("tutors")
+        );
+
+        setAnnouncements(filtered.slice(0, 5));
+      } catch (error) {
+        console.error("Error fetching announcements:", error);
+      }
+    };
+
+    fetchAnnouncements();
+  }, [user]);
+
   // Remove a subject (by index since subjects are now objects)
   const handleRemoveSubject = async (indexToRemove) => {
     setSaving(true);
@@ -329,6 +362,51 @@ export default function TutorHome() {
         </h2>
         <p className="text-slate-500">{todayFormatted}</p>
       </div>
+
+      {/* Announcements */}
+      {announcements.length > 0 && (
+        <div className="space-y-3">
+          {announcements.map((announcement) => (
+            <div
+              key={announcement.id}
+              className={`p-4 rounded-lg border-l-4 ${
+                announcement.priority === "urgent"
+                  ? "bg-red-50 border-red-500"
+                  : announcement.priority === "high"
+                  ? "bg-orange-50 border-orange-500"
+                  : "bg-blue-50 border-blue-500"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <Megaphone
+                  className={`w-5 h-5 mt-0.5 ${
+                    announcement.priority === "urgent"
+                      ? "text-red-600"
+                      : announcement.priority === "high"
+                      ? "text-orange-600"
+                      : "text-blue-600"
+                  }`}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-slate-900">
+                      {announcement.title}
+                    </h3>
+                    {announcement.priority === "urgent" && (
+                      <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                        Urgent
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                    {announcement.message}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tab switch UI */}
       <div className="my-6"> 

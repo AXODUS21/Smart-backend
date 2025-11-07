@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Clock, Zap, TrendingUp, Star } from "lucide-react";
+import { Clock, Zap, TrendingUp, Star, Megaphone, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function StudentHome({ setActiveTab }) {
@@ -19,6 +19,7 @@ export default function StudentHome({ setActiveTab }) {
   const [recentActivity, setRecentActivity] = useState([]);
   const [studentName, setStudentName] = useState("");
   const [assignments, setAssignments] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
     if (!user) return;
@@ -123,6 +124,38 @@ export default function StudentHome({ setActiveTab }) {
       }
     }
     fetchAssignments();
+  }, [user]);
+
+  // Fetch announcements for students
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("Announcements")
+          .select("*")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+
+        // Filter client-side for students
+        const filtered = (data || []).filter(
+          (ann) =>
+            !ann.target_audience ||
+            ann.target_audience.length === 0 ||
+            ann.target_audience.includes("students")
+        );
+
+        setAnnouncements(filtered.slice(0, 5));
+      } catch (error) {
+        console.error("Error fetching announcements:", error);
+      }
+    };
+
+    fetchAnnouncements();
   }, [user]);
 
   const getTimeAgo = (date) => {
@@ -232,6 +265,51 @@ export default function StudentHome({ setActiveTab }) {
         </h2>
         <p className="text-slate-500">{getCurrentDate()}</p>
       </div>
+
+      {/* Announcements */}
+      {announcements.length > 0 && (
+        <div className="space-y-3">
+          {announcements.map((announcement) => (
+            <div
+              key={announcement.id}
+              className={`p-4 rounded-lg border-l-4 ${
+                announcement.priority === "urgent"
+                  ? "bg-red-50 border-red-500"
+                  : announcement.priority === "high"
+                  ? "bg-orange-50 border-orange-500"
+                  : "bg-blue-50 border-blue-500"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <Megaphone
+                  className={`w-5 h-5 mt-0.5 ${
+                    announcement.priority === "urgent"
+                      ? "text-red-600"
+                      : announcement.priority === "high"
+                      ? "text-orange-600"
+                      : "text-blue-600"
+                  }`}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-slate-900">
+                      {announcement.title}
+                    </h3>
+                    {announcement.priority === "urgent" && (
+                      <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                        Urgent
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                    {announcement.message}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metricData.map((metric, index) => {
