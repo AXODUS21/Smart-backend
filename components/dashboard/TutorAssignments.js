@@ -185,20 +185,39 @@ export default function TutorAssignments() {
 
       // Upload file if provided
       if (formData.file) {
-        const filePath = `${tutorId}_${Date.now()}_${formData.file.name}`;
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from("assignments")
-          .upload(filePath, formData.file);
+        try {
+          // Sanitize filename - remove special characters and spaces
+          const sanitizedFileName = formData.file.name
+            .replace(/[^a-zA-Z0-9.-]/g, '_')
+            .replace(/\s+/g, '_');
+          
+          const filePath = `${tutorId}_${Date.now()}_${sanitizedFileName}`;
+          
+          // Try to upload to storage
+          const { data: storageData, error: storageError } = await supabase.storage
+            .from("assignments")
+            .upload(filePath, formData.file, {
+              cacheControl: '3600',
+              upsert: false
+            });
 
-        if (storageError) {
-          setError("File upload failed: " + storageError.message);
-          setSubmitting(false);
-          return;
+          if (storageError) {
+            // If storage bucket doesn't exist or has permission issues, continue without file
+            console.error("Storage upload error:", storageError);
+            // Don't block assignment creation if file upload fails
+            // Just show a warning but allow the assignment to be created
+            setError("Warning: File upload failed, but assignment will be created without attachment. Error: " + storageError.message);
+            // Continue without file
+          } else if (storageData) {
+            // Get public URL
+            const { data: urlData } = supabase.storage.from("assignments").getPublicUrl(filePath);
+            fileUrl = urlData?.publicUrl || filePath;
+          }
+        } catch (uploadError) {
+          console.error("File upload exception:", uploadError);
+          // Continue without file - don't block assignment creation
+          setError("Warning: File upload failed, but assignment will be created without attachment.");
         }
-
-        // Get public URL
-        const { data } = supabase.storage.from("assignments").getPublicUrl(filePath);
-        fileUrl = data?.publicUrl || filePath;
       }
 
       // Create assignment

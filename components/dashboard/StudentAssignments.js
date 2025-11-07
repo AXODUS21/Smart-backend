@@ -109,14 +109,22 @@ export default function StudentAssignments() {
         return;
       }
 
+      // Sanitize filename
+      const sanitizedFileName = submissionFile.name
+        .replace(/[^a-zA-Z0-9.-]/g, '_')
+        .replace(/\s+/g, '_');
+      
       // Upload file to Supabase storage
-      const filePath = `submissions/${studentId}_${assignmentId}_${Date.now()}_${submissionFile.name}`;
+      const filePath = `submissions/${studentId}_${assignmentId}_${Date.now()}_${sanitizedFileName}`;
       const { data: storageData, error: storageError } = await supabase.storage
         .from("assignments")
-        .upload(filePath, submissionFile);
+        .upload(filePath, submissionFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (storageError) {
-        throw new Error("File upload failed: " + storageError.message);
+        throw new Error("File upload failed: " + storageError.message + ". Please ensure the storage bucket 'assignments' exists and has proper permissions.");
       }
 
       // Get public URL
