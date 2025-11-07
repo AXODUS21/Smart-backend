@@ -104,8 +104,23 @@ export default function StudentHome({ setActiveTab }) {
   useEffect(() => {
     async function fetchAssignments() {
       if (!user) return;
-      const { data } = await supabase.from('Assignments').select('*, tutor:tutor_id (name, email)').eq('student_id', user.id).order('created_at', {ascending: false});
-      setAssignments(data || []);
+      
+      // First get the student's bigint ID
+      const { data: studentData } = await supabase
+        .from("Students")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+      
+      if (studentData) {
+        // Now query assignments using the student's bigint ID
+        const { data } = await supabase
+          .from('Assignments')
+          .select('*, tutor:tutor_id (name, email)')
+          .eq('student_id', studentData.id)
+          .order('created_at', {ascending: false});
+        setAssignments(data || []);
+      }
     }
     fetchAssignments();
   }, [user]);

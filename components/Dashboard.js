@@ -44,6 +44,7 @@ import AdminSubjects from "./dashboard/AdminSubjects";
 import StudentReview from "./dashboard/StudentReview";
 import AdminParentsReview from "./dashboard/AdminParentsReview";
 import TutorAssignments from "./dashboard/TutorAssignments";
+import StudentAssignments from "./dashboard/StudentAssignments";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -147,6 +148,7 @@ export default function Dashboard() {
 
   const studentTabsBase = [
     { id: "home", label: "Dashboard", icon: Home },
+    { id: "assignments", label: "Assignments", icon: BookOpen },
     { id: "find-tutors", label: "Book Sessions", icon: Search },
     { id: "meetings", label: "Calendar", icon: Video },
     { id: "feedback", label: "Feedback", icon: MessageSquare },
@@ -277,6 +279,9 @@ export default function Dashboard() {
         <main className="flex-1 p-6">
           {activeTab === "home" && userRole === "student" && (
             <StudentHome setActiveTab={setActiveTab} />
+          )}
+          {activeTab === "assignments" && userRole === "student" && (
+            <StudentAssignments />
           )}
           {activeTab === "home" && userRole === "tutor" && <TutorHome />}
           {activeTab === "assignments" && userRole === "tutor" && (
