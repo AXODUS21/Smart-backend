@@ -43,6 +43,7 @@ import AdminTasks from "./dashboard/AdminTasks";
 import AdminSubjects from "./dashboard/AdminSubjects";
 import StudentReview from "./dashboard/StudentReview";
 import AdminParentsReview from "./dashboard/AdminParentsReview";
+import TutorAssignments from "./dashboard/TutorAssignments";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -157,6 +158,7 @@ export default function Dashboard() {
 
   const tutorTabs = [
     { id: "home", label: "Dashboard", icon: Home },
+    { id: "assignments", label: "Assignments", icon: BookOpen },
     { id: "calendar", label: "Calendar", icon: CalendarIcon },
     { id: "meetings", label: "Booking Request", icon: Video },
     { id: "past-sessions", label: "Past Sessions", icon: Clock },
@@ -277,6 +279,9 @@ export default function Dashboard() {
             <StudentHome setActiveTab={setActiveTab} />
           )}
           {activeTab === "home" && userRole === "tutor" && <TutorHome />}
+          {activeTab === "assignments" && userRole === "tutor" && (
+            <TutorAssignments />
+          )}
           {activeTab === "home" && userRole === "admin" && <AdminDashboard />}
           {activeTab === "analytics" && userRole === "admin" && (
             <AdminAnalytics />
