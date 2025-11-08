@@ -363,51 +363,6 @@ export default function TutorHome() {
         <p className="text-slate-500">{todayFormatted}</p>
       </div>
 
-      {/* Announcements */}
-      {announcements.length > 0 && (
-        <div className="space-y-3">
-          {announcements.map((announcement) => (
-            <div
-              key={announcement.id}
-              className={`p-4 rounded-lg border-l-4 ${
-                announcement.priority === "urgent"
-                  ? "bg-red-50 border-red-500"
-                  : announcement.priority === "high"
-                  ? "bg-orange-50 border-orange-500"
-                  : "bg-blue-50 border-blue-500"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <Megaphone
-                  className={`w-5 h-5 mt-0.5 ${
-                    announcement.priority === "urgent"
-                      ? "text-red-600"
-                      : announcement.priority === "high"
-                      ? "text-orange-600"
-                      : "text-blue-600"
-                  }`}
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-slate-900">
-                      {announcement.title}
-                    </h3>
-                    {announcement.priority === "urgent" && (
-                      <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                        Urgent
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                    {announcement.message}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Tab switch UI */}
       <div className="my-6"> 
         <button onClick={() => setActiveTab('dashboard')}>Dashboard</button> 
@@ -509,7 +464,53 @@ export default function TutorHome() {
             )}
           </div>
         </div>
-      
+
+      {/* Announcements */}
+      {announcements.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-slate-900">Annoucement</h3>
+          {announcements.map((announcement) => (
+            <div
+              key={announcement.id}
+              className={`p-4 rounded-lg border-l-4 ${
+                announcement.priority === "urgent"
+                  ? "bg-red-50 border-red-500"
+                  : announcement.priority === "high"
+                  ? "bg-orange-50 border-orange-500"
+                  : "bg-blue-50 border-blue-500"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <Megaphone
+                  className={`w-5 h-5 mt-0.5 ${
+                    announcement.priority === "urgent"
+                      ? "text-red-600"
+                      : announcement.priority === "high"
+                      ? "text-orange-600"
+                      : "text-blue-600"
+                  }`}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-slate-900">
+                      {announcement.title}
+                    </h3>
+                    {announcement.priority === "urgent" && (
+                      <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                        Urgent
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                    {announcement.message}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+ 
     </div>
   );
 }

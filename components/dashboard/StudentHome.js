@@ -3,7 +3,14 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Clock, Zap, TrendingUp, Star, Megaphone, AlertCircle } from "lucide-react";
+import {
+  Clock,
+  Zap,
+  TrendingUp,
+  Star,
+  Megaphone,
+  AlertCircle,
+} from "lucide-react";
 import Link from "next/link";
 
 export default function StudentHome({ setActiveTab }) {
@@ -18,7 +25,6 @@ export default function StudentHome({ setActiveTab }) {
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [studentName, setStudentName] = useState("");
-  const [assignments, setAssignments] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
@@ -102,35 +108,11 @@ export default function StudentHome({ setActiveTab }) {
     fetchData();
   }, [user]);
 
-  useEffect(() => {
-    async function fetchAssignments() {
-      if (!user) return;
-      
-      // First get the student's bigint ID
-      const { data: studentData } = await supabase
-        .from("Students")
-        .select("id")
-        .eq("user_id", user.id)
-        .single();
-      
-      if (studentData) {
-        // Now query assignments using the student's bigint ID
-        const { data } = await supabase
-          .from('Assignments')
-          .select('*, tutor:tutor_id (name, email)')
-          .eq('student_id', studentData.id)
-          .order('created_at', {ascending: false});
-        setAssignments(data || []);
-      }
-    }
-    fetchAssignments();
-  }, [user]);
-
   // Fetch announcements for students
   useEffect(() => {
     const fetchAnnouncements = async () => {
       if (!user) return;
-      
+
       try {
         const { data, error } = await supabase
           .from("Announcements")
@@ -249,7 +231,10 @@ export default function StudentHome({ setActiveTab }) {
           <Zap className="text-orange-500" size={28} />
           <div className="flex-1">
             <div className="font-bold">Low Credits Warning</div>
-            <div className="text-sm">Your credits are running low. Please purchase more to keep booking sessions!</div>
+            <div className="text-sm">
+              Your credits are running low. Please purchase more to keep booking
+              sessions!
+            </div>
           </div>
           <button
             onClick={() => setActiveTab && setActiveTab("credits")}
@@ -265,51 +250,6 @@ export default function StudentHome({ setActiveTab }) {
         </h2>
         <p className="text-slate-500">{getCurrentDate()}</p>
       </div>
-
-      {/* Announcements */}
-      {announcements.length > 0 && (
-        <div className="space-y-3">
-          {announcements.map((announcement) => (
-            <div
-              key={announcement.id}
-              className={`p-4 rounded-lg border-l-4 ${
-                announcement.priority === "urgent"
-                  ? "bg-red-50 border-red-500"
-                  : announcement.priority === "high"
-                  ? "bg-orange-50 border-orange-500"
-                  : "bg-blue-50 border-blue-500"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <Megaphone
-                  className={`w-5 h-5 mt-0.5 ${
-                    announcement.priority === "urgent"
-                      ? "text-red-600"
-                      : announcement.priority === "high"
-                      ? "text-orange-600"
-                      : "text-blue-600"
-                  }`}
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-slate-900">
-                      {announcement.title}
-                    </h3>
-                    {announcement.priority === "urgent" && (
-                      <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                        Urgent
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                    {announcement.message}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metricData.map((metric, index) => {
@@ -331,16 +271,6 @@ export default function StudentHome({ setActiveTab }) {
             </div>
           );
         })}
-      </div>
-
-      <div className="my-6">
-        <h2 style={{fontWeight: 'bold'}}>Your Assignments</h2>
-        <ul>{assignments.length === 0 ? <li>No assignments yet.</li> : assignments.map(a => <li key={a.id} style={{margin: '8px 0'}}>
-          <strong>{a.title}</strong> from {a.tutor?.name || a.tutor?.email || 'Tutor'}: {a.description}
-          {a.file_url && <a href={a.file_url} target="_blank" rel="noopener noreferrer">Download</a>}
-          <br/>
-          <span style={{fontSize: '0.9em', color: '#666'}}>Uploaded: {new Date(a.created_at).toLocaleString()}</span>
-        </li>)}</ul>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -407,6 +337,52 @@ export default function StudentHome({ setActiveTab }) {
           )}
         </div>
       </div>
+
+      {/* Announcements */}
+      {announcements.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-slate-900">Annoucement</h3>
+          {announcements.map((announcement) => (
+            <div
+              key={announcement.id}
+              className={`p-4 rounded-lg border-l-4 ${
+                announcement.priority === "urgent"
+                  ? "bg-red-50 border-red-500"
+                  : announcement.priority === "high"
+                  ? "bg-orange-50 border-orange-500"
+                  : "bg-blue-50 border-blue-500"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <Megaphone
+                  className={`w-5 h-5 mt-0.5 ${
+                    announcement.priority === "urgent"
+                      ? "text-red-600"
+                      : announcement.priority === "high"
+                      ? "text-orange-600"
+                      : "text-blue-600"
+                  }`}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-slate-900">
+                      {announcement.title}
+                    </h3>
+                    {announcement.priority === "urgent" && (
+                      <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                        Urgent
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                    {announcement.message}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

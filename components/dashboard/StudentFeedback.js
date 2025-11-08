@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Star, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 export default function StudentFeedback() {
   const { user } = useAuth();
@@ -51,7 +51,6 @@ export default function StudentFeedback() {
             tutor: session.tutor?.name || session.tutor?.email || "Tutor",
             subject: session.subject || "Tutoring Session",
             date: formatDate(session.start_time_utc),
-            rating: 5, // Default rating since we don't have a rating system yet
             feedback: session.tutor_review || "",
           }));
           setFeedbackList(transformedFeedback);
@@ -72,34 +71,23 @@ export default function StudentFeedback() {
     return date.toLocaleDateString("en-US", options);
   };
 
-  const renderStars = (rating) => {
-    return Array.from({ length: 5 }, (_, index) => (
-      <Star
-        key={index}
-        className={`w-4 h-4 ${
-          index < rating ? "text-yellow-400 fill-current" : "text-gray-300"
-        }`}
-      />
-    ));
-  };
-
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+          <h2 className="text-2xl font-semibold text-slate-900 mb-1">
             Feedback
           </h2>
-          <p className="text-slate-500">View feedback from your tutors</p>
+          <p className="text-sm text-slate-500">View feedback from your tutors</p>
         </div>
-        <div className="animate-pulse space-y-4">
+        <div className="animate-pulse space-y-2">
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="bg-white rounded-lg p-6 shadow-sm border border-slate-200"
+              className="bg-white rounded-lg p-3 shadow-sm border border-slate-200"
             >
-              <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-3"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/4 mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
               <div className="h-3 bg-gray-200 rounded w-3/4"></div>
             </div>
           ))}
@@ -109,17 +97,17 @@ export default function StudentFeedback() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-semibold text-slate-900 mb-2">Feedback</h2>
-        <p className="text-slate-500">View feedback from your tutors</p>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-1">Feedback</h2>
+        <p className="text-sm text-slate-500">View feedback from your tutors</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-2">
         {feedbackList.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-lg font-medium mb-2">No feedback yet</p>
+          <div className="text-center py-8 text-gray-500">
+            <MessageSquare className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+            <p className="text-base font-medium mb-1">No feedback yet</p>
             <p className="text-sm">
               Complete some sessions to receive feedback from your tutors.
             </p>
@@ -128,21 +116,16 @@ export default function StudentFeedback() {
           feedbackList.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow"
+              className="bg-white rounded-lg p-3 shadow-sm border border-slate-200 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-900">{item.tutor}</p>
-                  <p className="text-sm text-slate-500">
-                    {item.subject} • {item.date}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  {renderStars(item.rating)}
-                </div>
+              <div className="mb-2">
+                <p className="font-semibold text-sm text-slate-900">{item.tutor}</p>
+                <p className="text-xs text-slate-500">
+                  {item.subject} • {item.date}
+                </p>
               </div>
-              <div className="bg-slate-50 rounded-lg p-4">
-                <p className="text-slate-700 leading-relaxed">
+              <div className="bg-slate-50 rounded p-2">
+                <p className="text-sm text-slate-700 leading-snug">
                   {item.feedback}
                 </p>
               </div>

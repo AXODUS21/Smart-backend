@@ -188,7 +188,7 @@ export default function StudentAssignments() {
 
     return (
       <span
-        className={`px-3 py-1 rounded-full text-xs font-medium ${
+        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
           styles[status] || "bg-gray-100 text-gray-800"
         }`}
       >
@@ -225,23 +225,23 @@ export default function StudentAssignments() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-4">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-48"></div>
+          <div className="h-6 bg-gray-200 rounded w-64 mb-2"></div>
+          <div className="h-3 bg-gray-200 rounded w-48"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+          <h2 className="text-2xl font-semibold text-slate-900 mb-1">
             My Assignments
           </h2>
-          <p className="text-slate-500">
+          <p className="text-sm text-slate-500">
             View and submit your assignments
           </p>
         </div>
@@ -249,7 +249,7 @@ export default function StudentAssignments() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Assignments</option>
             <option value="assigned">Assigned</option>
@@ -262,170 +262,168 @@ export default function StudentAssignments() {
 
       {/* Success/Error Messages */}
       {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
-          <CheckCircle className="w-5 h-5" />
+        <div className="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded-lg flex items-center gap-2 text-sm">
+          <CheckCircle className="w-4 h-4" />
           {success}
         </div>
       )}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
+        <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded-lg flex items-center gap-2 text-sm">
+          <AlertCircle className="w-4 h-4" />
           {error}
         </div>
       )}
 
       {/* Assignments List */}
-      <div className="space-y-4">
-        {filteredAssignments.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
-            <BookOpen className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-            <p className="text-lg font-medium text-slate-900 mb-2">
-              No assignments found
-            </p>
-            <p className="text-slate-500">
-              {assignments.length === 0
-                ? "You don't have any assignments yet."
-                : "Try adjusting your filter criteria."}
-            </p>
-          </div>
-        ) : (
-          filteredAssignments.map((assignment) => (
+      {filteredAssignments.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8 text-center">
+          <BookOpen className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+          <p className="text-base font-medium text-slate-900 mb-1">
+            No assignments found
+          </p>
+          <p className="text-sm text-slate-500">
+            {assignments.length === 0
+              ? "You don't have any assignments yet."
+              : "Try adjusting your filter criteria."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filteredAssignments.map((assignment) => (
             <div
               key={assignment.id}
-              className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow"
+              className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 hover:shadow-md transition-shadow flex flex-col"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      {assignment.title}
-                    </h3>
-                    {getStatusBadge(assignment)}
-                    {isOverdue(assignment) && (
-                      <span className="text-xs text-red-600 font-medium">
-                        Overdue
-                      </span>
-                    )}
-                  </div>
+              <div className="flex-1">
+                <div className="flex items-start gap-2 mb-2 flex-wrap">
+                  <h3 className="text-base font-semibold text-slate-900 flex-1 min-w-0">
+                    {assignment.title}
+                  </h3>
+                  {getStatusBadge(assignment)}
+                </div>
+                {isOverdue(assignment) && (
+                  <span className="text-xs text-red-600 font-medium mb-1.5 inline-block">
+                    Overdue
+                  </span>
+                )}
 
-                  <div className="space-y-1 text-sm text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">From:</span>
-                      <span>
-                        {assignment.tutor?.name ||
-                          assignment.tutor?.email ||
-                          "Tutor"}
-                      </span>
-                    </div>
-                    {assignment.subject && (
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4" />
-                        <span>{assignment.subject}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>
-                        Due: {formatDate(assignment.due_date)}
-                        {isOverdue(assignment) && (
-                          <span className="text-red-600 ml-2">(Past Due)</span>
-                        )}
-                      </span>
-                    </div>
-                    {assignment.max_points && (
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">Points:</span>
-                        <span>
-                          {assignment.points !== null &&
-                          assignment.points !== undefined
-                            ? `${assignment.points}`
-                            : "Not graded"}
-                          {assignment.max_points && ` / ${assignment.max_points}`}
-                        </span>
-                      </div>
-                    )}
+                <div className="space-y-0.5 text-xs text-slate-600 mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium">From:</span>
+                    <span className="truncate">
+                      {assignment.tutor?.name ||
+                        assignment.tutor?.email ||
+                        "Tutor"}
+                    </span>
                   </div>
-
-                  {assignment.description && (
-                    <div className="mt-3 p-3 bg-slate-50 rounded-lg">
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                        {assignment.description}
-                      </p>
+                  {assignment.subject && (
+                    <div className="flex items-center gap-1.5">
+                      <BookOpen className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">{assignment.subject}</span>
                     </div>
                   )}
-
-                  {/* Assignment File */}
-                  {assignment.file_url && (
-                    <div className="mt-3">
-                      <a
-                        href={assignment.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download Assignment File
-                      </a>
-                    </div>
-                  )}
-
-                  {/* Submission Info */}
-                  {assignment.submission_file_url && (
-                    <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                      <div className="flex items-center gap-2 text-green-800 mb-2">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="font-medium text-sm">Submitted</span>
-                      </div>
-                      <div className="text-xs text-green-700 space-y-1">
-                        <div>
-                          Submitted: {formatDate(assignment.submission_date)}
-                        </div>
-                        <a
-                          href={assignment.submission_file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 hover:underline"
-                        >
-                          <Download className="w-3 h-3" />
-                          View Submission
-                        </a>
-                        {assignment.submission_notes && (
-                          <div className="mt-2">
-                            <span className="font-medium">Notes:</span>{" "}
-                            {assignment.submission_notes}
-                          </div>
-                        )}
-                      </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">
+                      Due: {formatDate(assignment.due_date)}
+                      {isOverdue(assignment) && (
+                        <span className="text-red-600 ml-1">(Past Due)</span>
+                      )}
+                    </span>
+                  </div>
+                  {assignment.max_points && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium">Points:</span>
+                      <span>
+                        {assignment.points !== null &&
+                        assignment.points !== undefined
+                          ? `${assignment.points}`
+                          : "Not graded"}
+                        {assignment.max_points && ` / ${assignment.max_points}`}
+                      </span>
                     </div>
                   )}
                 </div>
+
+                {assignment.description && (
+                  <div className="mt-2 p-2 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-slate-700 whitespace-pre-wrap line-clamp-2">
+                      {assignment.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Assignment File */}
+                {assignment.file_url && (
+                  <div className="mt-2">
+                    <a
+                      href={assignment.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 text-xs"
+                    >
+                      <Download className="w-3 h-3" />
+                      Download Assignment File
+                    </a>
+                  </div>
+                )}
+
+                {/* Submission Info */}
+                {assignment.submission_file_url && (
+                  <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-1.5 text-green-800 mb-1">
+                      <CheckCircle className="w-3 h-3" />
+                      <span className="font-medium text-xs">Submitted</span>
+                    </div>
+                    <div className="text-xs text-green-700 space-y-0.5">
+                      <div>
+                        Submitted: {formatDate(assignment.submission_date)}
+                      </div>
+                      <a
+                        href={assignment.submission_file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 hover:underline"
+                      >
+                        <Download className="w-3 h-3" />
+                        View Submission
+                      </a>
+                      {assignment.submission_notes && (
+                        <div className="mt-1">
+                          <span className="font-medium">Notes:</span>{" "}
+                          <span className="text-xs">{assignment.submission_notes}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Submit Button */}
               {assignment.status === "assigned" &&
                 !assignment.submission_file_url && (
-                  <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="mt-2 pt-2 border-t border-slate-200">
                     <button
                       onClick={() => setSelectedAssignment(assignment)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                     >
-                      <Upload className="w-4 h-4" />
+                      <Upload className="w-3.5 h-3.5" />
                       Submit Assignment
                     </button>
                   </div>
                 )}
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Submission Modal */}
       {selectedAssignment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-slate-900">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-slate-900">
                   Submit Assignment
                 </h3>
                 <button
@@ -441,16 +439,16 @@ export default function StudentAssignments() {
                 </button>
               </div>
 
-              <div className="mb-4">
-                <h4 className="font-medium text-slate-900 mb-2">
+              <div className="mb-3">
+                <h4 className="font-medium text-sm text-slate-900 mb-1">
                   {selectedAssignment.title}
                 </h4>
                 {selectedAssignment.description && (
-                  <p className="text-sm text-slate-600 mb-2">
+                  <p className="text-xs text-slate-600 mb-1">
                     {selectedAssignment.description}
                   </p>
                 )}
-                <p className="text-sm text-slate-500">
+                <p className="text-xs text-slate-500">
                   Due: {formatDate(selectedAssignment.due_date)}
                 </p>
               </div>
@@ -460,15 +458,15 @@ export default function StudentAssignments() {
                   e.preventDefault();
                   handleSubmitAssignment(selectedAssignment.id);
                 }}
-                className="space-y-4"
+                className="space-y-3"
               >
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     Upload File <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg cursor-pointer hover:bg-slate-200 transition-colors">
-                      <Upload className="w-5 h-5" />
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg cursor-pointer hover:bg-slate-200 transition-colors text-sm">
+                      <Upload className="w-4 h-4" />
                       <span>Choose File</span>
                       <input
                         type="file"
@@ -480,7 +478,7 @@ export default function StudentAssignments() {
                       />
                     </label>
                     {submissionFile && (
-                      <span className="text-sm text-slate-600">
+                      <span className="text-xs text-slate-600 truncate max-w-xs">
                         {submissionFile.name}
                       </span>
                     )}
@@ -488,23 +486,23 @@ export default function StudentAssignments() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     Notes (Optional)
                   </label>
                   <textarea
                     value={submissionNotes}
                     onChange={(e) => setSubmissionNotes(e.target.value)}
                     rows={3}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Add any notes or comments about your submission..."
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-2 pt-3">
                   <button
                     type="submit"
                     disabled={submitting[selectedAssignment.id] || !submissionFile}
-                    className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
                   >
                     <Send className="w-4 h-4" />
                     {submitting[selectedAssignment.id]
@@ -519,7 +517,7 @@ export default function StudentAssignments() {
                       setSubmissionNotes("");
                       setError("");
                     }}
-                    className="px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+                    className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors text-sm"
                   >
                     Cancel
                   </button>

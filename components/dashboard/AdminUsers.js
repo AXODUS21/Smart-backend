@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Users, GraduationCap, BookOpen, Shield, Search, Eye } from "lucide-react";
+import { Users, GraduationCap, BookOpen, Shield, Search, Eye, ArrowUpDown } from "lucide-react";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState({
@@ -13,6 +13,8 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
+  const [sortField, setSortField] = useState("created_at");
+  const [sortDirection, setSortDirection] = useState("desc");
   const [viewingUser, setViewingUser] = useState(null);
 
   useEffect(() => {
@@ -59,6 +61,37 @@ export default function AdminUsers() {
           u.email?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+
+    // Sort users
+    allUsers.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      // Handle different data types
+      if (sortField === "created_at") {
+        aValue = new Date(aValue || 0).getTime();
+        bValue = new Date(bValue || 0).getTime();
+      } else if (sortField === "name" || sortField === "email") {
+        aValue = (aValue || "").toLowerCase();
+        bValue = (bValue || "").toLowerCase();
+      } else if (sortField === "role") {
+        aValue = a.role || "";
+        bValue = b.role || "";
+      } else {
+        // For numeric fields like credits
+        aValue = parseFloat(aValue || 0);
+        bValue = parseFloat(bValue || 0);
+      }
+
+      // Compare values
+      if (aValue < bValue) {
+        return sortDirection === "asc" ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortDirection === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
 
     return allUsers;
   };
@@ -159,6 +192,29 @@ export default function AdminUsers() {
               <option value="student">Students</option>
               <option value="tutor">Tutors</option>
               <option value="admin">Admins</option>
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <div className="relative">
+              <ArrowUpDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <select
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value)}
+                className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+              >
+                <option value="created_at">Joined Date</option>
+                <option value="name">Name</option>
+                <option value="email">Email</option>
+                <option value="role">Role</option>
+              </select>
+            </div>
+            <select
+              value={sortDirection}
+              onChange={(e) => setSortDirection(e.target.value)}
+              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
             </select>
           </div>
         </div>

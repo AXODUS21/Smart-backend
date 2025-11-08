@@ -2,13 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Briefcase, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Search } from "lucide-react";
+import { Briefcase, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Search, Filter, X } from "lucide-react";
 
 export default function AdminJobs() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [subjectFilter, setSubjectFilter] = useState("");
+  const [tutorFilter, setTutorFilter] = useState("");
+  const [studentFilter, setStudentFilter] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
+  const [minDurationFilter, setMinDurationFilter] = useState("");
+  const [maxDurationFilter, setMaxDurationFilter] = useState("");
+  const [minCreditsFilter, setMinCreditsFilter] = useState("");
+  const [maxCreditsFilter, setMaxCreditsFilter] = useState("");
 
   useEffect(() => {
     fetchBookings();
@@ -87,10 +97,12 @@ export default function AdminJobs() {
   const filteredBookings = () => {
     let filtered = bookings;
 
+    // Status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter((b) => b.status === statusFilter);
     }
 
+    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(
         (b) =>
@@ -100,6 +112,70 @@ export default function AdminJobs() {
           b.tutor?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           b.subject?.toLowerCase().includes(searchTerm.toLowerCase())
       );
+    }
+
+    // Subject filter
+    if (subjectFilter) {
+      filtered = filtered.filter((b) => b.subject?.toLowerCase() === subjectFilter.toLowerCase());
+    }
+
+    // Tutor filter
+    if (tutorFilter) {
+      filtered = filtered.filter(
+        (b) =>
+          b.tutor?.name?.toLowerCase().includes(tutorFilter.toLowerCase()) ||
+          b.tutor?.email?.toLowerCase().includes(tutorFilter.toLowerCase())
+      );
+    }
+
+    // Student filter
+    if (studentFilter) {
+      filtered = filtered.filter(
+        (b) =>
+          b.student?.name?.toLowerCase().includes(studentFilter.toLowerCase()) ||
+          b.student?.email?.toLowerCase().includes(studentFilter.toLowerCase())
+      );
+    }
+
+    // Date range filter
+    if (startDateFilter) {
+      const startDate = new Date(startDateFilter);
+      startDate.setHours(0, 0, 0, 0);
+      filtered = filtered.filter((b) => {
+        const bookingDate = new Date(b.start_time_utc);
+        return bookingDate >= startDate;
+      });
+    }
+
+    if (endDateFilter) {
+      const endDate = new Date(endDateFilter);
+      endDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((b) => {
+        const bookingDate = new Date(b.start_time_utc);
+        return bookingDate <= endDate;
+      });
+    }
+
+    // Duration filter
+    if (minDurationFilter) {
+      const minDuration = parseFloat(minDurationFilter);
+      filtered = filtered.filter((b) => parseFloat(b.duration_min || 0) >= minDuration);
+    }
+
+    if (maxDurationFilter) {
+      const maxDuration = parseFloat(maxDurationFilter);
+      filtered = filtered.filter((b) => parseFloat(b.duration_min || 0) <= maxDuration);
+    }
+
+    // Credits filter
+    if (minCreditsFilter) {
+      const minCredits = parseFloat(minCreditsFilter);
+      filtered = filtered.filter((b) => parseFloat(b.credits_required || 0) >= minCredits);
+    }
+
+    if (maxCreditsFilter) {
+      const maxCredits = parseFloat(maxCreditsFilter);
+      filtered = filtered.filter((b) => parseFloat(b.credits_required || 0) <= maxCredits);
     }
 
     return filtered;
@@ -113,6 +189,69 @@ export default function AdminJobs() {
       cancelled: bookings.filter((b) => b.status === "cancelled").length,
       completed: bookings.filter((b) => b.status === "completed").length,
     };
+  };
+
+  const getUniqueSubjects = () => {
+    const subjects = bookings
+      .map((b) => b.subject)
+      .filter((s) => s && s.trim() !== "")
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .sort();
+    return subjects;
+  };
+
+  const getUniqueTutors = () => {
+    const tutors = bookings
+      .map((b) => ({ name: b.tutor?.name, email: b.tutor?.email }))
+      .filter((t) => t.name || t.email)
+      .filter((value, index, self) => {
+        const identifier = `${value.name || ""}-${value.email || ""}`;
+        return self.findIndex((t) => `${t.name || ""}-${t.email || ""}` === identifier) === index;
+      })
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    return tutors;
+  };
+
+  const getUniqueStudents = () => {
+    const students = bookings
+      .map((b) => ({ name: b.student?.name, email: b.student?.email }))
+      .filter((s) => s.name || s.email)
+      .filter((value, index, self) => {
+        const identifier = `${value.name || ""}-${value.email || ""}`;
+        return self.findIndex((s) => `${s.name || ""}-${s.email || ""}` === identifier) === index;
+      })
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    return students;
+  };
+
+  const clearAllFilters = () => {
+    setStatusFilter("all");
+    setSearchTerm("");
+    setSubjectFilter("");
+    setTutorFilter("");
+    setStudentFilter("");
+    setStartDateFilter("");
+    setEndDateFilter("");
+    setMinDurationFilter("");
+    setMaxDurationFilter("");
+    setMinCreditsFilter("");
+    setMaxCreditsFilter("");
+  };
+
+  const hasActiveFilters = () => {
+    return (
+      statusFilter !== "all" ||
+      searchTerm ||
+      subjectFilter ||
+      tutorFilter ||
+      studentFilter ||
+      startDateFilter ||
+      endDateFilter ||
+      minDurationFilter ||
+      maxDurationFilter ||
+      minCreditsFilter ||
+      maxCreditsFilter
+    );
   };
 
   const stats = getStatusStats();
@@ -184,18 +323,171 @@ export default function AdminJobs() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search by student, tutor, or subject..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500"
-          />
+      {/* Search and Filters */}
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Search by student, tutor, or subject..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500"
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+              showFilters || hasActiveFilters()
+                ? "bg-blue-50 border-blue-500 text-blue-700"
+                : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+            {hasActiveFilters() && (
+              <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
+                Active
+              </span>
+            )}
+          </button>
+          {hasActiveFilters() && (
+            <button
+              onClick={clearAllFilters}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition-all"
+            >
+              <X className="w-4 h-4" />
+              Clear
+            </button>
+          )}
         </div>
+
+        {/* Advanced Filters Panel */}
+        {showFilters && (
+          <div className="border-t border-slate-200 pt-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Subject Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Subject</label>
+                <select
+                  value={subjectFilter}
+                  onChange={(e) => setSubjectFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
+                >
+                  <option value="">All Subjects</option>
+                  {getUniqueSubjects().map((subject) => (
+                    <option key={subject} value={subject}>
+                      {subject}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Tutor Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Tutor</label>
+                <select
+                  value={tutorFilter}
+                  onChange={(e) => setTutorFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
+                >
+                  <option value="">All Tutors</option>
+                  {getUniqueTutors().map((tutor, index) => (
+                    <option key={index} value={tutor.name || tutor.email}>
+                      {tutor.name || tutor.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Student Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Student</label>
+                <select
+                  value={studentFilter}
+                  onChange={(e) => setStudentFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
+                >
+                  <option value="">All Students</option>
+                  {getUniqueStudents().map((student, index) => (
+                    <option key={index} value={student.name || student.email}>
+                      {student.name || student.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Start Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Start Date</label>
+                <input
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => setStartDateFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
+                />
+              </div>
+
+              {/* End Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">End Date</label>
+                <input
+                  type="date"
+                  value={endDateFilter}
+                  onChange={(e) => setEndDateFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
+                />
+              </div>
+
+              {/* Duration Range */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Duration (minutes)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={minDurationFilter}
+                    onChange={(e) => setMinDurationFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
+                    min="0"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={maxDurationFilter}
+                    onChange={(e) => setMaxDurationFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              {/* Credits Range */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Credits</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={minCreditsFilter}
+                    onChange={(e) => setMinCreditsFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
+                    min="0"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={maxCreditsFilter}
+                    onChange={(e) => setMaxCreditsFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bookings Table */}

@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Save, Plus, X } from "lucide-react";
+import { ImageUpload } from "@/components/ImageUpload";
+
+const PROFILE_PHOTOS_BUCKET = "profile-photos";
 
 export default function TutorProfile() {
   const { user } = useAuth();
@@ -15,10 +18,18 @@ export default function TutorProfile() {
   // Form state
   const [bio, setBio] = useState("");
   const [experiences, setExperiences] = useState([]);
-  const [newExperience, setNewExperience] = useState({ title: "", company: "", duration: "", description: "" });
+  const [newExperience, setNewExperience] = useState({
+    title: "",
+    company: "",
+    duration: "",
+    description: "",
+  });
   const [skills, setSkills] = useState([]);
   const [newSkill, setNewSkill] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [photoResetToken, setPhotoResetToken] = useState(0);
   const [subjects, setSubjects] = useState([]); // Array of {subject: string, grade_level: string}
   const [newSubject, setNewSubject] = useState("");
   const [newSubjectGradeLevel, setNewSubjectGradeLevel] = useState("");
@@ -86,10 +97,13 @@ export default function TutorProfile() {
           setExperiences(tutorData?.experience || []);
           setSkills(tutorData?.skills || []);
           setPhotoUrl(tutorData?.photo_url || "");
+          setPhotoFile(null);
+          setPhotoRemoved(false);
+          setPhotoResetToken((prev) => prev + 1);
           // Handle both old format (text array) and new format (object array)
           const subjectsData = tutorData?.subjects || [];
           const normalizedSubjects = subjectsData.map((subj) => {
-            if (typeof subj === 'string') {
+            if (typeof subj === "string") {
               return { subject: subj, grade_level: null };
             }
             return subj;
@@ -139,6 +153,21 @@ export default function TutorProfile() {
   // Remove skill
   const handleRemoveSkill = (skillToRemove) => {
     setSkills(skills.filter((skill) => skill !== skillToRemove));
+  };
+
+  const handleImageChange = (file) => {
+    setSuccess("");
+    setError("");
+
+    if (file) {
+      setPhotoFile(file);
+      setPhotoRemoved(false);
+    } else {
+      setPhotoFile(null);
+      setPhotoUrl("");
+      setPhotoRemoved(true);
+      setPhotoResetToken((prev) => prev + 1);
+    }
   };
 
   // Add subject with grade level (immediately persist to DB)
@@ -239,13 +268,46 @@ export default function TutorProfile() {
     setError("");
 
     try {
+      let updatedPhotoUrl = photoUrl || null;
+      const photoChanged = Boolean(photoFile) || photoRemoved;
+
+      if (photoFile) {
+        const sanitizedFileName = photoFile.name
+          .replace(/[^a-zA-Z0-9.-]/g, "_")
+          .replace(/\s+/g, "_");
+        const filePath = `tutor-photos/${
+          user.id
+        }_${Date.now()}_${sanitizedFileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(PROFILE_PHOTOS_BUCKET)
+          .upload(filePath, photoFile, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(
+            uploadError.message || "Failed to upload profile photo"
+          );
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from(PROFILE_PHOTOS_BUCKET)
+          .getPublicUrl(filePath);
+
+        updatedPhotoUrl = publicUrlData?.publicUrl || filePath;
+      } else if (photoRemoved) {
+        updatedPhotoUrl = null;
+      }
+
       const { error: updateError } = await supabase
         .from("Tutors")
         .update({
           bio,
           experience: experiences,
           skills,
-          photo_url: photoUrl,
+          photo_url: updatedPhotoUrl,
           subjects,
           certifications,
         })
@@ -255,11 +317,18 @@ export default function TutorProfile() {
         throw updateError;
       }
 
+      if (photoChanged) {
+        setPhotoFile(null);
+        setPhotoRemoved(false);
+        setPhotoUrl(updatedPhotoUrl || "");
+        setPhotoResetToken((prev) => prev + 1);
+      }
+
       setSuccess("Profile saved successfully!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (error) {
       console.error("Error saving profile:", error);
-      setError("Error saving profile. Please try again.");
+      setError(error.message || "Error saving profile. Please try again.");
       setTimeout(() => setError(""), 3000);
     } finally {
       setSaving(false);
@@ -281,8 +350,12 @@ export default function TutorProfile() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Profile Settings</h2>
-          <p className="text-slate-500 mt-1">Manage your tutor profile information</p>
+          <h2 className="text-2xl font-semibold text-slate-900">
+            Profile Settings
+          </h2>
+          <p className="text-slate-500 mt-1">
+            Manage your tutor profile information
+          </p>
         </div>
         <button
           onClick={handleSaveProfile}
@@ -319,28 +392,17 @@ export default function TutorProfile() {
           />
         </div>
 
-        {/* Photo URL */}
+        {/* Profile Photo */}
         <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Profile Photo</h3>
-          <input
-            type="url"
-            value={photoUrl}
-            onChange={(e) => setPhotoUrl(e.target.value)}
-            placeholder="https://example.com/photo.jpg"
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+            Profile Photo
+          </h3>
+          <ImageUpload
+            onImageChange={handleImageChange}
+            initialUrl={photoUrl || null}
+            resetSignal={photoResetToken}
+            className="max-w-sm"
           />
-          {photoUrl && (
-            <div className="mt-4">
-              <img
-                src={photoUrl}
-                alt="Profile"
-                className="w-32 h-32 rounded-full object-cover border-2 border-slate-200"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-            </div>
-          )}
         </div>
 
         {/* Subjects with Grade Levels */}
@@ -354,7 +416,8 @@ export default function TutorProfile() {
           <div className="space-y-2 mb-4">
             {subjects.length === 0 ? (
               <p className="text-slate-500 italic text-sm">
-                No subjects added yet. Add subjects with their grade levels below.
+                No subjects added yet. Add subjects with their grade levels
+                below.
               </p>
             ) : (
               subjects.map((subjectObj, index) => (
@@ -459,7 +522,9 @@ export default function TutorProfile() {
 
         {/* Experience */}
         <div className="lg:col-span-2 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Experience</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+            Experience
+          </h3>
           <div className="space-y-4 mb-4">
             {experiences.map((exp) => (
               <div
@@ -468,13 +533,17 @@ export default function TutorProfile() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h4 className="font-semibold text-slate-900">{exp.title}</h4>
+                    <h4 className="font-semibold text-slate-900">
+                      {exp.title}
+                    </h4>
                     <p className="text-sm text-slate-600">{exp.company}</p>
                     {exp.duration && (
                       <p className="text-sm text-slate-500">{exp.duration}</p>
                     )}
                     {exp.description && (
-                      <p className="text-sm text-slate-700 mt-2">{exp.description}</p>
+                      <p className="text-sm text-slate-700 mt-2">
+                        {exp.description}
+                      </p>
                     )}
                   </div>
                   <button
@@ -518,7 +587,10 @@ export default function TutorProfile() {
             <textarea
               value={newExperience.description}
               onChange={(e) =>
-                setNewExperience({ ...newExperience, description: e.target.value })
+                setNewExperience({
+                  ...newExperience,
+                  description: e.target.value,
+                })
               }
               placeholder="Description (optional)"
               className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
@@ -582,4 +654,3 @@ export default function TutorProfile() {
     </div>
   );
 }
-

@@ -95,69 +95,8 @@ export default function PastSessions() {
     return `${startStr} - ${endStr}`;
   };
 
-  const handleSessionAction = async (id, action) => {
-    setProcessing((prev) => ({ ...prev, [id]: true }));
-
-    try {
-      if (action === "successful") {
-        setShowReview(id);
-      } else {
-        // Update session status using the new database fields
-        const newStatus =
-          action === "student-no-show" ? "student-no-show" : "tutor-no-show";
-
-        const { error } = await supabase
-          .from("Schedules")
-          .update({
-            session_status: newStatus,
-            session_action: action,
-            status: "confirmed" // Keep the main status as confirmed so session remains visible
-          })
-          .eq("id", id);
-
-        if (error) throw error;
-
-        // Handle credit refunds based on action
-        if (action === "tutor-no-show") {
-          // Refund credits to student
-          const session = sessions.find((s) => s.id === id);
-          if (session) {
-            const { data: studentData } = await supabase
-              .from("Students")
-              .select("credits")
-              .eq("id", session.student_id)
-              .single();
-
-            if (studentData) {
-              const newCredits =
-                (studentData.credits || 0) + session.credits_required;
-              await supabase
-                .from("Students")
-                .update({ credits: newCredits })
-                .eq("id", session.student_id);
-            }
-          }
-        }
-
-        // Update local state
-        setSessions(
-          sessions.map((session) =>
-            session.id === id
-              ? {
-                  ...session,
-                  status: newStatus,
-                  action: action,
-                }
-              : session
-          )
-        );
-      }
-    } catch (error) {
-      console.error("Error updating session:", error);
-      alert("Error updating session. Please try again.");
-    } finally {
-      setProcessing((prev) => ({ ...prev, [id]: false }));
-    }
+  const handleWriteReview = async (id) => {
+    setShowReview(id);
   };
 
   const handleSubmitReview = async (id) => {
@@ -176,7 +115,7 @@ export default function PastSessions() {
           session_status: "successful",
           session_action: "review-submitted",
           tutor_review: reviews[id],
-          status: "confirmed" // Keep the main status as confirmed so session remains visible
+          status: "confirmed", // Keep the main status as confirmed so session remains visible
         })
         .eq("id", id);
 
@@ -226,21 +165,23 @@ export default function PastSessions() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+          <h2 className="text-xl font-semibold text-slate-900 mb-1">
             Past Sessions
           </h2>
-          <p className="text-slate-500">Review and manage completed sessions</p>
+          <p className="text-sm text-slate-500">
+            Review and manage completed sessions
+          </p>
         </div>
-        <div className="animate-pulse space-y-4">
+        <div className="animate-pulse space-y-2">
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="bg-white rounded-lg p-6 shadow-sm border border-slate-200"
+              className="bg-white rounded-lg p-3 shadow-sm border border-slate-200"
             >
-              <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/4 mb-1"></div>
+              <div className="h-2 bg-gray-200 rounded w-1/2"></div>
             </div>
           ))}
         </div>
@@ -249,15 +190,17 @@ export default function PastSessions() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+        <h2 className="text-xl font-semibold text-slate-900 mb-1">
           Past Sessions
         </h2>
-        <p className="text-slate-500">Review and manage completed sessions</p>
+        <p className="text-sm text-slate-500">
+          Review and manage completed sessions
+        </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-2">
         {sessions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <p>No past sessions found.</p>
@@ -266,20 +209,24 @@ export default function PastSessions() {
           sessions.map((session) => (
             <div
               key={session.id}
-              className="bg-white rounded-lg p-6 shadow-sm border border-slate-200"
+              className="bg-white rounded-lg p-3 shadow-sm border border-slate-200"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="font-semibold text-slate-900">
-                    {session.student}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {session.subject} • {session.date}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">{session.time}</p>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-slate-900 text-sm">
+                      {session.student}
+                    </p>
+                    <span className="text-xs text-slate-400">•</span>
+                    <p className="text-xs text-slate-500">{session.subject}</p>
+                    <span className="text-xs text-slate-400">•</span>
+                    <p className="text-xs text-slate-500">{session.date}</p>
+                    <span className="text-xs text-slate-400">•</span>
+                    <p className="text-xs text-slate-500">{session.time}</p>
+                  </div>
                 </div>
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
                     session.status === "completed"
                       ? "bg-blue-100 text-blue-700"
                       : session.status === "successful"
@@ -288,7 +235,7 @@ export default function PastSessions() {
                   }`}
                 >
                   {session.status === "completed"
-                    ? "Pending Action"
+                    ? "Pending"
                     : session.status === "successful"
                     ? "Successful"
                     : "No Show"}
@@ -296,8 +243,8 @@ export default function PastSessions() {
               </div>
 
               {showReview === session.id && session.status === "completed" && (
-                <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <label className="block text-sm font-medium text-slate-900 mb-2">
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <label className="block text-xs font-medium text-slate-900 mb-1.5">
                     Session Review (Required)
                   </label>
                   <textarea
@@ -306,13 +253,13 @@ export default function PastSessions() {
                     onChange={(e) =>
                       setReviews({ ...reviews, [session.id]: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3 h-24 placeholder:text-slate-500"
+                    className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2 h-20 placeholder:text-slate-500"
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleSubmitReview(session.id)}
                       disabled={processing[session.id]}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
                       {processing[session.id]
                         ? "Submitting..."
@@ -320,7 +267,7 @@ export default function PastSessions() {
                     </button>
                     <button
                       onClick={() => setShowReview(null)}
-                      className="px-4 py-2 border border-slate-200 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                      className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg font-medium hover:bg-slate-50 transition-colors"
                     >
                       Cancel
                     </button>
@@ -329,40 +276,20 @@ export default function PastSessions() {
               )}
 
               {session.status === "completed" && !showReview && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="mt-2">
                   <button
-                    onClick={() =>
-                      handleSessionAction(session.id, "successful")
-                    }
+                    onClick={() => handleWriteReview(session.id)}
                     disabled={processing[session.id]}
-                    className="px-4 py-2 bg-green-100 text-green-700 rounded-lg font-medium hover:bg-green-200 transition-colors text-sm disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg font-medium hover:bg-green-200 transition-colors disabled:opacity-50"
                   >
-                    Session Successful
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleSessionAction(session.id, "student-no-show")
-                    }
-                    disabled={processing[session.id]}
-                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 transition-colors text-sm disabled:opacity-50"
-                  >
-                    Student Didn't Attend
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleSessionAction(session.id, "tutor-no-show")
-                    }
-                    disabled={processing[session.id]}
-                    className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg font-medium hover:bg-orange-200 transition-colors text-sm disabled:opacity-50"
-                  >
-                    I Didn't Attend
+                    Write a Review
                   </button>
                 </div>
               )}
 
               {session.status === "successful" && (
-                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                  <p className="text-sm text-green-700 font-medium">
+                <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-xs text-green-700 font-medium">
                     Session marked as successful. Credits earned!
                   </p>
                   {session.review && (
@@ -370,22 +297,6 @@ export default function PastSessions() {
                       Review: "{session.review}"
                     </p>
                   )}
-                </div>
-              )}
-
-              {session.status === "student-no-show" && (
-                <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                  <p className="text-sm text-red-700 font-medium">
-                    Student marked as no-show. Credits not refunded.
-                  </p>
-                </div>
-              )}
-
-              {session.status === "tutor-no-show" && (
-                <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                  <p className="text-sm text-orange-700 font-medium">
-                    Marked as tutor no-show. Student refunded.
-                  </p>
                 </div>
               )}
             </div>

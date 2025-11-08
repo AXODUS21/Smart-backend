@@ -370,19 +370,19 @@ export default function Meetings() {
     };
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+          <h2 className="text-2xl font-semibold text-slate-900 mb-1">
             Calendar
           </h2>
-          <p className="text-slate-500">View your tutoring sessions</p>
+          <p className="text-sm text-slate-500">View your tutoring sessions</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-slate-200">
           <div className="flex border-b border-slate-200">
             <button
               onClick={() => setView("upcoming")}
-              className={`flex-1 py-4 px-6 font-medium transition-colors ${
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
                 view === "upcoming"
                   ? "text-blue-600 border-b-2 border-blue-600"
                   : "text-slate-600 hover:text-slate-900"
@@ -392,7 +392,7 @@ export default function Meetings() {
             </button>
             <button
               onClick={() => setView("past")}
-              className={`flex-1 py-4 px-6 font-medium transition-colors ${
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
                 view === "past"
                   ? "text-blue-600 border-b-2 border-blue-600"
                   : "text-slate-600 hover:text-slate-900"
@@ -402,29 +402,29 @@ export default function Meetings() {
             </button>
           </div>
 
-          <div className="p-6">
+          <div className="p-4">
             {view === "upcoming" && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {upcomingSessions.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No upcoming sessions scheduled.</p>
+                  <div className="text-center py-6 text-gray-500">
+                    <p className="text-sm">No upcoming sessions scheduled.</p>
                   </div>
                 ) : (
                   upcomingSessions.map((session) => (
                     <div
                       key={session.id}
-                      className="flex items-center justify-between p-4 bg-slate-50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                     >
-                      <div>
-                        <p className="font-medium text-slate-900">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-slate-900">
                           {session.subject || "Tutoring Session"}
                         </p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-xs text-slate-500">
                           {session.tutor?.name || "Tutor"} •{" "}
                           {formatDate(session.start_time_utc)} at{" "}
                           {formatTime(session.start_time_utc)}
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs text-slate-400 mt-0.5">
                           Duration: {formatDuration(session.duration_min)}
                         </p>
                       </div>
@@ -433,12 +433,12 @@ export default function Meetings() {
                           href={session.meeting_link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg font-medium hover:bg-blue-200 transition-colors"
+                          className="ml-3 px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors whitespace-nowrap"
                         >
                           Join
                         </a>
                       ) : (
-                        <span className="px-4 py-2 bg-slate-200 text-slate-600 rounded-lg font-medium">
+                        <span className="ml-3 px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-sm font-medium whitespace-nowrap">
                           Pending
                         </span>
                       )}
@@ -449,28 +449,30 @@ export default function Meetings() {
             )}
 
             {view === "past" && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {pastSessions.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No past sessions yet.</p>
+                  <div className="text-center py-6 text-gray-500">
+                    <p className="text-sm">No past sessions yet.</p>
                   </div>
                 ) : (
                   pastSessions.map((session) => (
                     <div
                       key={session.id}
-                      className="flex items-center justify-between p-4 bg-slate-50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                     >
-                      <div>
-                        <p className="font-medium text-slate-900">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-slate-900">
                           {session.subject || "Tutoring Session"}
                         </p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-xs text-slate-500">
                           {session.tutor?.name || "Tutor"} •{" "}
                           {formatDate(session.start_time_utc)}
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">Completed</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Completed
+                        </p>
                       </div>
-                      <button className="px-4 py-2 bg-slate-200 text-slate-600 rounded-lg font-medium hover:bg-slate-300 transition-colors">
+                      <button className="ml-3 px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-300 transition-colors whitespace-nowrap">
                         View Details
                       </button>
                     </div>
