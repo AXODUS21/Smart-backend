@@ -28,6 +28,8 @@ export default function StudentAssignments() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("status"); // status=priority default
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Get student's bigint ID
   useEffect(() => {
@@ -217,11 +219,41 @@ export default function StudentAssignments() {
   };
 
   // Filter assignments
-  const filteredAssignments = assignments.filter((assignment) => {
-    if (statusFilter === "all") return true;
-    if (statusFilter === "overdue") return isOverdue(assignment);
-    return assignment.status === statusFilter;
-  });
+  const filteredAssignments = assignments
+    .filter((assignment) => {
+      if (statusFilter === "all") return true;
+      if (statusFilter === "overdue") return isOverdue(assignment);
+      return assignment.status === statusFilter;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "newest":
+          return new Date(b.created_at) - new Date(a.created_at);
+        case "oldest":
+          return new Date(a.created_at) - new Date(b.created_at);
+        case "tutor": {
+          const ta = (a.tutor?.name || a.tutor?.email || "").toLowerCase();
+          const tb = (b.tutor?.name || b.tutor?.email || "").toLowerCase();
+          return ta.localeCompare(tb);
+        }
+        case "dueDate":
+          if (!a.due_date && !b.due_date) return 0;
+          if (!a.due_date) return 1;
+          if (!b.due_date) return -1;
+          return new Date(a.due_date) - new Date(b.due_date);
+        case "status": {
+          const order = { submitted: 0, assigned: 1, graded: 2, overdue: 3 };
+          return (order[a.status] ?? 4) - (order[b.status] ?? 4);
+        }
+        case "submittedDate":
+          if (!a.submission_date && !b.submission_date) return 0;
+          if (!a.submission_date) return 1;
+          if (!b.submission_date) return -1;
+          return new Date(b.submission_date) - new Date(a.submission_date);
+        default:
+          return 0;
+      }
+    });
 
   if (loading) {
     return (
@@ -275,147 +307,113 @@ export default function StudentAssignments() {
       )}
 
       {/* Assignments List */}
-      {filteredAssignments.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8 text-center">
-          <BookOpen className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-          <p className="text-base font-medium text-slate-900 mb-1">
-            No assignments found
-          </p>
-          <p className="text-sm text-slate-500">
-            {assignments.length === 0
-              ? "You don't have any assignments yet."
-              : "Try adjusting your filter criteria."}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredAssignments.map((assignment) => (
-            <div
-              key={assignment.id}
-              className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 hover:shadow-md transition-shadow flex flex-col"
-            >
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+        <div className="p-3 border-b border-slate-200">
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col md:flex-row gap-2 items-start md:items-center justify-between">
               <div className="flex-1">
-                <div className="flex items-start gap-2 mb-2 flex-wrap">
-                  <h3 className="text-base font-semibold text-slate-900 flex-1 min-w-0">
-                    {assignment.title}
-                  </h3>
-                  {getStatusBadge(assignment)}
-                </div>
-                {isOverdue(assignment) && (
-                  <span className="text-xs text-red-600 font-medium mb-1.5 inline-block">
-                    Overdue
-                  </span>
-                )}
-
-                <div className="space-y-0.5 text-xs text-slate-600 mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium">From:</span>
-                    <span className="truncate">
-                      {assignment.tutor?.name ||
-                        assignment.tutor?.email ||
-                        "Tutor"}
-                    </span>
-                  </div>
-                  {assignment.subject && (
-                    <div className="flex items-center gap-1.5">
-                      <BookOpen className="w-3 h-3 flex-shrink-0" />
-                      <span className="truncate">{assignment.subject}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">
-                      Due: {formatDate(assignment.due_date)}
-                      {isOverdue(assignment) && (
-                        <span className="text-red-600 ml-1">(Past Due)</span>
-                      )}
-                    </span>
-                  </div>
-                  {assignment.max_points && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium">Points:</span>
-                      <span>
-                        {assignment.points !== null &&
-                        assignment.points !== undefined
-                          ? `${assignment.points}`
-                          : "Not graded"}
-                        {assignment.max_points && ` / ${assignment.max_points}`}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {assignment.description && (
-                  <div className="mt-2 p-2 bg-slate-50 rounded-lg">
-                    <p className="text-xs text-slate-700 whitespace-pre-wrap line-clamp-2">
-                      {assignment.description}
-                    </p>
-                  </div>
-                )}
-
-                {/* Assignment File */}
-                {assignment.file_url && (
-                  <div className="mt-2">
-                    <a
-                      href={assignment.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 text-xs"
-                    >
-                      <Download className="w-3 h-3" />
-                      Download Assignment File
-                    </a>
-                  </div>
-                )}
-
-                {/* Submission Info */}
-                {assignment.submission_file_url && (
-                  <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-1.5 text-green-800 mb-1">
-                      <CheckCircle className="w-3 h-3" />
-                      <span className="font-medium text-xs">Submitted</span>
-                    </div>
-                    <div className="text-xs text-green-700 space-y-0.5">
-                      <div>
-                        Submitted: {formatDate(assignment.submission_date)}
-                      </div>
-                      <a
-                        href={assignment.submission_file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 hover:underline"
-                      >
-                        <Download className="w-3 h-3" />
-                        View Submission
-                      </a>
-                      {assignment.submission_notes && (
-                        <div className="mt-1">
-                          <span className="font-medium">Notes:</span>{" "}
-                          <span className="text-xs">{assignment.submission_notes}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <input
+                  type="text"
+                  placeholder="Search assignments..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full md:w-64 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
+              <div className="flex gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="submitted">Need Grading</option>
+                  <option value="assigned">Assigned</option>
+                  <option value="graded">Graded</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="status">Sort: Priority</option>
+                  <option value="submittedDate">Sort: Newest Submissions</option>
+                  <option value="newest">Sort: Newest First</option>
+                  <option value="oldest">Sort: Oldest First</option>
+                  <option value="tutor">Sort: Tutor</option>
+                  <option value="dueDate">Sort: Due Date</option>
+                </select>
+              </div>
+            </div>
+            {filteredAssignments.length > 0 && (
+              <div className="text-xs text-slate-500">
+                Showing {filteredAssignments.length} assignment{filteredAssignments.length !== 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
+        </div>
 
-              {/* Submit Button */}
-              {assignment.status === "assigned" &&
-                !assignment.submission_file_url && (
-                  <div className="mt-2 pt-2 border-t border-slate-200">
+        <div className="divide-y divide-slate-200">
+          {filteredAssignments.length === 0 ? (
+            <div className="p-8 text-center text-slate-500">
+              <BookOpen className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+              <p className="text-base font-medium">No assignments found</p>
+              <p className="text-xs">
+                {assignments.length === 0 ? "You don't have any assignments yet." : "Try adjusting your filter criteria."}
+              </p>
+            </div>
+          ) : (
+            filteredAssignments.map((assignment) => (
+              <div
+                key={assignment.id}
+                className="p-3 hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  {/* Info horizontal line */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <h3 className="text-sm font-semibold text-slate-900">{assignment.title}</h3>
+                      {getStatusBadge(assignment)}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
+                      <span className="font-medium">Tutor:</span>
+                      <span className="truncate">{assignment.tutor?.name || assignment.tutor?.email || 'Unknown'}</span>
+                      {assignment.subject && <><span className="text-slate-400">•</span><BookOpen className="w-3 h-3 flex-shrink-0" /><span className="truncate">{assignment.subject}</span></>}<span className="text-slate-400">•</span><Calendar className="w-3 h-3 flex-shrink-0" /><span className="truncate">Due: {formatDate(assignment.due_date)}</span>{assignment.max_points && <><span className="text-slate-400">•</span><span className="font-medium">Points:</span><span>{assignment.points !== null && assignment.points !== undefined ? `${assignment.points}` : 'Not graded'}{assignment.max_points && ` / ${assignment.max_points}`}</span></>}
+                    </div>
+                    {assignment.description && (
+                      <p className="text-xs text-slate-700 mt-1 whitespace-pre-wrap line-clamp-2">{assignment.description}</p>
+                    )}
+                    {/* Submission/graded info */}
+                    {assignment.submission_file_url && (
+                      <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex items-center gap-1 text-green-800 mb-1">
+                          <CheckCircle className="w-3 h-3" />
+                          <span className="font-medium text-xs">Submitted</span>
+                        </div>
+                        <div className="text-xs text-green-700 space-y-0.5">
+                          <div>Submitted: {formatDate(assignment.submission_date)}</div>
+                          <a href={assignment.submission_file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline text-green-800"><Download className="w-3 h-3" />View Submission</a>
+                          {assignment.submission_notes && (<div className="mt-1"><span className="font-medium">Notes:</span> <span>{assignment.submission_notes}</span></div>)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Action button */}
+                  {assignment.status === 'assigned' && !assignment.submission_file_url && (
                     <button
                       onClick={() => setSelectedAssignment(assignment)}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      <Upload className="w-3.5 h-3.5" />
-                      Submit Assignment
+                      Submit
                     </button>
-                  </div>
-                )}
-            </div>
-          ))}
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      )}
+      </div>
 
       {/* Submission Modal */}
       {selectedAssignment && (

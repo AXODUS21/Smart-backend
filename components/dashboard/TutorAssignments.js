@@ -28,6 +28,7 @@ export default function TutorAssignments() {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("status"); // newest, oldest, student, dueDate, status, submittedDate
 
   // Form state
   const [formData, setFormData] = useState({
@@ -351,18 +352,50 @@ export default function TutorAssignments() {
     }
   };
 
-  // Filter assignments
-  const filteredAssignments = assignments.filter((assignment) => {
-    const matchesSearch =
-      assignment.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assignment.student?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assignment.student?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter and sort assignments
+  const filteredAssignments = assignments
+    .filter((assignment) => {
+      const matchesSearch =
+        assignment.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        assignment.student?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        assignment.student?.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === "all" || assignment.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || assignment.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "newest":
+          return new Date(b.created_at) - new Date(a.created_at);
+        case "oldest":
+          return new Date(a.created_at) - new Date(b.created_at);
+        case "student":
+          const nameA = (a.student?.name || a.student?.email || "").toLowerCase();
+          const nameB = (b.student?.name || b.student?.email || "").toLowerCase();
+          return nameA.localeCompare(nameB);
+        case "dueDate":
+          if (!a.due_date && !b.due_date) return 0;
+          if (!a.due_date) return 1;
+          if (!b.due_date) return -1;
+          return new Date(a.due_date) - new Date(b.due_date);
+        case "status":
+          // Priority: submitted > assigned > graded > overdue
+          const statusOrder = { submitted: 0, assigned: 1, graded: 2, overdue: 3 };
+          const orderA = statusOrder[a.status] ?? 4;
+          const orderB = statusOrder[b.status] ?? 4;
+          return orderA - orderB;
+        case "submittedDate":
+          // Sort by submission date (newest submissions first)
+          if (!a.submission_date && !b.submission_date) return 0;
+          if (!a.submission_date) return 1;
+          if (!b.submission_date) return -1;
+          return new Date(b.submission_date) - new Date(a.submission_date);
+        default:
+          return 0;
+      }
+    });
 
   // Get status badge
   const getStatusBadge = (status) => {
@@ -632,27 +665,53 @@ export default function TutorAssignments() {
       {/* Assignments List */}
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <div className="p-3 border-b border-slate-200">
-          <div className="flex flex-col md:flex-row gap-2 items-start md:items-center justify-between">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Search assignments..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full md:w-64 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col md:flex-row gap-2 items-start md:items-center justify-between">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Search assignments..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full md:w-64 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="submitted">Needs Grading</option>
+                  <option value="assigned">Assigned</option>
+                  <option value="graded">Graded</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="status">Sort: Priority</option>
+                  <option value="submittedDate">Sort: Newest Submissions</option>
+                  <option value="newest">Sort: Newest First</option>
+                  <option value="oldest">Sort: Oldest First</option>
+                  <option value="student">Sort: By Student</option>
+                  <option value="dueDate">Sort: By Due Date</option>
+                </select>
+              </div>
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="assigned">Assigned</option>
-              <option value="submitted">Submitted</option>
-              <option value="graded">Graded</option>
-              <option value="overdue">Overdue</option>
-            </select>
+            {filteredAssignments.length > 0 && (
+              <div className="text-xs text-slate-500">
+                Showing {filteredAssignments.length} assignment{filteredAssignments.length !== 1 ? 's' : ''}
+                {statusFilter === "submitted" && (
+                  <span className="ml-2 font-medium text-yellow-600">
+                    ({filteredAssignments.filter(a => a.status === "submitted").length} need grading)
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, X } from "lucide-react";
+import { Save, Plus, X, Edit, User, Briefcase, Award, BookOpen, CheckCircle } from "lucide-react";
 import { ImageUpload } from "@/components/ImageUpload";
 
 const PROFILE_PHOTOS_BUCKET = "profile-photos";
@@ -14,6 +14,8 @@ export default function TutorProfile() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [tutorData, setTutorData] = useState(null);
 
   // Form state
   const [bio, setBio] = useState("");
@@ -93,6 +95,7 @@ export default function TutorProfile() {
         if (tutorError) {
           console.error("Error fetching tutor profile:", tutorError);
         } else {
+          setTutorData(tutorData);
           setBio(tutorData?.bio || "");
           setExperiences(tutorData?.experience || []);
           setSkills(tutorData?.skills || []);
@@ -259,6 +262,30 @@ export default function TutorProfile() {
     setCertifications(certifications.filter((_, i) => i !== index));
   };
 
+  // Reset form to original values
+  const handleCancelEdit = () => {
+    if (!tutorData) return;
+    setBio(tutorData?.bio || "");
+    setExperiences(tutorData?.experience || []);
+    setSkills(tutorData?.skills || []);
+    setPhotoUrl(tutorData?.photo_url || "");
+    setPhotoFile(null);
+    setPhotoRemoved(false);
+    setPhotoResetToken((prev) => prev + 1);
+    const subjectsData = tutorData?.subjects || [];
+    const normalizedSubjects = subjectsData.map((subj) => {
+      if (typeof subj === "string") {
+        return { subject: subj, grade_level: null };
+      }
+      return subj;
+    });
+    setSubjects(normalizedSubjects);
+    setCertifications(tutorData?.certifications || []);
+    setError("");
+    setSuccess("");
+    setIsEditing(false);
+  };
+
   // Save profile
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -324,8 +351,22 @@ export default function TutorProfile() {
         setPhotoResetToken((prev) => prev + 1);
       }
 
+      // Update tutorData and exit edit mode
+      const { data: updatedData } = await supabase
+        .from("Tutors")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      
+      if (updatedData) {
+        setTutorData(updatedData);
+      }
+
       setSuccess("Profile saved successfully!");
-      setTimeout(() => setSuccess(""), 3000);
+      setTimeout(() => {
+        setSuccess("");
+        setIsEditing(false);
+      }, 1500);
     } catch (error) {
       console.error("Error saving profile:", error);
       setError(error.message || "Error saving profile. Please try again.");
@@ -346,6 +387,179 @@ export default function TutorProfile() {
     );
   }
 
+  // Profile View Mode
+  if (!isEditing) {
+    const displayPhotoUrl = tutorData?.photo_url || "";
+    const displayBio = tutorData?.bio || "";
+    const displayExperiences = tutorData?.experience || [];
+    const displaySkills = tutorData?.skills || [];
+    const displaySubjects = tutorData?.subjects || [];
+    const displayCertifications = tutorData?.certifications || [];
+
+    // Normalize subjects for display
+    const normalizedDisplaySubjects = displaySubjects.map((subj) => {
+      if (typeof subj === "string") {
+        return { subject: subj, grade_level: null };
+      }
+      return subj;
+    });
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900">
+              My Profile
+            </h2>
+            <p className="text-slate-500 mt-1">
+              View your tutor profile information
+            </p>
+          </div>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Edit size={18} />
+            Edit Profile
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Profile Photo and Basic Info */}
+          <div className="lg:col-span-1 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+            <div className="flex flex-col items-center">
+              {displayPhotoUrl ? (
+                <img
+                  src={displayPhotoUrl}
+                  alt="Profile"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-slate-200 mb-4"
+                />
+              ) : (
+                <div className="w-32 h-32 rounded-full bg-slate-200 flex items-center justify-center mb-4">
+                  <User size={48} className="text-slate-400" />
+                </div>
+              )}
+              <h3 className="text-xl font-semibold text-slate-900 mb-1">
+                {tutorData?.name || user?.email || "Tutor"}
+              </h3>
+            </div>
+          </div>
+
+          {/* Bio */}
+          <div className="lg:col-span-2 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="text-blue-600" size={20} />
+              <h3 className="text-lg font-semibold text-slate-900">About Me</h3>
+            </div>
+            {displayBio ? (
+              <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                {displayBio}
+              </p>
+            ) : (
+              <p className="text-slate-400 italic">No bio added yet.</p>
+            )}
+          </div>
+
+          {/* Subjects */}
+          <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+              <BookOpen className="text-blue-600" size={20} />
+              <h3 className="text-lg font-semibold text-slate-900">Subjects & Grade Levels</h3>
+            </div>
+            {normalizedDisplaySubjects.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {normalizedDisplaySubjects.map((subjectObj, index) => (
+                  <span
+                    key={index}
+                    className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                  >
+                    {subjectObj.subject}
+                    {subjectObj.grade_level && (
+                      <span className="text-blue-600 ml-1">• {subjectObj.grade_level}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 italic">No subjects added yet.</p>
+            )}
+          </div>
+
+          {/* Skills */}
+          {displaySkills.length > 0 && (
+            <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle className="text-blue-600" size={20} />
+                <h3 className="text-lg font-semibold text-slate-900">Skills</h3>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {displaySkills.map((skill, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Experience */}
+          {displayExperiences.length > 0 && (
+            <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+              <div className="flex items-center gap-2 mb-4">
+                <Briefcase className="text-blue-600" size={20} />
+                <h3 className="text-lg font-semibold text-slate-900">Experience</h3>
+              </div>
+              <div className="space-y-4">
+                {displayExperiences.map((exp, index) => (
+                  <div
+                    key={exp.id || index}
+                    className="p-4 bg-slate-50 rounded-lg border border-slate-200"
+                  >
+                    <h4 className="font-semibold text-slate-900">{exp.title}</h4>
+                    <p className="text-sm text-slate-600">{exp.company}</p>
+                    {exp.duration && (
+                      <p className="text-sm text-slate-500 mt-1">{exp.duration}</p>
+                    )}
+                    {exp.description && (
+                      <p className="text-sm text-slate-700 mt-2">{exp.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Certifications */}
+          {displayCertifications.length > 0 && (
+            <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+              <div className="flex items-center gap-2 mb-4">
+                <Award className="text-blue-600" size={20} />
+                <h3 className="text-lg font-semibold text-slate-900">Certifications</h3>
+              </div>
+              <div className="space-y-2">
+                {displayCertifications.map((cert, index) => (
+                  <a
+                    key={index}
+                    href={cert}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors text-blue-600 hover:text-blue-800 text-sm truncate"
+                  >
+                    {cert}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Profile Edit Mode
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -357,14 +571,22 @@ export default function TutorProfile() {
             Manage your tutor profile information
           </p>
         </div>
-        <button
-          onClick={handleSaveProfile}
-          disabled={saving}
-          className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Save size={18} />
-          {saving ? "Saving..." : "Save Profile"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCancelEdit}
+            className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveProfile}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Save size={18} />
+            {saving ? "Saving..." : "Save Profile"}
+          </button>
+        </div>
       </div>
 
       {/* Success/Error Messages */}

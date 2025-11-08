@@ -24,7 +24,12 @@ export default function TutorHome() {
   const [withdrawAmount, setWithdrawAmount] = useState(0);
   const [withdrawMessage, setWithdrawMessage] = useState("");
   const [assignments, setAssignments] = useState([]);
-  const [assignmentUpload, setAssignmentUpload] = useState({ title: "", description: "", file: null, studentId: "" });
+  const [assignmentUpload, setAssignmentUpload] = useState({
+    title: "",
+    description: "",
+    file: null,
+    studentId: "",
+  });
   const [assignmentMsg, setAssignmentMsg] = useState("");
   const [students, setStudents] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -105,7 +110,7 @@ export default function TutorHome() {
           // Handle both old format (text array) and new format (object array)
           const subjectsData = tutorData?.subjects || [];
           const normalizedSubjects = subjectsData.map((subj) => {
-            if (typeof subj === 'string') {
+            if (typeof subj === "string") {
               return { subject: subj, grade_level: null };
             }
             return subj;
@@ -185,17 +190,50 @@ export default function TutorHome() {
 
   // Add these just inside the main TutorHome function
   // Fetch withdrawals for tutor
-  useEffect(() => { async function fetchWithdrawals() { if(!user) return; const { data } = await supabase.from('TutorWithdrawals').select('*').eq('tutor_id', user.id).order('requested_at', { ascending: false }); setWithdrawals(data || []); } fetchWithdrawals(); }, [user]);
+  useEffect(() => {
+    async function fetchWithdrawals() {
+      if (!user) return;
+      const { data } = await supabase
+        .from("TutorWithdrawals")
+        .select("*")
+        .eq("tutor_id", user.id)
+        .order("requested_at", { ascending: false });
+      setWithdrawals(data || []);
+    }
+    fetchWithdrawals();
+  }, [user]);
   // Fetch students (for assignments)
-  useEffect(() => { async function fetchStudents() { if (!user) return; const { data } = await supabase.from('Tutors').select('students_id').eq('user_id', user.id).single(); setStudents(data?.students_id || []); } fetchStudents(); }, [user]);
+  useEffect(() => {
+    async function fetchStudents() {
+      if (!user) return;
+      const { data } = await supabase
+        .from("Tutors")
+        .select("students_id")
+        .eq("user_id", user.id)
+        .single();
+      setStudents(data?.students_id || []);
+    }
+    fetchStudents();
+  }, [user]);
   // Fetch assignments uploaded by tutor
-  useEffect(() => { async function fetchAssignments() { if(!user) return; const { data } = await supabase.from('Assignments').select('*').eq('tutor_id', user.id).order('created_at', { ascending: false }); setAssignments(data || []); } fetchAssignments(); }, [user]);
+  useEffect(() => {
+    async function fetchAssignments() {
+      if (!user) return;
+      const { data } = await supabase
+        .from("Assignments")
+        .select("*")
+        .eq("tutor_id", user.id)
+        .order("created_at", { ascending: false });
+      setAssignments(data || []);
+    }
+    fetchAssignments();
+  }, [user]);
 
   // Fetch announcements for tutors
   useEffect(() => {
     const fetchAnnouncements = async () => {
       if (!user) return;
-      
+
       try {
         const { data, error } = await supabase
           .from("Announcements")
@@ -244,7 +282,11 @@ export default function TutorHome() {
       }
 
       setSubjects(updatedSubjects);
-      setSuccess(`Removed "${subjectToRemove.subject || subjectToRemove}" from your subjects.`);
+      setSuccess(
+        `Removed "${
+          subjectToRemove.subject || subjectToRemove
+        }" from your subjects.`
+      );
       setTimeout(() => setSuccess(""), 3000);
     } catch (error) {
       console.error("Error removing subject:", error);
@@ -282,62 +324,99 @@ export default function TutorHome() {
   // 1. Place these inside the function body of TutorHome, before return
   const handleWithdrawSubmit = async (e) => {
     e.preventDefault();
-    setWithdrawMessage('');
+    setWithdrawMessage("");
     const amt = Number(withdrawAmount);
     if (!amt || amt <= 0) {
-      setWithdrawMessage('Enter a valid amount');
+      setWithdrawMessage("Enter a valid amount");
       return;
     }
     // Assume you're using internal tutor id
     let tutorId = null;
-    const { data: thisTutor } = await supabase.from('Tutors').select('id').eq('user_id', user.id).single();
+    const { data: thisTutor } = await supabase
+      .from("Tutors")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
     tutorId = thisTutor?.id;
     if (!tutorId) {
-      setWithdrawMessage('Could not find your tutor record.');
+      setWithdrawMessage("Could not find your tutor record.");
       return;
     }
-    const { error } = await supabase.from('TutorWithdrawals').insert({ tutor_id: tutorId, amount: amt });
-    if (error) setWithdrawMessage('Error: ' + error.message);
+    const { error } = await supabase
+      .from("TutorWithdrawals")
+      .insert({ tutor_id: tutorId, amount: amt });
+    if (error) setWithdrawMessage("Error: " + error.message);
     else {
-      setWithdrawMessage('Request submitted!');
+      setWithdrawMessage("Request submitted!");
       setWithdrawAmount(0);
       // Optionally re-fetch
-      const { data } = await supabase.from('TutorWithdrawals').select('*').eq('tutor_id', tutorId).order('requested_at', { ascending: false });
+      const { data } = await supabase
+        .from("TutorWithdrawals")
+        .select("*")
+        .eq("tutor_id", tutorId)
+        .order("requested_at", { ascending: false });
       setWithdrawals(data || []);
     }
   };
   const handleAssignmentUpload = async (e) => {
     e.preventDefault();
-    setAssignmentMsg('');
-    if (!assignmentUpload.title || !assignmentUpload.studentId || !assignmentUpload.file) {
-      setAssignmentMsg('Fill out all fields and select a file!');
+    setAssignmentMsg("");
+    if (
+      !assignmentUpload.title ||
+      !assignmentUpload.studentId ||
+      !assignmentUpload.file
+    ) {
+      setAssignmentMsg("Fill out all fields and select a file!");
       return;
     }
     // Get tutor id for upload
     let tutorId = null;
-    const { data: thisTutor } = await supabase.from('Tutors').select('id').eq('user_id', user.id).single();
+    const { data: thisTutor } = await supabase
+      .from("Tutors")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
     tutorId = thisTutor?.id;
     if (!tutorId) {
-      setAssignmentMsg('Could not find your tutor record.');
+      setAssignmentMsg("Could not find your tutor record.");
       return;
     }
     // Upload file to Supabase storage (bucket 'assignments')
     const filePath = `${tutorId}_${Date.now()}_${assignmentUpload.file.name}`;
-    let fileUrl = '';
-    const { data: storageData, error: storageErr } = await supabase.storage.from('assignments').upload(filePath, assignmentUpload.file);
+    let fileUrl = "";
+    const { data: storageData, error: storageErr } = await supabase.storage
+      .from("assignments")
+      .upload(filePath, assignmentUpload.file);
     if (storageErr) {
-      setAssignmentMsg('File upload error: ' + storageErr.message);
+      setAssignmentMsg("File upload error: " + storageErr.message);
       return;
     }
-    fileUrl = storageData?.path || storageData?.Key || '';
+    fileUrl = storageData?.path || storageData?.Key || "";
     // Save new assignment record
-    const { error } = await supabase.from('Assignments').insert({ tutor_id: tutorId, student_id: assignmentUpload.studentId, title: assignmentUpload.title, description: assignmentUpload.description, file_url: fileUrl });
-    if (error) setAssignmentMsg('Error: ' + error.message);
+    const { error } = await supabase
+      .from("Assignments")
+      .insert({
+        tutor_id: tutorId,
+        student_id: assignmentUpload.studentId,
+        title: assignmentUpload.title,
+        description: assignmentUpload.description,
+        file_url: fileUrl,
+      });
+    if (error) setAssignmentMsg("Error: " + error.message);
     else {
-      setAssignmentMsg('Assignment uploaded!');
-      setAssignmentUpload({ title: '', description: '', file: null, studentId: '' });
+      setAssignmentMsg("Assignment uploaded!");
+      setAssignmentUpload({
+        title: "",
+        description: "",
+        file: null,
+        studentId: "",
+      });
       // Optionally refresh assignments
-      const { data } = await supabase.from('Assignments').select('*').eq('tutor_id', tutorId).order('created_at', { ascending: false });
+      const { data } = await supabase
+        .from("Assignments")
+        .select("*")
+        .eq("tutor_id", tutorId)
+        .order("created_at", { ascending: false });
       setAssignments(data || []);
     }
   };
@@ -363,51 +442,6 @@ export default function TutorHome() {
         <p className="text-slate-500">{todayFormatted}</p>
       </div>
 
-      {/* Tab switch UI */}
-      <div className="my-6"> 
-        <button onClick={() => setActiveTab('dashboard')}>Dashboard</button> 
-        <button onClick={() => setActiveTab('payments')}>Payments</button> 
-        <button onClick={() => setActiveTab('assignments')}>Assignments</button> 
-      </div>
-
-      {activeTab === 'payments' && (
-        <div>
-          <h2 style={{ fontWeight: 'bold' }}>Withdrawable Balance</h2>
-          {/* Add balance info as desired */}
-          <form onSubmit={handleWithdrawSubmit}>
-            <input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="Amount" className="placeholder:text-slate-500" />
-            <button type="submit">Request Withdrawal</button>
-          </form>
-          <div>{withdrawMessage}</div>
-          <h3>Withdrawal Requests</h3>
-          <ul>{withdrawals.map(w => (
-            <li key={w.id}>{w.amount} - {w.status} ({new Date(w.requested_at).toLocaleString()}) {w.status === 'approved' ? '✓' : ''}</li>
-          ))}</ul>
-        </div>
-      )}
-      {activeTab === 'assignments' && (
-        <div>
-          <h2 style={{ fontWeight: 'bold' }}>Upload Assignment</h2>
-          <form onSubmit={handleAssignmentUpload}>
-            <input type="text" value={assignmentUpload.title} onChange={e => setAssignmentUpload(u => ({ ...u, title: e.target.value }))} placeholder="Assignment Title" className="placeholder:text-slate-500" />
-            <textarea value={assignmentUpload.description} onChange={e => setAssignmentUpload(u => ({ ...u, description: e.target.value }))} placeholder="Description (optional)" className="placeholder:text-slate-500" />
-            <select value={assignmentUpload.studentId} onChange={e => setAssignmentUpload(u => ({ ...u, studentId: e.target.value }))}>
-              <option value="">Select Student...</option>
-              {students.map(id => (
-                <option value={id} key={id}>{id}</option>
-              ))}
-            </select>
-            <input type="file" onChange={e => setAssignmentUpload(u => ({ ...u, file: e.target.files[0] }))} />
-            <button type="submit">Upload</button>
-          </form>
-          <div>{assignmentMsg}</div>
-          <h3>Your Assignments</h3>
-          <ul>{assignments.map(a => (
-            <li key={a.id}>{a.title} for student {a.student_id} <a href={a.file_url} target="_blank" rel="noopener noreferrer">File</a></li>
-          ))}</ul>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metricsData.map((metric, index) => {
           const Icon = metric.icon;
@@ -432,38 +466,38 @@ export default function TutorHome() {
 
       {/* Upcoming Sessions */}
       <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            Upcoming Sessions
-          </h3>
-          <div className="space-y-3">
-            {upcomingSessions.length === 0 ? (
-              <p className="text-slate-500 italic">
-                No upcoming sessions scheduled.
-              </p>
-            ) : (
-              upcomingSessions.map((session, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium text-slate-900">
-                      {session.subject}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {formatDate(session.start_time_utc)} •{" "}
-                      {formatTime(session.start_time_utc)}
-                    </p>
-                  </div>
-                  <span className="text-sm font-medium text-blue-600">
-                    {(session.duration_min / 60).toFixed(1)}{" "}
-                    {session.duration_min / 60 === 1 ? "hour" : "hours"}
-                  </span>
+        <h3 className="text-lg font-semibold text-slate-900 mb-4">
+          Upcoming Sessions
+        </h3>
+        <div className="space-y-3">
+          {upcomingSessions.length === 0 ? (
+            <p className="text-slate-500 italic">
+              No upcoming sessions scheduled.
+            </p>
+          ) : (
+            upcomingSessions.map((session, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+              >
+                <div>
+                  <p className="font-medium text-slate-900">
+                    {session.subject}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    {formatDate(session.start_time_utc)} •{" "}
+                    {formatTime(session.start_time_utc)}
+                  </p>
                 </div>
-              ))
-            )}
-          </div>
+                <span className="text-sm font-medium text-blue-600">
+                  {(session.duration_min / 60).toFixed(1)}{" "}
+                  {session.duration_min / 60 === 1 ? "hour" : "hours"}
+                </span>
+              </div>
+            ))
+          )}
         </div>
+      </div>
 
       {/* Announcements */}
       {announcements.length > 0 && (
@@ -510,7 +544,6 @@ export default function TutorHome() {
           ))}
         </div>
       )}
- 
     </div>
   );
 }

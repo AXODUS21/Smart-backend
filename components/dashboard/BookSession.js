@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronRight, X, User, Award, Briefcase, GraduationCap, Link as LinkIcon } from "lucide-react";
+import {
+  ChevronRight,
+  X,
+  User,
+  Award,
+  Briefcase,
+  BookOpen,
+  CheckCircle,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 
@@ -67,7 +75,7 @@ export default function BookSession() {
       tutors.flatMap((tutor) => {
         if (!tutor.subjects) return [];
         return tutor.subjects
-          .filter((subj) => typeof subj === 'object' && subj.grade_level)
+          .filter((subj) => typeof subj === "object" && subj.grade_level)
           .map((subj) => subj.grade_level);
       })
     ),
@@ -82,10 +90,10 @@ export default function BookSession() {
             return tutor.subjects
               .filter(
                 (subj) =>
-                  (typeof subj === 'object' &&
-                    subj.grade_level === selectedGradeLevel)
+                  typeof subj === "object" &&
+                  subj.grade_level === selectedGradeLevel
               )
-              .map((subj) => (typeof subj === 'string' ? subj : subj.subject));
+              .map((subj) => (typeof subj === "string" ? subj : subj.subject));
           })
         ),
       ]
@@ -100,7 +108,7 @@ export default function BookSession() {
     if (!hasAvailability || !tutor.subjects) return false;
     // Check if tutor teaches the selected subject at the selected grade level
     return tutor.subjects.some((subj) => {
-      if (typeof subj === 'object') {
+      if (typeof subj === "object") {
         const subjectName = subj.subject;
         const gradeLevel = subj.grade_level;
         return (
@@ -199,10 +207,7 @@ export default function BookSession() {
     return availableDurations;
   };
 
-  const durations = [
-    "30 mins",
-    "1 hour",
-  ];
+  const durations = ["30 mins", "1 hour"];
 
   // Calculate credits needed based on duration
   const calculateCredits = (duration) => {
@@ -215,7 +220,14 @@ export default function BookSession() {
 
   // Handle booking confirmation
   const handleBooking = async () => {
-    if (!selectedGradeLevel || !selectedSubject || !selectedTutor || !selectedDate || !selectedTime || !selectedDuration) {
+    if (
+      !selectedGradeLevel ||
+      !selectedSubject ||
+      !selectedTutor ||
+      !selectedDate ||
+      !selectedTime ||
+      !selectedDuration
+    ) {
       alert("Please complete all selections before booking.");
       return;
     }
@@ -642,28 +654,16 @@ export default function BookSession() {
       {/* Tutor Details Modal */}
       {isDetailsModalOpen && selectedTutorForDetails && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-3">
-                {selectedTutorForDetails.photo_url && !imageError ? (
-                  <img
-                    src={selectedTutorForDetails.photo_url}
-                    alt={selectedTutorForDetails.name || "Tutor"}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-slate-200"
-                    onError={() => setImageError(true)}
-                  />
-                ) : (
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                    {(selectedTutorForDetails.name || "T").charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <h3 className="text-xl font-semibold text-slate-900">
-                    {selectedTutorForDetails.name || "Tutor"}
-                  </h3>
-                  <p className="text-sm text-slate-500">Tutor Profile</p>
-                </div>
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  Tutor Profile
+                </h2>
+                <p className="text-slate-500 mt-1">
+                  View tutor profile information
+                </p>
               </div>
               <button
                 onClick={() => setIsDetailsModalOpen(false)}
@@ -673,131 +673,194 @@ export default function BookSession() {
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* Bio */}
-              {selectedTutorForDetails.bio && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <User className="h-5 w-5 text-blue-600" />
-                    <h4 className="text-lg font-semibold text-slate-900">About</h4>
-                  </div>
-                  <p className="text-slate-700 leading-relaxed">{selectedTutorForDetails.bio}</p>
-                </div>
-              )}
-
-              {/* Subjects */}
-              {selectedTutorForDetails.subjects && selectedTutorForDetails.subjects.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <GraduationCap className="h-5 w-5 text-blue-600" />
-                    <h4 className="text-lg font-semibold text-slate-900">Subjects & Grade Levels</h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTutorForDetails.subjects.map((subjectObj, index) => {
-                      const subject = typeof subjectObj === 'string' ? subjectObj : subjectObj.subject;
-                      const gradeLevel = typeof subjectObj === 'object' ? subjectObj.grade_level : null;
-                      return (
-                        <div
-                          key={index}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-800 rounded-lg text-sm"
-                        >
-                          <span className="font-medium">{subject}</span>
-                          {gradeLevel && (
-                            <span className="text-blue-600 ml-2">• {gradeLevel}</span>
-                          )}
-                        </div>
-                      );
-                    })}
+            {/* Content - Matching TutorProfile view design */}
+            <div className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Profile Photo and Basic Info */}
+                <div className="lg:col-span-1 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+                  <div className="flex flex-col items-center">
+                    {selectedTutorForDetails.photo_url && !imageError ? (
+                      <img
+                        src={selectedTutorForDetails.photo_url}
+                        alt={selectedTutorForDetails.name || "Tutor"}
+                        className="w-32 h-32 rounded-full object-cover border-4 border-slate-200 mb-4"
+                        onError={() => setImageError(true)}
+                      />
+                    ) : (
+                      <div className="w-32 h-32 rounded-full bg-slate-200 flex items-center justify-center mb-4">
+                        <User size={48} className="text-slate-400" />
+                      </div>
+                    )}
+                    <h3 className="text-xl font-semibold text-slate-900 mb-1">
+                      {selectedTutorForDetails.name || "Tutor"}
+                    </h3>
                   </div>
                 </div>
-              )}
 
-              {/* Skills */}
-              {selectedTutorForDetails.skills && selectedTutorForDetails.skills.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Award className="h-5 w-5 text-purple-600" />
-                    <h4 className="text-lg font-semibold text-slate-900">Skills</h4>
+                {/* Bio */}
+                <div className="lg:col-span-2 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+                  <div className="flex items-center gap-2 mb-4">
+                    <User className="text-blue-600" size={20} />
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      About Me
+                    </h3>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTutorForDetails.skills.map((skill, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1.5 bg-purple-50 text-purple-800 rounded-full text-sm"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
+                  {selectedTutorForDetails.bio ? (
+                    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                      {selectedTutorForDetails.bio}
+                    </p>
+                  ) : (
+                    <p className="text-slate-400 italic">No bio added yet.</p>
+                  )}
                 </div>
-              )}
 
-              {/* Experience */}
-              {selectedTutorForDetails.experience && selectedTutorForDetails.experience.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Briefcase className="h-5 w-5 text-emerald-600" />
-                    <h4 className="text-lg font-semibold text-slate-900">Experience</h4>
-                  </div>
-                  <div className="space-y-4">
-                    {selectedTutorForDetails.experience.map((exp, index) => (
-                      <div
-                        key={index}
-                        className="p-4 bg-slate-50 rounded-lg border border-slate-200"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h5 className="font-semibold text-slate-900">{exp.title}</h5>
-                            <p className="text-sm text-slate-600">{exp.company}</p>
-                            {exp.duration && (
-                              <p className="text-sm text-slate-500 mt-1">{exp.duration}</p>
-                            )}
-                          </div>
-                        </div>
-                        {exp.description && (
-                          <p className="text-sm text-slate-700 mt-2">{exp.description}</p>
+                {/* Subjects */}
+                {selectedTutorForDetails.subjects &&
+                  selectedTutorForDetails.subjects.length > 0 && (
+                    <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+                      <div className="flex items-center gap-2 mb-4">
+                        <BookOpen className="text-blue-600" size={20} />
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          Subjects & Grade Levels
+                        </h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTutorForDetails.subjects.map(
+                          (subjectObj, index) => {
+                            const subject =
+                              typeof subjectObj === "string"
+                                ? subjectObj
+                                : subjectObj.subject;
+                            const gradeLevel =
+                              typeof subjectObj === "object"
+                                ? subjectObj.grade_level
+                                : null;
+                            return (
+                              <span
+                                key={index}
+                                className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                              >
+                                {subject}
+                                {gradeLevel && (
+                                  <span className="text-blue-600 ml-1">
+                                    • {gradeLevel}
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          }
                         )}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              {/* Certifications */}
-              {selectedTutorForDetails.certifications && selectedTutorForDetails.certifications.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <LinkIcon className="h-5 w-5 text-orange-600" />
-                    <h4 className="text-lg font-semibold text-slate-900">Certifications</h4>
-                  </div>
-                  <div className="space-y-2">
-                    {selectedTutorForDetails.certifications.map((cert, index) => (
-                      <a
-                        key={index}
-                        href={cert}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 p-3 bg-orange-50 text-orange-800 rounded-lg hover:bg-orange-100 transition-colors text-sm"
-                      >
-                        <LinkIcon className="h-4 w-4" />
-                        <span className="truncate">{cert}</span>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
+                {/* Skills */}
+                {selectedTutorForDetails.skills &&
+                  selectedTutorForDetails.skills.length > 0 && (
+                    <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+                      <div className="flex items-center gap-2 mb-4">
+                        <CheckCircle className="text-blue-600" size={20} />
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          Skills
+                        </h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTutorForDetails.skills.map((skill, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              {/* Empty State */}
-              {!selectedTutorForDetails.bio &&
-                (!selectedTutorForDetails.skills || selectedTutorForDetails.skills.length === 0) &&
-                (!selectedTutorForDetails.experience || selectedTutorForDetails.experience.length === 0) &&
-                (!selectedTutorForDetails.certifications || selectedTutorForDetails.certifications.length === 0) && (
-                  <div className="text-center py-8 text-slate-500">
-                    <User className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-                    <p>This tutor hasn't added profile details yet.</p>
-                  </div>
-                )}
+                {/* Experience */}
+                {selectedTutorForDetails.experience &&
+                  selectedTutorForDetails.experience.length > 0 && (
+                    <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Briefcase className="text-blue-600" size={20} />
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          Experience
+                        </h3>
+                      </div>
+                      <div className="space-y-4">
+                        {selectedTutorForDetails.experience.map(
+                          (exp, index) => (
+                            <div
+                              key={exp.id || index}
+                              className="p-4 bg-slate-50 rounded-lg border border-slate-200"
+                            >
+                              <h4 className="font-semibold text-slate-900">
+                                {exp.title}
+                              </h4>
+                              <p className="text-sm text-slate-600">
+                                {exp.company}
+                              </p>
+                              {exp.duration && (
+                                <p className="text-sm text-slate-500 mt-1">
+                                  {exp.duration}
+                                </p>
+                              )}
+                              {exp.description && (
+                                <p className="text-sm text-slate-700 mt-2">
+                                  {exp.description}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Certifications */}
+                {selectedTutorForDetails.certifications &&
+                  selectedTutorForDetails.certifications.length > 0 && (
+                    <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Award className="text-blue-600" size={20} />
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          Certifications
+                        </h3>
+                      </div>
+                      <div className="space-y-2">
+                        {selectedTutorForDetails.certifications.map(
+                          (cert, index) => (
+                            <a
+                              key={index}
+                              href={cert}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors text-blue-600 hover:text-blue-800 text-sm truncate"
+                            >
+                              {cert}
+                            </a>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Empty State */}
+                {!selectedTutorForDetails.bio &&
+                  (!selectedTutorForDetails.skills ||
+                    selectedTutorForDetails.skills.length === 0) &&
+                  (!selectedTutorForDetails.experience ||
+                    selectedTutorForDetails.experience.length === 0) &&
+                  (!selectedTutorForDetails.certifications ||
+                    selectedTutorForDetails.certifications.length === 0) &&
+                  (!selectedTutorForDetails.subjects ||
+                    selectedTutorForDetails.subjects.length === 0) && (
+                    <div className="lg:col-span-3 text-center py-8 text-slate-500">
+                      <User className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+                      <p>This tutor hasn't added profile details yet.</p>
+                    </div>
+                  )}
+              </div>
             </div>
 
             {/* Footer */}
