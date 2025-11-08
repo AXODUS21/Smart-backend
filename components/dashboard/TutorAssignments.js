@@ -308,7 +308,7 @@ export default function TutorAssignments() {
 
     return (
       <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${
+        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
           styles[status] || "bg-gray-100 text-gray-800"
         }`}
       >
@@ -333,59 +333,59 @@ export default function TutorAssignments() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-3">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-48"></div>
+          <div className="h-5 bg-gray-200 rounded w-64 mb-2"></div>
+          <div className="h-3 bg-gray-200 rounded w-48"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+          <h2 className="text-xl font-semibold text-slate-900 mb-1">
             Assignments
           </h2>
-          <p className="text-slate-500">
+          <p className="text-sm text-slate-500">
             Create and manage assignments for your students
           </p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4" />
           {showForm ? "Cancel" : "New Assignment"}
         </button>
       </div>
 
       {/* Success/Error Messages */}
       {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
-          <CheckCircle className="w-5 h-5" />
+        <div className="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded-lg flex items-center gap-2 text-sm">
+          <CheckCircle className="w-4 h-4" />
           {success}
         </div>
       )}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
+        <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded-lg flex items-center gap-2 text-sm">
+          <AlertCircle className="w-4 h-4" />
           {error}
         </div>
       )}
 
       {/* Create Assignment Form */}
       {showForm && (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+          <h3 className="text-base font-semibold text-slate-900 mb-3">
             Create New Assignment
           </h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {/* Student Selection */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">
                 Student <span className="text-red-500">*</span>
               </label>
               {loadingStudents ? (
@@ -425,7 +425,7 @@ export default function TutorAssignments() {
 
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">
                 Assignment Title <span className="text-red-500">*</span>
               </label>
               <input
@@ -441,9 +441,9 @@ export default function TutorAssignments() {
             </div>
 
             {/* Subject and Due Date Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   Subject
                 </label>
                 <input
@@ -458,7 +458,7 @@ export default function TutorAssignments() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   Due Date
                 </label>
                 <input
@@ -474,7 +474,7 @@ export default function TutorAssignments() {
 
             {/* Points */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">
                 Maximum Points
               </label>
               <input
@@ -492,7 +492,7 @@ export default function TutorAssignments() {
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">
                 Description
               </label>
               <textarea
@@ -500,15 +500,15 @@ export default function TutorAssignments() {
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                rows={4}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={3}
+                className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Assignment instructions and details..."
               />
             </div>
 
             {/* File Upload */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">
                 Attach File (Optional)
               </label>
               <div className="flex items-center gap-4">
@@ -530,11 +530,11 @@ export default function TutorAssignments() {
             </div>
 
             {/* Submit Button */}
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {submitting ? "Creating..." : "Create Assignment"}
               </button>
@@ -553,7 +553,7 @@ export default function TutorAssignments() {
                   });
                   setError("");
                 }}
-                className="px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+                className="px-4 py-1.5 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
               >
                 Cancel
               </button>
@@ -564,21 +564,21 @@ export default function TutorAssignments() {
 
       {/* Assignments List */}
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <div className="p-6 border-b border-slate-200">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className="p-3 border-b border-slate-200">
+          <div className="flex flex-col md:flex-row gap-2 items-start md:items-center justify-between">
             <div className="flex-1">
               <input
                 type="text"
                 placeholder="Search assignments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full md:w-64 rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full md:w-64 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Status</option>
               <option value="assigned">Assigned</option>
@@ -591,10 +591,10 @@ export default function TutorAssignments() {
 
         <div className="divide-y divide-slate-200">
           {filteredAssignments.length === 0 ? (
-            <div className="p-12 text-center text-slate-500">
-              <BookOpen className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-              <p className="text-lg font-medium">No assignments found</p>
-              <p className="text-sm">
+            <div className="p-8 text-center text-slate-500">
+              <BookOpen className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+              <p className="text-base font-medium">No assignments found</p>
+              <p className="text-xs">
                 {assignments.length === 0
                   ? "Create your first assignment to get started."
                   : "Try adjusting your search or filter criteria."}
@@ -604,36 +604,35 @@ export default function TutorAssignments() {
             filteredAssignments.map((assignment) => (
               <div
                 key={assignment.id}
-                className="p-6 hover:bg-slate-50 transition-colors"
+                className="p-3 hover:bg-slate-50 transition-colors"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-slate-900">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <h3 className="text-sm font-semibold text-slate-900">
                         {assignment.title}
                       </h3>
                       {getStatusBadge(assignment.status)}
                     </div>
 
-                    <div className="space-y-1 text-sm text-slate-600 mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">Student:</span>
-                        <span>
-                          {assignment.student?.name || assignment.student?.email || "Unknown"}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
+                      <span className="font-medium">Student:</span>
+                      <span className="truncate">
+                        {assignment.student?.name || assignment.student?.email || "Unknown"}
+                      </span>
                       {assignment.subject && (
-                        <div className="flex items-center gap-2">
-                          <BookOpen className="w-4 h-4" />
-                          <span>{assignment.subject}</span>
-                        </div>
+                        <>
+                          <span className="text-slate-400">•</span>
+                          <BookOpen className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{assignment.subject}</span>
+                        </>
                       )}
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>Due: {formatDate(assignment.due_date)}</span>
-                      </div>
+                      <span className="text-slate-400">•</span>
+                      <Calendar className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">Due: {formatDate(assignment.due_date)}</span>
                       {assignment.max_points && (
-                        <div className="flex items-center gap-2">
+                        <>
+                          <span className="text-slate-400">•</span>
                           <span className="font-medium">Points:</span>
                           <span>
                             {assignment.points !== null && assignment.points !== undefined
@@ -641,30 +640,31 @@ export default function TutorAssignments() {
                               : "Not graded"}
                             {assignment.max_points && ` / ${assignment.max_points}`}
                           </span>
-                        </div>
-                      )}
-                      {assignment.description && (
-                        <p className="text-slate-700 mt-2 whitespace-pre-wrap">
-                          {assignment.description}
-                        </p>
+                        </>
                       )}
                     </div>
 
-                    <div className="text-xs text-slate-400">
+                    {assignment.description && (
+                      <p className="text-xs text-slate-700 mt-1.5 whitespace-pre-wrap line-clamp-2">
+                        {assignment.description}
+                      </p>
+                    )}
+
+                    <div className="text-xs text-slate-400 mt-1">
                       Created: {formatDate(assignment.created_at)}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     {assignment.file_url && (
                       <a
                         href={assignment.file_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Download file"
                       >
-                        <Download className="w-5 h-5" />
+                        <Download className="w-4 h-4" />
                       </a>
                     )}
                   </div>
