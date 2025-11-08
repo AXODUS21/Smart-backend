@@ -10,6 +10,8 @@ import {
   TrendingUp,
   DollarSign,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 export default function AdminAnalytics() {
   const [analytics, setAnalytics] = useState({
@@ -143,70 +145,182 @@ export default function AdminAnalytics() {
     document.body.removeChild(link);
   };
 
-  const exportToPDF = () => {
-    // Create HTML content for PDF
-    const htmlContent = `
-      <html>
-        <head>
-          <title>Analytics Report</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #333; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-            th { background-color: #f2f2f2; }
-          </style>
-        </head>
-        <body>
-          <h1>Analytics Report</h1>
-          <p>Date Range: ${dateRange.start} to ${dateRange.end}</p>
-          <table>
-            <tr><th>Metric</th><th>Value</th></tr>
-            <tr><td>Total Revenue</td><td>$${analytics.totalRevenue.toFixed(
-              2
-            )}</td></tr>
-            <tr><td>Company Share</td><td>$${analytics.companyShare.toFixed(
-              2
-            )}</td></tr>
-            <tr><td>Tutor Share</td><td>$${analytics.tutorShare.toFixed(
-              2
-            )}</td></tr>
-            <tr><td>Total Lesson Hours</td><td>${analytics.totalLessonHours.toFixed(
-              2
-            )}</td></tr>
-            <tr><td>Total Bookings</td><td>${analytics.totalBookings}</td></tr>
-            <tr><td>Confirmed Bookings</td><td>${
-              analytics.confirmedBookings
-            }</td></tr>
-            <tr><td>Cancelled Bookings</td><td>${
-              analytics.cancelledBookings
-            }</td></tr>
-            <tr><td>Pending Bookings</td><td>${
-              analytics.pendingBookings
-            }</td></tr>
+  const exportToPDF = async () => {
+    try {
+      // Create a temporary container for the PDF content
+      const pdfContainer = document.createElement("div");
+      pdfContainer.style.position = "absolute";
+      pdfContainer.style.left = "-9999px";
+      pdfContainer.style.width = "800px";
+      pdfContainer.style.padding = "40px";
+      pdfContainer.style.backgroundColor = "#ffffff";
+      pdfContainer.style.fontFamily = "Arial, sans-serif";
+
+      // Build the PDF content HTML
+      const htmlContent = `
+        <div style="margin-bottom: 30px;">
+          <h1 style="color: #1e293b; font-size: 28px; margin-bottom: 10px;">Analytics Report</h1>
+          <p style="color: #64748b; font-size: 14px;">Date Range: ${
+            dateRange.start
+          } to ${dateRange.end}</p>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #1e293b; font-size: 20px; margin-bottom: 15px;">Key Metrics</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background-color: #f8fafc;">
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Metric</th>
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Value</th>
+            </tr>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Total Revenue</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${analytics.totalRevenue.toFixed(
+                2
+              )}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Company Share</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${analytics.companyShare.toFixed(
+                2
+              )}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Tutor Share</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${analytics.tutorShare.toFixed(
+                2
+              )}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Total Lesson Hours</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">${analytics.totalLessonHours.toFixed(
+                2
+              )}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Total Bookings</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">${
+                analytics.totalBookings
+              }</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Confirmed Bookings</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">${
+                analytics.confirmedBookings
+              }</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Cancelled Bookings</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">${
+                analytics.cancelledBookings
+              }</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Pending Bookings</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">${
+                analytics.pendingBookings
+              }</td>
+            </tr>
           </table>
-          <h2>Monthly Breakdown</h2>
-          <table>
-            <tr><th>Month</th><th>Revenue</th><th>Hours</th><th>Bookings</th></tr>
+        </div>
+        
+        ${
+          monthlyData.length > 0
+            ? `
+        <div>
+          <h2 style="color: #1e293b; font-size: 20px; margin-bottom: 15px;">Monthly Breakdown</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background-color: #f8fafc;">
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Month</th>
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Revenue</th>
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Hours</th>
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Bookings</th>
+            </tr>
             ${monthlyData
               .map(
                 (m) =>
-                  `<tr><td>${m.month}</td><td>$${m.revenue.toFixed(
-                    2
-                  )}</td><td>${m.hours.toFixed(2)}</td><td>${
-                    m.bookings
-                  }</td></tr>`
+                  `<tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">${
+                      m.month
+                    }</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${m.revenue.toFixed(
+                      2
+                    )}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">${m.hours.toFixed(
+                      2
+                    )}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">${
+                      m.bookings
+                    }</td>
+                  </tr>`
               )
               .join("")}
           </table>
-        </body>
-      </html>
-    `;
+        </div>
+        `
+            : ""
+        }
+        
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">
+          Generated on ${new Date().toLocaleString()}
+        </div>
+      `;
 
-    const printWindow = window.open("", "_blank");
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.print();
+      pdfContainer.innerHTML = htmlContent;
+      document.body.appendChild(pdfContainer);
+
+      // Convert to canvas and then to PDF
+      const canvas = await html2canvas(pdfContainer, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+
+      // Remove the temporary container
+      document.body.removeChild(pdfContainer);
+
+      // Calculate PDF dimensions
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+
+      // Create PDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        0,
+        position,
+        imgWidth,
+        imgHeight
+      );
+      heightLeft -= pageHeight;
+
+      // Add additional pages if needed
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(
+          canvas.toDataURL("image/png"),
+          "PNG",
+          0,
+          position,
+          imgWidth,
+          imgHeight
+        );
+        heightLeft -= pageHeight;
+      }
+
+      // Download the PDF
+      pdf.save(`analytics_${dateRange.start}_to_${dateRange.end}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Failed to generate PDF. Please try again.");
+    }
   };
 
   const metricData = [
