@@ -39,6 +39,7 @@ export async function POST(request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': `Basic ${Buffer.from(paymongoSecretKey + ':').toString('base64')}`,
       },
       body: JSON.stringify({

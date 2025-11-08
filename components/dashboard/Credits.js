@@ -83,8 +83,33 @@ export default function Credits() {
       }
 
       if (errorParam) {
-        setError("Payment failed. Please try again.");
-        setTimeout(() => setError(""), 5000);
+        // Get more specific error message if available
+        const errorMessage = params.get("message");
+        const statusParam = params.get("status");
+        
+        let errorText = "Payment failed. Please try again.";
+        
+        // Provide more specific error messages
+        if (errorParam === "payment_not_completed") {
+          errorText = `Payment not completed. Status: ${statusParam || "unknown"}`;
+        } else if (errorParam === "fetch_error") {
+          errorText = "Error fetching your account information. Please contact support.";
+        } else if (errorParam === "update_error") {
+          errorText = "Error updating credits. Please contact support with your payment receipt.";
+        } else if (errorParam === "student_not_found") {
+          errorText = "Student account not found. Please contact support.";
+        } else if (errorParam === "missing_params") {
+          errorText = "Missing payment information. Please try again.";
+        } else if (errorParam === "processing_error") {
+          errorText = errorMessage 
+            ? `Payment processing error: ${decodeURIComponent(errorMessage)}`
+            : "Payment processing error. Please contact support.";
+        } else if (errorMessage) {
+          errorText = decodeURIComponent(errorMessage);
+        }
+        
+        setError(errorText);
+        setTimeout(() => setError(""), 10000); // Show error longer
         // Clean up URL
         window.history.replaceState({}, "", window.location.pathname);
       }

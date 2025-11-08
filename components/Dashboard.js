@@ -75,11 +75,16 @@ export default function Dashboard() {
 
       try {
         // First check if user is an admin
-        const { data: adminData } = await supabase
+        const { data: adminData, error: adminError } = await supabase
           .from("admins")
           .select("id, name, email")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle();
+        
+        // Ignore 406 errors (not found is expected for non-admins)
+        if (adminError && adminError.code !== 'PGRST116') {
+          console.error("Error checking admin status:", adminError);
+        }
 
         if (adminData) {
           setUserRole("admin");

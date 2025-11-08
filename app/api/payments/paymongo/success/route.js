@@ -41,6 +41,7 @@ export async function GET(request) {
       {
         method: 'GET',
         headers: {
+          'Accept': 'application/json',
           'Authorization': `Basic ${Buffer.from(paymongoSecretKey + ':').toString('base64')}`,
         },
       }

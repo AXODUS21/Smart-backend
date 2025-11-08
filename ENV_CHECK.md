@@ -17,10 +17,14 @@ PAYMONGO_SECRET_KEY=sk_test_...
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
+# Supabase Service Role Key (REQUIRED for payment processing)
+# This key bypasses RLS policies and is needed to create/update student records
+# Get it from: Supabase Dashboard > Project Settings > API > service_role key
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
 # Optional
 USD_TO_PHP_RATE=56
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
-SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
 ## Important Notes
@@ -60,6 +64,13 @@ SUPABASE_SERVICE_ROLE_KEY=...
 - Verify environment variables are set correctly
 - Restart the dev server
 
+### Error: "Error creating student record" with code 42501
+- This means insufficient privileges (RLS policy blocking)
+- **REQUIRED**: Add `SUPABASE_SERVICE_ROLE_KEY` to your `.env.local` file
+- Get it from: Supabase Dashboard > Project Settings > API > service_role key
+- The service_role key bypasses RLS policies and is needed for payment processing
+- Restart the dev server after adding it
+
 ## Verification
 
 To verify your environment variables are loaded:
@@ -67,4 +78,6 @@ To verify your environment variables are loaded:
 1. Check the server console when starting the dev server
 2. Look for any error messages about missing environment variables
 3. Test the API routes directly in your browser or with a tool like Postman
+
+
 

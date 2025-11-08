@@ -4,7 +4,14 @@ import { useState, useEffect } from "react";
 import { X, CreditCard, Wallet } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+// Initialize Stripe - only in browser environment
+let stripePromise = null;
+if (typeof window !== 'undefined') {
+  const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (stripeKey) {
+    stripePromise = loadStripe(stripeKey);
+  }
+}
 
 export default function PaymentModal({ isOpen, onClose, plan, userId }) {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
@@ -60,7 +67,12 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
       }
     } catch (err) {
       console.error("Stripe payment error:", err);
-      setError(err.message || "Failed to initiate Stripe payment");
+      console.error("Error details:", {
+        message: err.message,
+        stack: err.stack,
+        name: err.name,
+      });
+      setError(err.message || "Failed to initiate Stripe payment. Please check the console for details.");
       setLoading(false);
     }
   };
@@ -156,13 +168,37 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
           throw new Error("PayMongo SDK not loaded");
         }
 
-        const paymongo = window.Paymongo(process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY);
+        // Initialize PayMongo with the client key from payment intent (required for Elements)
+        // The clientKey is used to link the payment method to the payment intent
+        const clientKey = paymentData.clientKey;
+        if (!clientKey) {
+          throw new Error("Payment intent client key is missing");
+        }
+        
+        console.log("Initializing PayMongo with client key:", clientKey.substring(0, 10) + "...");
+        const paymongo = window.Paymongo(clientKey); // Use clientKey for Elements (not publicKey)
+        
+        // Check if paymongo object is valid
+        if (!paymongo) {
+          throw new Error("Failed to initialize PayMongo SDK");
+        }
+
+        console.log("PayMongo object:", paymongo);
+        console.log("PayMongo methods:", Object.keys(paymongo));
         
         // Clear any existing content
         cardContainer.innerHTML = "";
 
-        // Create card element
+        // Create card element using PayMongo Elements
+        if (!paymongo.elements) {
+          throw new Error("PayMongo elements not available");
+        }
+
         const elements = paymongo.elements();
+        if (!elements || !elements.create) {
+          throw new Error("PayMongo elements.create not available");
+        }
+
         const cardElement = elements.create("card", {
           style: {
             base: {
@@ -175,6 +211,10 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
             },
           },
         });
+
+        if (!cardElement || !cardElement.mount) {
+          throw new Error("Failed to create card element");
+        }
 
         cardElement.mount("#paymongo-card-element");
 
@@ -191,12 +231,82 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
             setError("");
 
             try {
-              // Create payment method
-              const { paymentMethod: pm, error: pmError } = await paymongo.methods.create(cardElement);
+              console.log("Creating payment method...");
               
-              if (pmError) {
-                throw new Error(pmError.message || "Failed to create payment method");
+              // Create payment method using PayMongo Elements
+              // Based on the error log, paymongo.createPaymentMethod exists directly on the paymongo object
+              let paymentMethodId;
+              
+              try {
+                console.log("PayMongo object methods:", Object.keys(paymongo));
+                
+                // PayMongo SDK structure: createPaymentMethod is directly on paymongo object
+                // It requires a payload with type property
+                if (typeof paymongo.createPaymentMethod === 'function') {
+                  console.log("Using paymongo.createPaymentMethod...");
+                  
+                  // PayMongo createPaymentMethod requires: { type: 'card', ... }
+                  // The cardElement from PayMongo Elements needs to be used to get payment method data
+                  let result;
+                  
+                  // PayMongo Elements: Create payment method from card element
+                  // The cardElement collects card data, we need to create a payment method from it
+                  
+                  // Method 1: Try cardElement.createPaymentMethod (if available)
+                  if (typeof cardElement.createPaymentMethod === 'function') {
+                    console.log("Using cardElement.createPaymentMethod...");
+                    result = await cardElement.createPaymentMethod({ type: 'card' });
+                  } 
+                  // Method 2: Use paymongo.createPaymentMethod with the cardElement
+                  // PayMongo Elements: cardElement is passed as the source
+                  else {
+                    console.log("Using paymongo.createPaymentMethod with cardElement...");
+                    // PayMongo expects: { type: 'card', billing: cardElement }
+                    // The cardElement from PayMongo Elements contains the card data
+                    result = await paymongo.createPaymentMethod({
+                      type: 'card',
+                      billing: cardElement,
+                    });
+                  }
+                  
+                  console.log("createPaymentMethod result:", result);
+                  
+                  // Handle different response structures
+                  if (result.error) {
+                    throw new Error(result.error.message || "Failed to create payment method");
+                  }
+                  
+                  // Extract payment method ID from result
+                  if (result.paymentMethod && result.paymentMethod.id) {
+                    paymentMethodId = result.paymentMethod.id;
+                  } else if (result.id) {
+                    paymentMethodId = result.id;
+                  } else if (result.data && result.data.id) {
+                    paymentMethodId = result.data.id;
+                  } else {
+                    console.error("Unexpected result structure:", result);
+                    throw new Error("Invalid payment method response structure");
+                  }
+                } else {
+                  throw new Error("paymongo.createPaymentMethod is not available");
+                }
+                
+                if (!paymentMethodId) {
+                  throw new Error("Could not extract payment method ID from response");
+                }
+                
+                console.log("Payment method ID created:", paymentMethodId);
+              } catch (pmError) {
+                console.error("Payment method creation error:", pmError);
+                console.error("Error details:", {
+                  message: pmError.message,
+                  stack: pmError.stack,
+                  paymongoMethods: Object.keys(paymongo),
+                });
+                throw new Error(`Payment method creation failed: ${pmError.message}`);
               }
+
+              console.log("Payment method ID:", paymentMethodId);
 
               // Confirm payment
               const confirmResponse = await fetch("/api/payments/paymongo/confirm-payment", {
@@ -206,11 +316,20 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
                 },
                 body: JSON.stringify({
                   paymentIntentId: paymentData.paymentIntentId,
-                  paymentMethodId: pm.id,
+                  paymentMethodId: paymentMethodId,
                 }),
               });
 
+              // Check if response is JSON
+              const contentType = confirmResponse.headers.get("content-type");
+              if (!contentType || !contentType.includes("application/json")) {
+                const text = await confirmResponse.text();
+                console.error("Non-JSON confirm response:", text);
+                throw new Error("Server error: Received invalid response from payment confirmation.");
+              }
+
               const confirmData = await confirmResponse.json();
+              console.log("Confirm payment response:", confirmData);
 
               if (!confirmResponse.ok) {
                 throw new Error(confirmData.error || "Payment confirmation failed");
@@ -231,6 +350,12 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
               }
             } catch (err) {
               console.error("PayMongo payment error:", err);
+              console.error("Error details:", {
+                message: err.message,
+                stack: err.stack,
+                paymongo: paymongo,
+                methods: paymongo.methods,
+              });
               setError(err.message || "Payment failed. Please try again.");
               setLoading(false);
             }
@@ -238,7 +363,12 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
         }
       } catch (err) {
         console.error("PayMongo setup error:", err);
-        setError("Failed to initialize payment form");
+        console.error("Error details:", {
+          message: err.message,
+          stack: err.stack,
+          windowPaymongo: window.Paymongo,
+        });
+        setError(`Failed to initialize payment form: ${err.message}`);
         setLoading(false);
       }
     };
