@@ -301,7 +301,7 @@ export default function AdminTasks() {
 
       {/* Add Task Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-6 border-b border-slate-200">
               <h2 className="text-xl font-bold text-slate-900">Add New Task</h2>
@@ -373,7 +373,7 @@ export default function AdminTasks() {
 
       {/* Edit Task Modal */}
       {editingTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-6 border-b border-slate-200">
               <h2 className="text-xl font-bold text-slate-900">Edit Task</h2>

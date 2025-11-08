@@ -169,7 +169,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
 
       {/* Setup Modal */}
       {showSetupModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-4 border-b border-slate-200">
               <div className="font-semibold text-slate-900">Set PIN & Security Question</div>
@@ -222,7 +222,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
 
       {/* PIN Prompt Modal */}
       {showPinPrompt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-4 border-b border-slate-200">
               <div className="font-semibold text-slate-900">Enter PIN</div>
