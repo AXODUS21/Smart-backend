@@ -37,29 +37,45 @@ export default function AdminParentsReview() {
         <p className="text-slate-500">All reviews sent by parents.</p>
       </div>
 
-      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-        {reviews.length === 0 ? (
-          <div className="text-center text-slate-500">No reviews yet.</div>
-        ) : (
-          <div className="divide-y divide-slate-200">
-            {reviews.map((r) => (
-              <div key={r.id} className="py-4 flex flex-col gap-1">
-                <div className="flex items-center justify-between">
-                  <div className="text-slate-900 font-medium">
-                    {r.parent_name || "Unnamed Parent"}
-                    <span className="text-slate-400 font-normal"> → </span>
-                    <span className="text-slate-700">{r.student_name || "Student"}</span>
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+        <div className="p-4">
+          {reviews.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <p className="text-sm">No reviews yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {reviews.map((r) => (
+                <div key={r.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <div className="flex items-start justify-between mb-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-slate-900">
+                          {r.parent_name || "Unnamed Parent"}
+                        </span>
+                        <span className="text-slate-400">→</span>
+                        <span className="text-xs text-slate-700">{r.student_name || "Student"}</span>
+                        <span className="text-xs text-amber-600 font-medium">
+                          • {r.rating || "-"}/5
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 ml-3 whitespace-nowrap">
+                      {new Date(r.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </div>
                   </div>
-                  <div className="text-sm text-slate-500">
-                    {new Date(r.created_at).toLocaleString()}
+                  <div className="text-xs text-slate-700 whitespace-pre-wrap line-clamp-3">
+                    {r.message}
                   </div>
                 </div>
-                <div className="text-amber-600 text-sm">Rating: {r.rating || "-"}/5</div>
-                <div className="text-slate-700 whitespace-pre-wrap">{r.message}</div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

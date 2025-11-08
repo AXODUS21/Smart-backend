@@ -230,8 +230,6 @@ export default function AdminAnnouncements() {
       month: "short",
       day: "numeric",
       year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
   };
 
@@ -462,52 +460,52 @@ export default function AdminAnnouncements() {
 
       {/* Announcements List */}
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <div className="p-6">
+        <div className="p-4">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">
             All Announcements ({announcements.length})
           </h3>
           {announcements.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-8 text-slate-500">
               <Megaphone className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-              <p>No announcements yet.</p>
-              <p className="text-sm">Create your first announcement to get started.</p>
+              <p className="text-sm">No announcements yet.</p>
+              <p className="text-xs">Create your first announcement to get started.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {announcements.map((announcement) => (
                 <div
                   key={announcement.id}
-                  className={`p-4 rounded-lg border ${
+                  className={`p-3 rounded-lg border ${
                     announcement.is_active
                       ? "bg-white border-slate-200"
                       : "bg-slate-50 border-slate-200 opacity-75"
                   }`}
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h4 className="text-lg font-semibold text-slate-900">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-semibold text-slate-900">
                           {announcement.title}
                         </h4>
                         {getPriorityBadge(announcement.priority)}
                         {!announcement.is_active && (
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                             Inactive
                           </span>
                         )}
                       </div>
 
-                      <p className="text-slate-700 whitespace-pre-wrap mb-3">
+                      <p className="text-xs text-slate-700 whitespace-pre-wrap mb-2 line-clamp-2">
                         {announcement.message}
                       </p>
 
-                      <div className="flex items-center gap-4 text-sm text-slate-500">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
+                      <div className="flex items-center gap-3 text-xs text-slate-500">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
                           <span>{formatDate(announcement.created_at)}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Users className="w-4 h-4" />
+                        <div className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
                           <span>
                             {announcement.target_audience?.join(", ") || "All"}
                           </span>
@@ -515,10 +513,10 @@ export default function AdminAnnouncements() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="flex items-center gap-1 ml-3">
                       <button
                         onClick={() => handleToggleActive(announcement)}
-                        className={`p-2 rounded-lg transition-colors ${
+                        className={`p-1.5 rounded-lg transition-colors ${
                           announcement.is_active
                             ? "text-green-600 hover:bg-green-50"
                             : "text-gray-400 hover:bg-gray-50"
@@ -530,24 +528,24 @@ export default function AdminAnnouncements() {
                         }
                       >
                         {announcement.is_active ? (
-                          <CheckCircle className="w-5 h-5" />
+                          <CheckCircle className="w-4 h-4" />
                         ) : (
-                          <X className="w-5 h-5" />
+                          <X className="w-4 h-4" />
                         )}
                       </button>
                       <button
                         onClick={() => handleEdit(announcement)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Edit"
                       >
-                        <Edit className="w-5 h-5" />
+                        <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(announcement.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete"
                       >
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
