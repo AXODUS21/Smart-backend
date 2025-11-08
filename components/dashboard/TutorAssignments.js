@@ -42,6 +42,10 @@ export default function TutorAssignments() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loadingStudents, setLoadingStudents] = useState(true);
+  const [selectedAssignmentForGrading, setSelectedAssignmentForGrading] = useState(null);
+  const [gradingPoints, setGradingPoints] = useState("");
+  const [gradingFeedback, setGradingFeedback] = useState("");
+  const [grading, setGrading] = useState(false);
 
   // Fetch tutor ID and all students
   useEffect(() => {
@@ -282,6 +286,69 @@ export default function TutorAssignments() {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     setFormData({ ...formData, file });
+  };
+
+  // Handle grading submission
+  const handleGradeAssignment = async (assignmentId) => {
+    setGrading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      if (!gradingPoints || gradingPoints === "") {
+        setError("Please enter points for this assignment.");
+        setGrading(false);
+        return;
+      }
+
+      const points = parseFloat(gradingPoints);
+      const assignment = assignments.find((a) => a.id === assignmentId);
+      
+      if (assignment && assignment.max_points && points > assignment.max_points) {
+        setError(`Points cannot exceed maximum points (${assignment.max_points}).`);
+        setGrading(false);
+        return;
+      }
+
+      // Update assignment with grade
+      const { error: updateError } = await supabase
+        .from("Assignments")
+        .update({
+          points: points,
+          status: "graded",
+        })
+        .eq("id", assignmentId);
+
+      if (updateError) throw updateError;
+
+      setSuccess("Assignment graded successfully!");
+      setSelectedAssignmentForGrading(null);
+      setGradingPoints("");
+      setGradingFeedback("");
+
+      // Refresh assignments list
+      const { data } = await supabase
+        .from("Assignments")
+        .select(
+          `
+          *,
+          student:student_id (
+            id,
+            name,
+            email
+          )
+        `
+        )
+        .eq("tutor_id", tutorId)
+        .order("created_at", { ascending: false });
+
+      setAssignments(data || []);
+    } catch (error) {
+      console.error("Error grading assignment:", error);
+      setError(error.message || "Failed to grade assignment.");
+    } finally {
+      setGrading(false);
+    }
   };
 
   // Filter assignments
@@ -650,22 +717,66 @@ export default function TutorAssignments() {
                       </p>
                     )}
 
+                    {/* Submission Info */}
+                    {assignment.submission_file_url && (
+                      <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div className="flex items-center gap-1.5 text-yellow-800 mb-1">
+                          <CheckCircle className="w-3 h-3" />
+                          <span className="font-medium text-xs">Submitted by Student</span>
+                        </div>
+                        <div className="text-xs text-yellow-700 space-y-0.5">
+                          <div>
+                            Submitted: {formatDate(assignment.submission_date)}
+                          </div>
+                          <a
+                            href={assignment.submission_file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 hover:underline"
+                          >
+                            <Download className="w-3 h-3" />
+                            View Submission
+                          </a>
+                          {assignment.submission_notes && (
+                            <div className="mt-1">
+                              <span className="font-medium">Student Notes:</span>{" "}
+                              <span>{assignment.submission_notes}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+
                     <div className="text-xs text-slate-400 mt-1">
                       Created: {formatDate(assignment.created_at)}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-1 flex-shrink-0 flex-col">
                     {assignment.file_url && (
                       <a
                         href={assignment.file_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Download file"
+                        title="Download assignment file"
                       >
                         <Download className="w-4 h-4" />
                       </a>
+                    )}
+                    {assignment.status === "submitted" && (
+                      <button
+                        onClick={() => {
+                          setSelectedAssignmentForGrading(assignment);
+                          setGradingPoints(assignment.max_points ? assignment.max_points.toString() : "");
+                          setGradingFeedback("");
+                        }}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="Grade assignment"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -674,6 +785,123 @@ export default function TutorAssignments() {
           )}
         </div>
       </div>
+
+      {/* Grading Modal */}
+      {selectedAssignmentForGrading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-slate-900">
+                  Grade Assignment
+                </h3>
+                <button
+                  onClick={() => {
+                    setSelectedAssignmentForGrading(null);
+                    setGradingPoints("");
+                    setGradingFeedback("");
+                    setError("");
+                  }}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-3 p-3 bg-slate-50 rounded-lg">
+                <h4 className="font-medium text-sm text-slate-900 mb-1">
+                  {selectedAssignmentForGrading.title}
+                </h4>
+                <div className="text-xs text-slate-600 space-y-0.5">
+                  <div>
+                    <span className="font-medium">Student:</span>{" "}
+                    {selectedAssignmentForGrading.student?.name || 
+                     selectedAssignmentForGrading.student?.email || 
+                     "Unknown"}
+                  </div>
+                  {selectedAssignmentForGrading.max_points && (
+                    <div>
+                      <span className="font-medium">Max Points:</span> {selectedAssignmentForGrading.max_points}
+                    </div>
+                  )}
+                  {selectedAssignmentForGrading.submission_date && (
+                    <div>
+                      <span className="font-medium">Submitted:</span> {formatDate(selectedAssignmentForGrading.submission_date)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedAssignmentForGrading.submission_file_url && (
+                <div className="mb-3">
+                  <a
+                    href={selectedAssignmentForGrading.submission_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    View Student Submission
+                  </a>
+                </div>
+              )}
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleGradeAssignment(selectedAssignmentForGrading.id);
+                }}
+                className="space-y-3"
+              >
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                    Points <span className="text-red-500">*</span>
+                    {selectedAssignmentForGrading.max_points && (
+                      <span className="text-slate-500 ml-1">
+                        (Max: {selectedAssignmentForGrading.max_points})
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    value={gradingPoints}
+                    onChange={(e) => setGradingPoints(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter points"
+                    min="0"
+                    max={selectedAssignmentForGrading.max_points || undefined}
+                    step="0.1"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={grading || !gradingPoints}
+                    className="flex items-center gap-2 px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    {grading ? "Grading..." : "Submit Grade"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedAssignmentForGrading(null);
+                      setGradingPoints("");
+                      setGradingFeedback("");
+                      setError("");
+                    }}
+                    className="px-4 py-1.5 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
