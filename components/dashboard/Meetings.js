@@ -28,6 +28,7 @@ export default function Meetings() {
   const [meetingLink, setMeetingLink] = useState("");
 
   const [view, setView] = useState("upcoming");
+  const [tutorView, setTutorView] = useState("pending");
 
   // Determine user role
   useEffect(() => {
@@ -497,252 +498,237 @@ export default function Meetings() {
     (booking) => booking.status === "rejected"
   );
 
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <Video className="h-6 w-6 text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-900">
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-1">
           Meeting Requests
-        </h3>
+        </h2>
+        <p className="text-sm text-slate-500">Manage your tutoring sessions</p>
       </div>
 
-      {/* Pending Requests */}
-      <div className="mb-8">
-        <h4 className="text-md font-semibold text-gray-700 mb-4 flex items-center gap-2">
-          <Clock className="h-4 w-4" />
-          Pending Requests ({pendingBookings.length})
-        </h4>
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+        <div className="flex border-b border-slate-200">
+          <button
+            onClick={() => setTutorView("pending")}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              tutorView === "pending"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Pending ({pendingBookings.length})
+          </button>
+          <button
+            onClick={() => setTutorView("confirmed")}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              tutorView === "confirmed"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Confirmed ({confirmedBookings.length})
+          </button>
+          <button
+            onClick={() => setTutorView("rejected")}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              tutorView === "rejected"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Rejected ({rejectedBookings.length})
+          </button>
+        </div>
 
-        {pendingBookings.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <User className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>No pending meeting requests.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {pendingBookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="border border-yellow-200 bg-yellow-50 rounded-lg p-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="text-lg font-semibold text-gray-900">
-                        {booking.subject}
-                      </h4>
-                      <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-sm">
-                        {booking.status}
-                      </span>
-                    </div>
-
-                    <div className="text-sm text-gray-600 mb-2">
-                      Requested by{" "}
-                      {booking.student?.name ||
-                        booking.student?.email ||
-                        "Student"}
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {new Date(booking.start_time_utc).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {new Date(
-                          booking.start_time_utc
-                        ).toLocaleTimeString()}{" "}
-                        - {new Date(booking.end_time_utc).toLocaleTimeString()}{" "}
-                        UTC
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <BookOpen className="h-4 w-4" />
-                        {booking.duration_min} minutes (
-                        {booking.credits_required} credits)
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleAcceptBooking(booking.id)}
-                      disabled={processing[booking.id]}
-                      className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-sm transition-colors duration-200 flex items-center gap-2"
-                    >
-                      {processing[booking.id] === "accepting" ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      ) : (
-                        <>
-                          <Check className="h-3 w-3" />
-                          Accept
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleRejectBooking(
-                          booking.id,
-                          booking.credits_required
-                        )
-                      }
-                      disabled={processing[booking.id]}
-                      className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-3 py-2 rounded-lg text-sm transition-colors duration-200 flex items-center gap-2"
-                    >
-                      {processing[booking.id] === "rejecting" ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      ) : (
-                        <>
-                          <X className="h-3 w-3" />
-                          Reject
-                        </>
-                      )}
-                    </button>
-                  </div>
+        <div className="p-4">
+          {/* Pending Requests Tab */}
+          {tutorView === "pending" && (
+            <div className="space-y-2">
+              {pendingBookings.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">
+                  <User className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-sm">No pending meeting requests.</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Confirmed Meetings */}
-      <div className="mb-8">
-        <h4 className="text-md font-semibold text-gray-700 mb-4 flex items-center gap-2">
-          <Check className="h-4 w-4" />
-          Confirmed Meetings ({confirmedBookings.length})
-        </h4>
-
-        {confirmedBookings.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>No confirmed meetings yet.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {confirmedBookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="border border-green-200 bg-green-50 rounded-lg p-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="text-lg font-semibold text-gray-900">
-                        {booking.subject}
-                      </h4>
-                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                        {booking.status}
-                      </span>
-                    </div>
-
-                    <div className="text-sm text-gray-600 mb-2">
-                      with{" "}
-                      {booking.student?.name ||
-                        booking.student?.email ||
-                        "Student"}
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {new Date(booking.start_time_utc).toLocaleDateString()}
+              ) : (
+                pendingBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-sm text-slate-900">
+                          {booking.subject}
+                        </p>
+                        <span className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full text-xs">
+                          {booking.status}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {new Date(
-                          booking.start_time_utc
-                        ).toLocaleTimeString()}{" "}
-                        - {new Date(booking.end_time_utc).toLocaleTimeString()}{" "}
-                        UTC
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <BookOpen className="h-4 w-4" />
-                        {booking.duration_min} minutes (
-                        {booking.credits_required} credits)
-                      </div>
+                      <p className="text-xs text-slate-500 mb-1">
+                        {booking.student?.name ||
+                          booking.student?.email ||
+                          "Student"}{" "}
+                        • {formatDate(booking.start_time_utc)} at{" "}
+                        {formatTime(booking.start_time_utc)}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {booking.duration_min} min • {booking.credits_required}{" "}
+                        credits
+                      </p>
                     </div>
+                    <div className="flex gap-2 ml-3">
+                      <button
+                        onClick={() => handleAcceptBooking(booking.id)}
+                        disabled={processing[booking.id]}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1 whitespace-nowrap"
+                      >
+                        {processing[booking.id] === "accepting" ? (
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                        ) : (
+                          <>
+                            <Check className="h-3 w-3" />
+                            Accept
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleRejectBooking(
+                            booking.id,
+                            booking.credits_required
+                          )
+                        }
+                        disabled={processing[booking.id]}
+                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1 whitespace-nowrap"
+                      >
+                        {processing[booking.id] === "rejecting" ? (
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                        ) : (
+                          <>
+                            <X className="h-3 w-3" />
+                            Reject
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
 
-                    {/* Meeting Link */}
-                    {booking.meeting_link && (
-                      <div className="flex items-center gap-2">
-                        <Link className="h-4 w-4 text-blue-600" />
+          {/* Confirmed Meetings Tab */}
+          {tutorView === "confirmed" && (
+            <div className="space-y-2">
+              {confirmedBookings.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-sm">No confirmed meetings yet.</p>
+                </div>
+              ) : (
+                confirmedBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-sm text-slate-900">
+                          {booking.subject}
+                        </p>
+                        <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs">
+                          {booking.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-1">
+                        {booking.student?.name ||
+                          booking.student?.email ||
+                          "Student"}{" "}
+                        • {formatDate(booking.start_time_utc)} at{" "}
+                        {formatTime(booking.start_time_utc)}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {booking.duration_min} min • {booking.credits_required}{" "}
+                        credits
+                      </p>
+                      {booking.meeting_link && (
                         <a
                           href={booking.meeting_link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 text-sm underline"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1"
                         >
+                          <Link className="h-3 w-3" />
                           Join Meeting
                         </a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Rejected Requests */}
-      {rejectedBookings.length > 0 && (
-        <div>
-          <h4 className="text-md font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <X className="h-4 w-4" />
-            Rejected Requests ({rejectedBookings.length})
-          </h4>
-
-          <div className="space-y-4">
-            {rejectedBookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="border border-red-200 bg-red-50 rounded-lg p-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="text-lg font-semibold text-gray-900">
-                        {booking.subject}
-                      </h4>
-                      <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-sm">
-                        {booking.status}
-                      </span>
-                    </div>
-
-                    <div className="text-sm text-gray-600 mb-2">
-                      Requested by{" "}
-                      {booking.student?.name ||
-                        booking.student?.email ||
-                        "Student"}
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {new Date(booking.start_time_utc).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {new Date(
-                          booking.start_time_utc
-                        ).toLocaleTimeString()}{" "}
-                        - {new Date(booking.end_time_utc).toLocaleTimeString()}{" "}
-                        UTC
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <BookOpen className="h-4 w-4" />
-                        {booking.duration_min} minutes (
-                        {booking.credits_required} credits refunded)
-                      </div>
+                      )}
                     </div>
                   </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Rejected Requests Tab */}
+          {tutorView === "rejected" && (
+            <div className="space-y-2">
+              {rejectedBookings.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">
+                  <X className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-sm">No rejected requests.</p>
                 </div>
-              </div>
-            ))}
-          </div>
+              ) : (
+                rejectedBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-sm text-slate-900">
+                          {booking.subject}
+                        </p>
+                        <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-xs">
+                          {booking.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-1">
+                        {booking.student?.name ||
+                          booking.student?.email ||
+                          "Student"}{" "}
+                        • {formatDate(booking.start_time_utc)} at{" "}
+                        {formatTime(booking.start_time_utc)}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {booking.duration_min} min • {booking.credits_required}{" "}
+                        credits refunded
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Meeting Link Modal */}
       {meetingLinkModal.isOpen && (
