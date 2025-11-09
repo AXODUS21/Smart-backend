@@ -75,12 +75,13 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Load admin sidebar configuration
-  const loadAdminSidebarConfig = async () => {
+  // Load admin sidebar configuration for the current admin
+  const loadAdminSidebarConfig = async (adminId) => {
     try {
       const { data, error } = await supabase
         .from("admin_sidebar_config")
         .select("*")
+        .eq("admin_id", adminId)
         .eq("is_visible", true)
         .order("display_order", { ascending: true });
 
@@ -132,8 +133,8 @@ export default function Dashboard() {
         if (adminData) {
           setUserRole("admin");
           setUserName(adminData.name || user.email);
-          // Load admin sidebar configuration
-          await loadAdminSidebarConfig();
+          // Load admin sidebar configuration for this specific admin
+          await loadAdminSidebarConfig(adminData.id);
           setLoading(false);
           return;
         }
@@ -245,9 +246,15 @@ export default function Dashboard() {
 
   const adminTabs = getAdminTabs();
 
-  // Superadmin tabs - all admin tabs plus management tabs
+  // Superadmin tabs - all admin tabs except tasks, plus management tabs
   const superadminTabs = [
-    ...Object.values(adminTabsMap),
+    { id: "home", label: "Dashboard", icon: Home },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
+    { id: "users", label: "Users", icon: Users },
+    { id: "jobs", label: "Jobs", icon: Briefcase },
+    { id: "subjects", label: "Subjects", icon: CheckSquare },
+    { id: "announcements", label: "Announcements", icon: Megaphone },
+    { id: "parents-review", label: "Parents Review", icon: MessageSquare },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
   ];
@@ -375,7 +382,6 @@ export default function Dashboard() {
           )}
           {activeTab === "users" && userRole === "superadmin" && <AdminUsers />}
           {activeTab === "jobs" && userRole === "superadmin" && <AdminJobs />}
-          {activeTab === "tasks" && userRole === "superadmin" && <AdminTasks />}
           {activeTab === "subjects" && userRole === "superadmin" && (
             <AdminSubjects />
           )}
