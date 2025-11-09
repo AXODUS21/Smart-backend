@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import {
-  CheckSquare,
+  ListTodo,
   Plus,
   Calendar,
   Flag,
@@ -14,55 +14,71 @@ import {
   XCircle,
   Clock,
   User,
-  ShieldCheck,
 } from "lucide-react";
 
-export default function AdminTasks() {
+export default function SuperadminTasks() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
+  const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [adminFilter, setAdminFilter] = useState("all");
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
     priority: "medium",
     due_date: "",
+    assigned_to_admin_id: "",
   });
 
   useEffect(() => {
     fetchTasks();
+    fetchAdmins();
   }, []);
+
+  const fetchAdmins = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("admins")
+        .select("id, name, email")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      setAdmins(data || []);
+    } catch (error) {
+      console.error("Error fetching admins:", error);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
-      // Get admin ID
-      const { data: adminData } = await supabase
-        .from("admins")
+      const { data: superadminData } = await supabase
+        .from("superadmins")
         .select("id")
         .eq("user_id", user.id)
         .single();
 
-      if (!adminData) {
-        console.error("Admin record not found");
-        setLoading(false);
+      if (!superadminData) {
+        console.error("Superadmin record not found");
         return;
       }
 
-      // Fetch tasks assigned to this admin OR created by this admin
-      const { data, error } = await supabase
+      let query = supabase
         .from("admintasks")
         .select(`
           *,
-          assigned_by_superadmin:superadmin_id (
+          assigned_admin:assigned_to_admin_id (
             id,
             name,
             email
           )
         `)
-        .or(`assigned_to_admin_id.eq.${adminData.id},admin_id.eq.${adminData.id}`)
+        .eq("superadmin_id", superadminData.id)
         .order("created_at", { ascending: false });
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setTasks(data || []);
@@ -79,21 +95,27 @@ export default function AdminTasks() {
       return;
     }
 
+    if (!newTask.assigned_to_admin_id) {
+      alert("Please select an admin to assign the task to");
+      return;
+    }
+
     try {
-      // Get admin ID
-      const { data: adminData } = await supabase
-        .from("admins")
+      // Get superadmin ID
+      const { data: superadminData } = await supabase
+        .from("superadmins")
         .select("id")
         .eq("user_id", user.id)
         .single();
 
-      if (!adminData) {
-        alert("Admin record not found");
+      if (!superadminData) {
+        alert("Superadmin record not found");
         return;
       }
 
       const { error } = await supabase.from("admintasks").insert({
-        admin_id: adminData.id,
+        superadmin_id: superadminData.id,
+        assigned_to_admin_id: newTask.assigned_to_admin_id,
         title: newTask.title,
         description: newTask.description,
         priority: newTask.priority,
@@ -104,7 +126,13 @@ export default function AdminTasks() {
       if (error) throw error;
 
       setShowAddModal(false);
-      setNewTask({ title: "", description: "", priority: "medium", due_date: "" });
+      setNewTask({
+        title: "",
+        description: "",
+        priority: "medium",
+        due_date: "",
+        assigned_to_admin_id: "",
+      });
       fetchTasks();
     } catch (error) {
       console.error("Error adding task:", error);
@@ -192,8 +220,19 @@ export default function AdminTasks() {
   };
 
   const filteredTasks = () => {
-    if (statusFilter === "all") return tasks;
-    return tasks.filter((t) => t.status === statusFilter);
+    let filtered = tasks;
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((t) => t.status === statusFilter);
+    }
+
+    if (adminFilter !== "all") {
+      filtered = filtered.filter(
+        (t) => t.assigned_to_admin_id === parseInt(adminFilter)
+      );
+    }
+
+    return filtered;
   };
 
   if (loading) {
@@ -211,34 +250,58 @@ export default function AdminTasks() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">Administrative Tasks</h2>
-          <p className="text-slate-500">Manage administrative tasks unrelated to teaching</p>
+          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+            Assign Tasks to Admins
+          </h2>
+          <p className="text-slate-500">
+            Create and assign tasks for administrators
+          </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
-          Add Task
+          Assign Task
         </button>
       </div>
 
-      {/* Status Filter */}
+      {/* Filters */}
       <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-        <div className="flex gap-4">
-          {["all", "pending", "in_progress", "completed", "cancelled"].map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                statusFilter === status
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
+        <div className="flex gap-4 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Status Filter
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-4 py-2"
             >
-              {status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ")}
-            </button>
-          ))}
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Admin Filter
+            </label>
+            <select
+              value={adminFilter}
+              onChange={(e) => setAdminFilter(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-4 py-2"
+            >
+              <option value="all">All Admins</option>
+              {admins.map((admin) => (
+                <option key={admin.id} value={admin.id}>
+                  {admin.name || admin.email}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -251,45 +314,32 @@ export default function AdminTasks() {
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-lg font-semibold text-slate-900">{task.title}</h3>
-                  {task.assigned_by_superadmin && (
-                    <span className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-                      <ShieldCheck className="w-3 h-3" />
-                      Assigned by Superadmin
-                    </span>
-                  )}
-                </div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">{task.title}</h3>
                 {task.description && (
                   <p className="text-sm text-slate-600 mb-3">{task.description}</p>
                 )}
-                {task.assigned_by_superadmin && (
+                {task.assigned_admin && (
                   <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
                     <User className="w-4 h-4" />
                     <span>
-                      Assigned by: <strong>{task.assigned_by_superadmin.name || task.assigned_by_superadmin.email}</strong>
+                      Assigned to: <strong>{task.assigned_admin.name || task.assigned_admin.email}</strong>
                     </span>
                   </div>
                 )}
               </div>
               <div className="flex gap-2">
-                {/* Only allow editing/deleting tasks created by the admin, not those assigned by superadmin */}
-                {!task.assigned_by_superadmin && (
-                  <>
-                    <button
-                      onClick={() => setEditingTask(task)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => setEditingTask(task)}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDeleteTask(task.id)}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -305,7 +355,7 @@ export default function AdminTasks() {
               {task.due_date && (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <Calendar className="w-4 h-4" />
-                  <span>{new Date(task.due_date).toLocaleDateString()}</span>
+                  <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
                 </div>
               )}
             </div>
@@ -339,7 +389,7 @@ export default function AdminTasks() {
 
       {filteredTasks().length === 0 && (
         <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-slate-200">
-          <CheckSquare className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+          <ListTodo className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <p className="text-slate-500">No tasks found</p>
         </div>
       )}
@@ -349,9 +399,27 @@ export default function AdminTasks() {
         <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-6 border-b border-slate-200">
-              <h2 className="text-xl font-bold text-slate-900">Add New Task</h2>
+              <h2 className="text-xl font-bold text-slate-900">Assign Task to Admin</h2>
             </div>
             <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Assign To Admin *
+                </label>
+                <select
+                  value={newTask.assigned_to_admin_id}
+                  onChange={(e) => setNewTask({ ...newTask, assigned_to_admin_id: e.target.value })}
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2"
+                  required
+                >
+                  <option value="">Select an admin</option>
+                  {admins.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.name || admin.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>
                 <input
@@ -399,7 +467,13 @@ export default function AdminTasks() {
               <button
                 onClick={() => {
                   setShowAddModal(false);
-                  setNewTask({ title: "", description: "", priority: "medium", due_date: "" });
+                  setNewTask({
+                    title: "",
+                    description: "",
+                    priority: "medium",
+                    due_date: "",
+                    assigned_to_admin_id: "",
+                  });
                 }}
                 className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50"
               >
@@ -409,7 +483,7 @@ export default function AdminTasks() {
                 onClick={handleAddTask}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                Add Task
+                Assign Task
               </button>
             </div>
           </div>

@@ -19,10 +19,13 @@ import {
   MessageSquare,
   User,
   Shield,
+  ShieldCheck,
   BarChart3,
   Briefcase,
   CheckSquare,
   Megaphone,
+  Settings,
+  ListTodo,
 } from "lucide-react";
 
 // Dashboard components
@@ -47,6 +50,8 @@ import AdminParentsReview from "./dashboard/AdminParentsReview";
 import TutorAssignments from "./dashboard/TutorAssignments";
 import StudentAssignments from "./dashboard/StudentAssignments";
 import AdminAnnouncements from "./dashboard/AdminAnnouncements";
+import SuperadminSidebarConfig from "./dashboard/SuperadminSidebarConfig";
+import SuperadminTasks from "./dashboard/SuperadminTasks";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -57,6 +62,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [studentModeEnabled, setStudentModeEnabled] = useState(false);
+  const [adminSidebarConfig, setAdminSidebarConfig] = useState([]);
 
   // Handle URL parameters for tab selection
   useEffect(() => {
@@ -69,12 +75,49 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Load admin sidebar configuration
+  const loadAdminSidebarConfig = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("admin_sidebar_config")
+        .select("*")
+        .eq("is_visible", true)
+        .order("display_order", { ascending: true });
+
+      if (error) throw error;
+      setAdminSidebarConfig(data || []);
+    } catch (error) {
+      console.error("Error loading admin sidebar config:", error);
+      // Fallback to default tabs if config fails to load
+      setAdminSidebarConfig([]);
+    }
+  };
+
   useEffect(() => {
     async function determineRole() {
       if (!user) return;
 
       try {
-        // First check if user is an admin
+        // First check if user is a superadmin
+        const { data: superadminData, error: superadminError } = await supabase
+          .from("superadmins")
+          .select("id, name, email")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        // Ignore 406 errors (not found is expected for non-superadmins)
+        if (superadminError && superadminError.code !== 'PGRST116') {
+          console.error("Error checking superadmin status:", superadminError);
+        }
+
+        if (superadminData) {
+          setUserRole("superadmin");
+          setUserName(superadminData.name || user.email);
+          setLoading(false);
+          return;
+        }
+
+        // Then check if user is an admin
         const { data: adminData, error: adminError } = await supabase
           .from("admins")
           .select("id, name, email")
@@ -89,6 +132,8 @@ export default function Dashboard() {
         if (adminData) {
           setUserRole("admin");
           setUserName(adminData.name || user.email);
+          // Load admin sidebar configuration
+          await loadAdminSidebarConfig();
           setLoading(false);
           return;
         }
@@ -174,15 +219,37 @@ export default function Dashboard() {
     { id: "profile", label: "Profile", icon: User },
   ];
 
-  const adminTabs = [
-    { id: "home", label: "Dashboard", icon: Home },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "users", label: "Users", icon: Users },
-    { id: "jobs", label: "Jobs", icon: Briefcase },
-    { id: "tasks", label: "Tasks", icon: CheckSquare },
-    { id: "subjects", label: "Subjects", icon: CheckSquare },
-    { id: "announcements", label: "Announcements", icon: Megaphone },
-    { id: "parents-review", label: "Parents Review", icon: MessageSquare },
+  // Default admin tabs mapping
+  const adminTabsMap = {
+    home: { id: "home", label: "Dashboard", icon: Home },
+    analytics: { id: "analytics", label: "Analytics", icon: BarChart3 },
+    users: { id: "users", label: "Users", icon: Users },
+    jobs: { id: "jobs", label: "Jobs", icon: Briefcase },
+    tasks: { id: "tasks", label: "Tasks", icon: CheckSquare },
+    subjects: { id: "subjects", label: "Subjects", icon: CheckSquare },
+    announcements: { id: "announcements", label: "Announcements", icon: Megaphone },
+    "parents-review": { id: "parents-review", label: "Parents Review", icon: MessageSquare },
+  };
+
+  // Build admin tabs from configuration or use defaults
+  const getAdminTabs = () => {
+    if (userRole === "admin" && adminSidebarConfig.length > 0) {
+      // Use configured tabs
+      return adminSidebarConfig
+        .map((config) => adminTabsMap[config.tab_id])
+        .filter(Boolean);
+    }
+    // Default tabs if no config or superadmin
+    return Object.values(adminTabsMap);
+  };
+
+  const adminTabs = getAdminTabs();
+
+  // Superadmin tabs - all admin tabs plus management tabs
+  const superadminTabs = [
+    ...Object.values(adminTabsMap),
+    { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
+    { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
   ];
 
   const tabs =
@@ -192,6 +259,8 @@ export default function Dashboard() {
           : [...studentTabs, { id: "review", label: "Review", icon: MessageSquare }])
       : userRole === "tutor"
       ? tutorTabs
+      : userRole === "superadmin"
+      ? superadminTabs
       : userRole === "admin"
       ? adminTabs
       : [];
@@ -210,6 +279,8 @@ export default function Dashboard() {
               <GraduationCap className="w-8 h-8 text-blue-600" />
             ) : userRole === "tutor" ? (
               <BookOpen className="w-8 h-8 text-green-600" />
+            ) : userRole === "superadmin" ? (
+              <ShieldCheck className="w-8 h-8 text-red-600" />
             ) : (
               <Shield className="w-8 h-8 text-purple-600" />
             )}
@@ -219,6 +290,8 @@ export default function Dashboard() {
                   ? "Student"
                   : userRole === "tutor"
                   ? "Tutor"
+                  : userRole === "superadmin"
+                  ? "Super Admin"
                   : "Admin"}
               </span>
             )}
@@ -295,6 +368,30 @@ export default function Dashboard() {
           {activeTab === "assignments" && userRole === "tutor" && (
             <TutorAssignments />
           )}
+          {/* Superadmin tabs */}
+          {activeTab === "home" && userRole === "superadmin" && <AdminDashboard />}
+          {activeTab === "analytics" && userRole === "superadmin" && (
+            <AdminAnalytics />
+          )}
+          {activeTab === "users" && userRole === "superadmin" && <AdminUsers />}
+          {activeTab === "jobs" && userRole === "superadmin" && <AdminJobs />}
+          {activeTab === "tasks" && userRole === "superadmin" && <AdminTasks />}
+          {activeTab === "subjects" && userRole === "superadmin" && (
+            <AdminSubjects />
+          )}
+          {activeTab === "announcements" && userRole === "superadmin" && (
+            <AdminAnnouncements />
+          )}
+          {activeTab === "parents-review" && userRole === "superadmin" && (
+            <AdminParentsReview />
+          )}
+          {activeTab === "sidebar-config" && userRole === "superadmin" && (
+            <SuperadminSidebarConfig onConfigUpdate={loadAdminSidebarConfig} />
+          )}
+          {activeTab === "assign-tasks" && userRole === "superadmin" && (
+            <SuperadminTasks />
+          )}
+          {/* Admin tabs */}
           {activeTab === "home" && userRole === "admin" && <AdminDashboard />}
           {activeTab === "analytics" && userRole === "admin" && (
             <AdminAnalytics />
