@@ -3,10 +3,29 @@ import { createClient } from '@supabase/supabase-js';
 
 const PAYMONGO_BASE_URL = 'https://api.paymongo.com/v1';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not configured');
+  }
+
+  if (!serviceRoleKey) {
+    console.warn('SUPABASE_SERVICE_ROLE_KEY not found for PayMongo create route, using anon key (may have RLS restrictions)');
+  }
+
+  return createClient(
+    supabaseUrl,
+    serviceRoleKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
 
 export async function POST(request) {
   try {
@@ -20,12 +39,63 @@ export async function POST(request) {
       );
     }
 
-    const { planId, credits, price, userId } = await request.json();
+    const { planId, userId } = await request.json();
 
-    if (!planId || !credits || !price || !userId) {
+    if (!planId || !userId) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseClient();
+
+    const fetchPlan = async () => {
+      let { data: planData, error: planError } = await supabase
+        .from('credit_plans')
+        .select('id, slug, name, credits, price_usd, savings_percent')
+        .eq('slug', planId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (planError && planError.code !== 'PGRST116') {
+        throw planError;
+      }
+
+      if (!planData) {
+        const { data: byIdData, error: byIdError } = await supabase
+          .from('credit_plans')
+          .select('id, slug, name, credits, price_usd, savings_percent, is_active')
+          .eq('id', planId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (byIdError && byIdError.code !== 'PGRST116') {
+          throw byIdError;
+        }
+
+        planData = byIdData;
+      }
+
+      return planData;
+    };
+
+    const planData = await fetchPlan();
+
+    if (!planData) {
+      return NextResponse.json(
+        { error: 'Selected credit plan could not be found or is inactive.' },
+        { status: 404 }
+      );
+    }
+
+    const credits = planData.credits;
+    const price = parseFloat(planData.price_usd);
+
+    if (!Number.isFinite(price) || price <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid pricing configured for this credit plan.' },
+        { status: 422 }
       );
     }
 
@@ -54,7 +124,7 @@ export async function POST(request) {
               },
             },
             metadata: {
-              planId,
+              planId: planData.slug || planData.id,
               credits: credits.toString(),
               userId,
               originalPriceUsd: price.toString(),
@@ -84,7 +154,7 @@ export async function POST(request) {
       paymentIntentId,
       clientKey,
       publicKey: process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY,
-      successUrl: `${baseUrl}/api/payments/paymongo/success?paymentIntentId=${paymentIntentId}&planId=${planId}&credits=${credits}&userId=${userId}`,
+      successUrl: `${baseUrl}/api/payments/paymongo/success?paymentIntentId=${paymentIntentId}&planId=${encodeURIComponent(planData.slug || planData.id)}&credits=${credits}&userId=${userId}`,
       cancelUrl: `${baseUrl}/?tab=credits&canceled=true`,
     });
   } catch (error) {

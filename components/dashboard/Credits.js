@@ -6,27 +6,35 @@ import { supabase } from "@/lib/supabase";
 import { Zap } from "lucide-react";
 import PaymentModal from "./PaymentModal";
 
+const fallbackPlans = [
+  { id: "starter", name: "Starter", credits: 10, price: 29.99, savings: 0 },
+  { id: "popular", name: "Popular", credits: 30, price: 79.99, savings: 10 },
+  { id: "pro", name: "Pro", credits: 60, price: 149.99, savings: 20 },
+  { id: "elite", name: "Elite", credits: 100, price: 229.99, savings: 30 },
+];
+
 export default function Credits() {
   const { user } = useAuth();
   const [credits, setCredits] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loadingCredits, setLoadingCredits] = useState(true);
+  const [loadingPlans, setLoadingPlans] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [creditPlans, setCreditPlans] = useState(fallbackPlans);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
-  const creditPlans = [
-    { id: "starter", credits: 10, price: 29.99, savings: 0 },
-    { id: "popular", credits: 30, price: 79.99, savings: 10 },
-    { id: "pro", credits: 60, price: 149.99, savings: 20 },
-    { id: "elite", credits: 100, price: 229.99, savings: 30 },
-  ];
+  const isLoading = loadingCredits || loadingPlans;
 
   // Fetch user credits
   useEffect(() => {
     const fetchCredits = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoadingCredits(false);
+        return;
+      }
 
+      setLoadingCredits(true);
       try {
         const { data, error } = await supabase
           .from("Students")
@@ -42,12 +50,60 @@ export default function Credits() {
       } catch (error) {
         console.error("Error:", error);
       } finally {
-        setLoading(false);
+        setLoadingCredits(false);
       }
     };
 
     fetchCredits();
   }, [user]);
+
+  // Fetch credit plans from database
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        setLoadingPlans(true);
+        const { data, error } = await supabase
+          .from("credit_plans")
+          .select(
+            "id, slug, name, credits, price_usd, savings_percent, is_active, sort_order"
+          )
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .order("credits", { ascending: true });
+
+        if (error) {
+          console.error("Error fetching credit plans:", error);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          const normalizedPlans = data.map((plan) => {
+            const parsedPrice = Number.parseFloat(plan.price_usd);
+            const normalizedPrice = Number.isFinite(parsedPrice)
+              ? parsedPrice
+              : 0;
+
+            return {
+              id: plan.slug || plan.id,
+              slug: plan.slug || plan.id,
+              name: plan.name || plan.slug || "Credit Plan",
+              credits: plan.credits,
+              price: normalizedPrice,
+              savings: plan.savings_percent || 0,
+              sortOrder: plan.sort_order,
+            };
+          });
+          setCreditPlans(normalizedPlans);
+        }
+      } catch (planError) {
+        console.error("Unexpected error fetching plans:", planError);
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+
+    fetchPlans();
+  }, []);
 
   // Handle URL parameters for payment success/error
   useEffect(() => {
@@ -131,7 +187,7 @@ export default function Credits() {
     // setSelectedPlan(null);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -204,13 +260,22 @@ export default function Credits() {
                 Save {plan.savings}%
               </div>
             )}
+            <p className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-1">
+              {plan.name}
+            </p>
             <p className="text-3xl font-bold text-slate-900 mb-1">
               {plan.credits}
             </p>
             <p className="text-sm text-slate-600 mb-4">credits</p>
-            <p className="text-2xl font-bold text-slate-900">${plan.price}</p>
+            <p className="text-2xl font-bold text-slate-900">
+              ${plan.price.toFixed(2)}
+            </p>
             <p className="text-xs text-slate-500 mt-2">
-              ${(plan.price / plan.credits).toFixed(2)}/credit
+              $
+              {plan.credits > 0
+                ? (plan.price / plan.credits).toFixed(2)
+                : "0.00"}
+              /credit
             </p>
           </button>
         ))}

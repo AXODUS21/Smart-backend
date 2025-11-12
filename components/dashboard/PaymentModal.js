@@ -19,10 +19,12 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
   const [error, setError] = useState("");
   const [payMongoPaymentData, setPayMongoPaymentData] = useState(null);
 
+  const planId = plan?.id || plan?.slug;
+
   if (!isOpen) return null;
 
   const handleStripePayment = async () => {
-    if (!plan || !userId) {
+    if (!planId || !userId) {
       setError("Missing plan or user information");
       return;
     }
@@ -38,9 +40,7 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: plan.id,
-          credits: plan.credits,
-          price: plan.price,
+          planId: planId,
           userId: userId,
         }),
       });
@@ -78,7 +78,7 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
   };
 
   const handlePayMongoPayment = async () => {
-    if (!plan || !userId) {
+    if (!planId || !userId) {
       setError("Missing plan or user information");
       return;
     }
@@ -94,9 +94,7 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: plan.id,
-          credits: plan.credits,
-          price: plan.price,
+          planId: planId,
           userId: userId,
         }),
       });
@@ -412,10 +410,11 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
             <h3 className="font-semibold text-slate-900 mb-2">Order Summary</h3>
             <div className="flex justify-between items-center">
               <span className="text-slate-600">
+                {plan.name ? `${plan.name} · ` : ""}
                 {plan.credits} Credits
               </span>
               <span className="text-xl font-bold text-slate-900">
-                ${plan.price}
+                ${Number(plan.price).toFixed(2)}
               </span>
             </div>
           </div>

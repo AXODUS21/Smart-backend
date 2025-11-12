@@ -47,6 +47,7 @@ import AdminUsers from "./dashboard/AdminUsers";
 import AdminJobs from "./dashboard/AdminJobs";
 import AdminTasks from "./dashboard/AdminTasks";
 import AdminSubjects from "./dashboard/AdminSubjects";
+import AdminCreditPlans from "./dashboard/AdminCreditPlans";
 import StudentReview from "./dashboard/StudentReview";
 import AdminParentsReview from "./dashboard/AdminParentsReview";
 import TutorAssignments from "./dashboard/TutorAssignments";
@@ -236,6 +237,7 @@ export default function Dashboard() {
     jobs: { id: "jobs", label: "Jobs", icon: Briefcase },
     tasks: { id: "tasks", label: "Tasks", icon: CheckSquare },
     subjects: { id: "subjects", label: "Subjects", icon: CheckSquare },
+    "credit-plans": { id: "credit-plans", label: "Credit Plans", icon: Wallet },
     announcements: { id: "announcements", label: "Announcements", icon: Megaphone },
     "parents-review": { id: "parents-review", label: "Parents Review", icon: MessageSquare },
     "tutor-applications": {
@@ -268,6 +270,7 @@ export default function Dashboard() {
     { id: "subjects", label: "Subjects", icon: CheckSquare },
     { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
+    { id: "credit-plans", label: "Credit Plans", icon: Wallet },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
     { id: "tutor-applications", label: "Tutor Applications", icon: ClipboardList },
@@ -448,6 +451,9 @@ export default function Dashboard() {
           {activeTab === "parents-review" && userRole === "superadmin" && (
             <AdminParentsReview />
           )}
+          {activeTab === "credit-plans" && userRole === "superadmin" && (
+            <AdminCreditPlans />
+          )}
           {activeTab === "sidebar-config" && userRole === "superadmin" && (
             <SuperadminSidebarConfig onConfigUpdate={loadAdminSidebarConfig} />
           )}
@@ -470,6 +476,9 @@ export default function Dashboard() {
           )}
           {activeTab === "announcements" && userRole === "admin" && (
             <AdminAnnouncements />
+          )}
+          {activeTab === "credit-plans" && userRole === "admin" && (
+            <AdminCreditPlans />
           )}
           {activeTab === "tutor-applications" && userRole === "admin" && (
             <AdminTutorApplications />

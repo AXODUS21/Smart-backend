@@ -21,8 +21,9 @@ export default function SuperadminSidebarConfig({ onConfigUpdate }) {
     { tab_id: "jobs", tab_label: "Jobs", is_visible: true, display_order: 4 },
     { tab_id: "tasks", tab_label: "Tasks", is_visible: true, display_order: 5 },
     { tab_id: "subjects", tab_label: "Subjects", is_visible: true, display_order: 6 },
-    { tab_id: "announcements", tab_label: "Announcements", is_visible: true, display_order: 7 },
-    { tab_id: "parents-review", tab_label: "Parents Review", is_visible: true, display_order: 8 },
+    { tab_id: "credit-plans", tab_label: "Credit Plans", is_visible: true, display_order: 7 },
+    { tab_id: "announcements", tab_label: "Announcements", is_visible: true, display_order: 8 },
+    { tab_id: "parents-review", tab_label: "Parents Review", is_visible: true, display_order: 9 },
   ];
 
   useEffect(() => {
@@ -95,6 +96,47 @@ export default function SuperadminSidebarConfig({ onConfigUpdate }) {
     }
   };
 
+  const ensureAllTabsPresent = async (adminIdNum, currentConfigs) => {
+    const missingTabs = defaultTabs.filter(
+      (tab) => !currentConfigs.some((config) => config.tab_id === tab.tab_id)
+    );
+
+    if (missingTabs.length === 0) {
+      return currentConfigs;
+    }
+
+    let nextDisplayOrder =
+      currentConfigs.length > 0
+        ? Math.max(...currentConfigs.map((config) => config.display_order || 0)) + 1
+        : 1;
+
+    const tabsToInsert = missingTabs.map((tab) => ({
+      admin_id: adminIdNum,
+      tab_id: tab.tab_id,
+      tab_label: tab.tab_label,
+      is_visible: tab.is_visible,
+      display_order:
+        currentConfigs.length === 0 ? tab.display_order : nextDisplayOrder++,
+    }));
+
+    const { error } = await supabase.from("admin_sidebar_config").insert(tabsToInsert);
+
+    if (error) {
+      console.error("Error inserting missing tabs:", error);
+      throw error;
+    }
+
+    const refreshedConfigs = [
+      ...currentConfigs,
+      ...tabsToInsert.map((tab, index) => ({
+        ...tab,
+        id: `temp-${tab.tab_id}-${index}`,
+      })),
+    ];
+
+    return refreshedConfigs;
+  };
+
   const fetchConfigs = async (adminId) => {
     setLoading(true);
     try {
@@ -111,7 +153,22 @@ export default function SuperadminSidebarConfig({ onConfigUpdate }) {
         .order("display_order", { ascending: true });
 
       if (error) throw error;
-      setConfigs(data || []);
+
+      const configsWithAllTabs = await ensureAllTabsPresent(adminIdNum, data || []);
+
+      // If we inserted new tabs, fetch again to get real IDs
+      if ((data || []).length !== configsWithAllTabs.length) {
+        const { data: refreshedData, error: refreshError } = await supabase
+          .from("admin_sidebar_config")
+          .select("*")
+          .eq("admin_id", adminIdNum)
+          .order("display_order", { ascending: true });
+
+        if (refreshError) throw refreshError;
+        setConfigs(refreshedData || []);
+      } else {
+        setConfigs(configsWithAllTabs);
+      }
     } catch (error) {
       console.error("Error fetching sidebar config:", error);
       setError(`Failed to load sidebar configuration: ${error.message}`);
