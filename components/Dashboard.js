@@ -26,6 +26,8 @@ import {
   Megaphone,
   Settings,
   ListTodo,
+  FileText,
+  ClipboardList,
 } from "lucide-react";
 
 // Dashboard components
@@ -52,6 +54,8 @@ import StudentAssignments from "./dashboard/StudentAssignments";
 import AdminAnnouncements from "./dashboard/AdminAnnouncements";
 import SuperadminSidebarConfig from "./dashboard/SuperadminSidebarConfig";
 import SuperadminTasks from "./dashboard/SuperadminTasks";
+import AdminTutorApplications from "./dashboard/AdminTutorApplications";
+import TutorApplication from "./dashboard/TutorApplication";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -63,6 +67,8 @@ export default function Dashboard() {
   const [userName, setUserName] = useState("");
   const [studentModeEnabled, setStudentModeEnabled] = useState(false);
   const [adminSidebarConfig, setAdminSidebarConfig] = useState([]);
+  const [tutorApplicationApproved, setTutorApplicationApproved] = useState(null);
+  const [tutorId, setTutorId] = useState(null);
 
   // Handle URL parameters for tab selection
   useEffect(() => {
@@ -153,13 +159,19 @@ export default function Dashboard() {
           // Check if user is in Tutors table
           const { data: tutorData } = await supabase
             .from("Tutors")
-            .select("id, name, email, subjects")
+            .select("id, name, email, subjects, application_status")
             .eq("user_id", user.id)
-            .single();
+            .maybeSingle();
 
           if (tutorData) {
             setUserRole("tutor");
             setUserName(tutorData.name || user.email);
+            setTutorId(tutorData.id);
+            const isApproved = Boolean(tutorData.application_status);
+            setTutorApplicationApproved(isApproved);
+            if (!isApproved) {
+              setActiveTab("application");
+            }
           }
         }
       } catch (error) {
@@ -191,14 +203,6 @@ export default function Dashboard() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading...</div>
-      </div>
-    );
-  }
-
   const studentTabsBase = [
     { id: "home", label: "Dashboard", icon: Home },
     { id: "assignments", label: "Assignments", icon: BookOpen },
@@ -220,6 +224,10 @@ export default function Dashboard() {
     { id: "profile", label: "Profile", icon: User },
   ];
 
+  const tutorApplicationTabs = [
+    { id: "application", label: "Application", icon: FileText },
+  ];
+
   // Default admin tabs mapping
   const adminTabsMap = {
     home: { id: "home", label: "Dashboard", icon: Home },
@@ -230,6 +238,11 @@ export default function Dashboard() {
     subjects: { id: "subjects", label: "Subjects", icon: CheckSquare },
     announcements: { id: "announcements", label: "Announcements", icon: Megaphone },
     "parents-review": { id: "parents-review", label: "Parents Review", icon: MessageSquare },
+    "tutor-applications": {
+      id: "tutor-applications",
+      label: "Tutor Applications",
+      icon: ClipboardList,
+    },
   };
 
   // Build admin tabs from configuration or use defaults
@@ -257,7 +270,15 @@ export default function Dashboard() {
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
+    { id: "tutor-applications", label: "Tutor Applications", icon: ClipboardList },
   ];
+
+  const resolvedTutorTabs =
+    tutorApplicationApproved === null
+      ? tutorApplicationTabs
+      : tutorApplicationApproved
+      ? tutorTabs
+      : tutorApplicationTabs;
 
   const tabs =
     userRole === "student"
@@ -265,12 +286,42 @@ export default function Dashboard() {
           ? studentTabs
           : [...studentTabs, { id: "review", label: "Review", icon: MessageSquare }])
       : userRole === "tutor"
-      ? tutorTabs
+      ? resolvedTutorTabs
       : userRole === "superadmin"
       ? superadminTabs
       : userRole === "admin"
       ? adminTabs
       : [];
+
+  useEffect(() => {
+    if (
+      !loading &&
+      userRole === "tutor" &&
+      tutorApplicationApproved === false &&
+      activeTab !== "application"
+    ) {
+      setActiveTab("application");
+    }
+  }, [loading, userRole, tutorApplicationApproved, activeTab]);
+
+  useEffect(() => {
+    if (
+      !loading &&
+      userRole === "tutor" &&
+      tutorApplicationApproved === true &&
+      activeTab === "application"
+    ) {
+      setActiveTab("home");
+    }
+  }, [loading, userRole, tutorApplicationApproved, activeTab]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -375,6 +426,12 @@ export default function Dashboard() {
           {activeTab === "assignments" && userRole === "tutor" && (
             <TutorAssignments />
           )}
+          {activeTab === "application" && userRole === "tutor" && (
+            <TutorApplication
+              tutorId={tutorId}
+              onApplicationStatusChange={(status) => setTutorApplicationApproved(status)}
+            />
+          )}
           {/* Superadmin tabs */}
           {activeTab === "home" && userRole === "superadmin" && <AdminDashboard />}
           {activeTab === "analytics" && userRole === "superadmin" && (
@@ -397,6 +454,9 @@ export default function Dashboard() {
           {activeTab === "assign-tasks" && userRole === "superadmin" && (
             <SuperadminTasks />
           )}
+          {activeTab === "tutor-applications" && userRole === "superadmin" && (
+            <AdminTutorApplications />
+          )}
           {/* Admin tabs */}
           {activeTab === "home" && userRole === "admin" && <AdminDashboard />}
           {activeTab === "analytics" && userRole === "admin" && (
@@ -410,6 +470,9 @@ export default function Dashboard() {
           )}
           {activeTab === "announcements" && userRole === "admin" && (
             <AdminAnnouncements />
+          )}
+          {activeTab === "tutor-applications" && userRole === "admin" && (
+            <AdminTutorApplications />
           )}
           {activeTab === "credits" && userRole === "student" && <Credits />}
           {activeTab === "meetings" && userRole === "student" && <Meetings />}
