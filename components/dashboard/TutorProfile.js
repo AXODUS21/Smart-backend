@@ -298,49 +298,88 @@ export default function TutorProfile() {
       let updatedPhotoUrl = photoUrl || null;
       const photoChanged = Boolean(photoFile) || photoRemoved;
 
+      // Try to upload photo if provided
       if (photoFile) {
-        const sanitizedFileName = photoFile.name
-          .replace(/[^a-zA-Z0-9.-]/g, "_")
-          .replace(/\s+/g, "_");
-        const filePath = `tutor-photos/${
-          user.id
-        }_${Date.now()}_${sanitizedFileName}`;
+        try {
+          const sanitizedFileName = photoFile.name
+            .replace(/[^a-zA-Z0-9.-]/g, "_")
+            .replace(/\s+/g, "_");
+          const filePath = `tutor-photos/${
+            user.id
+          }_${Date.now()}_${sanitizedFileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from(PROFILE_PHOTOS_BUCKET)
-          .upload(filePath, photoFile, {
-            cacheControl: "3600",
-            upsert: false,
-          });
+          console.log("Uploading photo to path:", filePath);
 
-        if (uploadError) {
-          throw new Error(
-            uploadError.message || "Failed to upload profile photo"
-          );
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(PROFILE_PHOTOS_BUCKET)
+            .upload(filePath, photoFile, {
+              cacheControl: "3600",
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error("Photo upload failed:", uploadError);
+            setError(`Photo upload failed: ${uploadError.message}. Profile will be saved without photo update.`);
+            // Keep the existing photo URL so we don't lose it
+            updatedPhotoUrl = photoUrl || null;
+          } else {
+            console.log("Photo uploaded successfully:", uploadData);
+            const { data: publicUrlData } = supabase.storage
+              .from(PROFILE_PHOTOS_BUCKET)
+              .getPublicUrl(filePath);
+
+            updatedPhotoUrl = publicUrlData?.publicUrl || filePath;
+            console.log("Photo URL:", updatedPhotoUrl);
+          }
+        } catch (photoError) {
+          console.error("Photo upload exception:", photoError);
+          setError(`Photo upload error: ${photoError.message}. Profile will be saved without photo update.`);
+          // Keep the existing photo URL so we don't lose it
+          updatedPhotoUrl = photoUrl || null;
         }
-
-        const { data: publicUrlData } = supabase.storage
-          .from(PROFILE_PHOTOS_BUCKET)
-          .getPublicUrl(filePath);
-
-        updatedPhotoUrl = publicUrlData?.publicUrl || filePath;
       } else if (photoRemoved) {
         updatedPhotoUrl = null;
       }
 
-      const { error: updateError } = await supabase
+      // First, verify the user has a tutor record
+      const { data: existingTutor, error: checkError } = await supabase
         .from("Tutors")
-        .update({
-          bio,
-          experience: experiences,
-          skills,
-          photo_url: updatedPhotoUrl,
-          subjects,
-          certifications,
-        })
-        .eq("user_id", user.id);
+        .select("id, user_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (checkError || !existingTutor) {
+        throw new Error("Tutor profile not found. Please contact support.");
+      }
+
+      // Prepare update data - always include photo_url if photo was changed
+      const updateData = {};
+      if (bio !== undefined) updateData.bio = bio;
+      if (experiences !== undefined) updateData.experience = experiences;
+      if (skills !== undefined) updateData.skills = skills;
+      // Always include photo_url if photo was changed (uploaded, removed, or kept)
+      if (photoChanged) {
+        updateData.photo_url = updatedPhotoUrl;
+        console.log("Including photo_url in update:", updatedPhotoUrl);
+      }
+      if (subjects !== undefined) updateData.subjects = subjects;
+      if (certifications !== undefined) updateData.certifications = certifications;
+      
+      console.log("Update data being sent:", updateData);
+
+      // Use the tutor ID for the update to ensure we're updating the correct record
+      const { error: updateError, data: updateDataResult } = await supabase
+        .from("Tutors")
+        .update(updateData)
+        .eq("id", existingTutor.id)
+        .eq("user_id", user.id) // Double check with user_id
+        .select();
 
       if (updateError) {
+        console.error("Update error details:", updateError);
+        console.error("Update data attempted:", updateData);
+        console.error("User ID:", user.id);
+        console.error("Tutor ID:", existingTutor.id);
         throw updateError;
       }
 
