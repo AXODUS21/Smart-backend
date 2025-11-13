@@ -283,7 +283,6 @@ export default function BookSession() {
         student_id: studentData.id,
         tutor_id: tutorData.id,
         subject: selectedSubject,
-        grade_level: selectedGradeLevel,
         start_time_utc: startTime.toISOString(),
         end_time_utc: endTime.toISOString(),
         duration_min: durationMinutes,
