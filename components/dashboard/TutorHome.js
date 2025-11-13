@@ -33,6 +33,7 @@ export default function TutorHome() {
   const [assignmentMsg, setAssignmentMsg] = useState("");
   const [students, setStudents] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [tutorId, setTutorId] = useState(null);
 
   const metricsData = [
     {
@@ -90,13 +91,13 @@ export default function TutorHome() {
     "Psychology",
   ];
 
-  // Fetch tutor data and metrics
+  // Fetch tutor data and metrics - fetch tutor ID once
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
 
       try {
-        // Get tutor info
+        // Get tutor info (single query to get all needed data)
         const { data: tutorData, error: tutorError } = await supabase
           .from("Tutors")
           .select("id, name, subjects")
@@ -105,78 +106,79 @@ export default function TutorHome() {
 
         if (tutorError) {
           console.error("Error fetching tutor data:", tutorError);
-        } else {
-          setTutorName(tutorData?.name || user.email);
-          // Handle both old format (text array) and new format (object array)
-          const subjectsData = tutorData?.subjects || [];
-          const normalizedSubjects = subjectsData.map((subj) => {
-            if (typeof subj === "string") {
-              return { subject: subj, grade_level: null };
-            }
-            return subj;
-          });
-          setSubjects(normalizedSubjects);
+          setLoading(false);
+          return;
         }
 
-        // Get tutor ID
-        const { data: tutorInfo } = await supabase
-          .from("Tutors")
-          .select("id")
-          .eq("user_id", user.id)
-          .single();
+        if (!tutorData) {
+          setLoading(false);
+          return;
+        }
 
-        if (tutorInfo) {
-          // Fetch all sessions
-          const { data: sessions, error: sessionsError } = await supabase
-            .from("Schedules")
-            .select("*")
-            .eq("tutor_id", tutorInfo.id);
-
-          if (sessionsError) {
-            console.error("Error fetching sessions:", sessionsError);
-          } else if (sessions) {
-            // Calculate metrics
-            const confirmedSessions = sessions.filter(
-              (s) => s.status === "confirmed"
-            );
-
-            // Total unique students
-            const uniqueStudents = new Set(sessions.map((s) => s.student_id));
-
-            // Hours taught
-            const hoursTaught = confirmedSessions.reduce(
-              (total, session) => total + (session.duration_min || 0) / 60,
-              0
-            );
-
-            // Credits earned
-            const creditsEarned = confirmedSessions.reduce(
-              (total, session) => total + (session.credits_required || 0),
-              0
-            );
-
-            setMetrics({
-              totalStudents: uniqueStudents.size,
-              hoursTaught: Math.round(hoursTaught * 10) / 10,
-              avgRating: 4.9, // Default or fetch from ratings table if available
-              creditsEarned,
-            });
-
-            // Get upcoming sessions (next 3)
-            const upcoming = sessions
-              .filter(
-                (s) =>
-                  s.status === "confirmed" &&
-                  new Date(s.start_time_utc) > new Date()
-              )
-              .sort(
-                (a, b) =>
-                  new Date(a.start_time_utc) - new Date(b.start_time_utc)
-              )
-              .slice(0, 3);
-
-            setUpcomingSessions(upcoming);
+        // Store tutor ID for other queries
+        setTutorId(tutorData.id);
+        setTutorName(tutorData.name || user.email);
+        
+        // Handle both old format (text array) and new format (object array)
+        const subjectsData = tutorData.subjects || [];
+        const normalizedSubjects = subjectsData.map((subj) => {
+          if (typeof subj === "string") {
+            return { subject: subj, grade_level: null };
           }
+          return subj;
+        });
+        setSubjects(normalizedSubjects);
+
+        // Fetch all sessions using tutor ID
+        const { data: sessions, error: sessionsError } = await supabase
+          .from("Schedules")
+          .select("*")
+          .eq("tutor_id", tutorData.id);
+
+        if (sessionsError) {
+          console.error("Error fetching sessions:", sessionsError);
+        } else if (sessions) {
+          // Calculate metrics
+          const confirmedSessions = sessions.filter(
+            (s) => s.status === "confirmed"
+          );
+
+          // Total unique students
+          const uniqueStudents = new Set(sessions.map((s) => s.student_id));
+
+          // Hours taught
+          const hoursTaught = confirmedSessions.reduce(
+            (total, session) => total + (session.duration_min || 0) / 60,
+            0
+          );
+
+          // Credits earned
+          const creditsEarned = confirmedSessions.reduce(
+            (total, session) => total + (session.credits_required || 0),
+            0
+          );
+
+          setMetrics({
+            totalStudents: uniqueStudents.size,
+            hoursTaught: Math.round(hoursTaught * 10) / 10,
+            avgRating: 4.9, // Default or fetch from ratings table if available
+            creditsEarned,
+          });
+
+          // Get upcoming sessions (next 3)
+          const upcoming = sessions
+            .filter(
+              (s) =>
+                s.status === "confirmed" &&
+                new Date(s.start_time_utc) > new Date()
+            )
+            .sort(
+              (a, b) =>
+                new Date(a.start_time_utc) - new Date(b.start_time_utc)
+            )
+            .slice(0, 3);
+
+          setUpcomingSessions(upcoming);
         }
       } catch (error) {
         console.error("Error:", error);
@@ -188,46 +190,47 @@ export default function TutorHome() {
     fetchData();
   }, [user]);
 
-  // Add these just inside the main TutorHome function
-  // Fetch withdrawals for tutor
+  // Fetch withdrawals for tutor (depends on tutorId)
   useEffect(() => {
     async function fetchWithdrawals() {
-      if (!user) return;
+      if (!tutorId) return;
+      
       const { data } = await supabase
         .from("TutorWithdrawals")
         .select("*")
-        .eq("tutor_id", user.id)
+        .eq("tutor_id", tutorId)
         .order("requested_at", { ascending: false });
       setWithdrawals(data || []);
     }
     fetchWithdrawals();
-  }, [user]);
-  // Fetch students (for assignments)
+  }, [tutorId]);
+  // Fetch students (for assignments) - depends on tutorId
   useEffect(() => {
     async function fetchStudents() {
-      if (!user) return;
+      if (!tutorId) return;
       const { data } = await supabase
         .from("Tutors")
         .select("students_id")
-        .eq("user_id", user.id)
+        .eq("id", tutorId)
         .single();
       setStudents(data?.students_id || []);
     }
     fetchStudents();
-  }, [user]);
-  // Fetch assignments uploaded by tutor
+  }, [tutorId]);
+  // Fetch assignments uploaded by tutor (depends on tutorId)
   useEffect(() => {
     async function fetchAssignments() {
-      if (!user) return;
+      if (!tutorId) return;
+      
       const { data } = await supabase
         .from("Assignments")
         .select("*")
-        .eq("tutor_id", user.id)
+        .eq("tutor_id", tutorId)
         .order("created_at", { ascending: false });
       setAssignments(data || []);
     }
     fetchAssignments();
-  }, [user]);
+  }, [tutorId]);
 
   // Fetch announcements for tutors
   useEffect(() => {
@@ -330,14 +333,6 @@ export default function TutorHome() {
       setWithdrawMessage("Enter a valid amount");
       return;
     }
-    // Assume you're using internal tutor id
-    let tutorId = null;
-    const { data: thisTutor } = await supabase
-      .from("Tutors")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-    tutorId = thisTutor?.id;
     if (!tutorId) {
       setWithdrawMessage("Could not find your tutor record.");
       return;
@@ -349,7 +344,7 @@ export default function TutorHome() {
     else {
       setWithdrawMessage("Request submitted!");
       setWithdrawAmount(0);
-      // Optionally re-fetch
+      // Re-fetch withdrawals
       const { data } = await supabase
         .from("TutorWithdrawals")
         .select("*")
@@ -369,14 +364,6 @@ export default function TutorHome() {
       setAssignmentMsg("Fill out all fields and select a file!");
       return;
     }
-    // Get tutor id for upload
-    let tutorId = null;
-    const { data: thisTutor } = await supabase
-      .from("Tutors")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-    tutorId = thisTutor?.id;
     if (!tutorId) {
       setAssignmentMsg("Could not find your tutor record.");
       return;
@@ -411,7 +398,7 @@ export default function TutorHome() {
         file: null,
         studentId: "",
       });
-      // Optionally refresh assignments
+      // Refresh assignments
       const { data } = await supabase
         .from("Assignments")
         .select("*")

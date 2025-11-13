@@ -59,16 +59,22 @@ export default function TutorApplication({ onApplicationStatusChange, tutorId: i
   const populateFromTutor = useCallback(
     (tutorRecord) => {
       if (!tutorRecord) return;
+      const newApprovedStatus = Boolean(tutorRecord.application_status);
       setTutorId(tutorRecord.id);
-      setApplicationApproved(Boolean(tutorRecord.application_status));
-      onApplicationStatusChange?.(Boolean(tutorRecord.application_status));
+      // Only update if status actually changed to prevent loops
+      setApplicationApproved((prev) => {
+        if (prev !== newApprovedStatus) {
+          return newApprovedStatus;
+        }
+        return prev;
+      });
       setFormValues((prev) => ({
         ...prev,
         fullName: tutorRecord.name || prev.fullName || user?.user_metadata?.full_name || "",
         email: tutorRecord.email || prev.email || user?.email || "",
       }));
     },
-    [onApplicationStatusChange, user]
+    [user] // Removed onApplicationStatusChange to prevent loops
   );
 
   const fetchData = useCallback(
@@ -136,9 +142,13 @@ export default function TutorApplication({ onApplicationStatusChange, tutorId: i
           }));
         }
 
-        if (latest?.status === "approved" && !applicationApproved) {
-          setApplicationApproved(true);
-          onApplicationStatusChange?.(true);
+        // Only update status if it actually changed to prevent loops
+        const newApprovedStatus = latest?.status === "approved";
+        if (newApprovedStatus !== applicationApproved) {
+          setApplicationApproved(newApprovedStatus);
+          if (newApprovedStatus) {
+            onApplicationStatusChange?.(true);
+          }
         }
       } catch (fetchError) {
         console.error("Error loading tutor application:", fetchError);
@@ -148,7 +158,7 @@ export default function TutorApplication({ onApplicationStatusChange, tutorId: i
         setRefreshing(false);
       }
     },
-    [user, tutorId, applicationApproved, populateFromTutor, onApplicationStatusChange]
+    [user, tutorId, populateFromTutor, onApplicationStatusChange] // Removed applicationApproved from deps
   );
 
   useEffect(() => {

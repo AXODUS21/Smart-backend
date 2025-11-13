@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import {
@@ -147,18 +147,18 @@ export default function Dashboard() {
         }
 
         // Check if user is in Students table
-        const { data: studentData } = await supabase
+        const { data: studentData, error: studentError } = await supabase
           .from("Students")
           .select("id, name, email, credits")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle();
 
         if (studentData) {
           setUserRole("student");
           setUserName(studentData.name || user.email);
         } else {
           // Check if user is in Tutors table
-          const { data: tutorData } = await supabase
+          const { data: tutorData, error: tutorError } = await supabase
             .from("Tutors")
             .select("id, name, email, subjects, application_status")
             .eq("user_id", user.id)
@@ -172,6 +172,54 @@ export default function Dashboard() {
             setTutorApplicationApproved(isApproved);
             if (!isApproved) {
               setActiveTab("application");
+            }
+          } else {
+            // Profile doesn't exist - try to create it from user metadata
+            const userType = user.user_metadata?.user_type;
+            const userName = user.user_metadata?.name || user.email;
+
+            if (userType === 'student') {
+              // Create student profile
+              const { data: newStudent, error: createError } = await supabase
+                .from("Students")
+                .insert({
+                  user_id: user.id,
+                  name: userName,
+                  email: user.email,
+                  credits: 0,
+                })
+                .select("id, name, email, credits")
+                .single();
+
+              if (!createError && newStudent) {
+                setUserRole("student");
+                setUserName(newStudent.name || user.email);
+              } else {
+                console.error("Error creating student profile:", createError);
+              }
+            } else if (userType === 'tutor') {
+              // Create tutor profile
+              const { data: newTutor, error: createError } = await supabase
+                .from("Tutors")
+                .insert({
+                  user_id: user.id,
+                  name: userName,
+                  email: user.email,
+                  subjects: [],
+                  application_status: false,
+                })
+                .select("id, name, email, subjects, application_status")
+                .single();
+
+              if (!createError && newTutor) {
+                setUserRole("tutor");
+                setUserName(newTutor.name || user.email);
+                setTutorId(newTutor.id);
+                setTutorApplicationApproved(false);
+                setActiveTab("application");
+              } else {
+                console.error("Error creating tutor profile:", createError);
+              }
             }
           }
         }
@@ -296,6 +344,7 @@ export default function Dashboard() {
       ? adminTabs
       : [];
 
+  // Set initial tab for tutors based on application status (only once)
   useEffect(() => {
     if (
       !loading &&
@@ -305,8 +354,9 @@ export default function Dashboard() {
     ) {
       setActiveTab("application");
     }
-  }, [loading, userRole, tutorApplicationApproved, activeTab]);
+  }, [loading, userRole, tutorApplicationApproved]); // Removed activeTab from deps
 
+  // Redirect to home when application is approved (only once)
   useEffect(() => {
     if (
       !loading &&
@@ -316,7 +366,12 @@ export default function Dashboard() {
     ) {
       setActiveTab("home");
     }
-  }, [loading, userRole, tutorApplicationApproved, activeTab]);
+  }, [loading, userRole, tutorApplicationApproved]); // Removed activeTab from deps
+
+  // Stable callback for application status change
+  const handleApplicationStatusChange = useCallback((status) => {
+    setTutorApplicationApproved(status);
+  }, []);
 
   if (loading) {
     return (
@@ -432,7 +487,7 @@ export default function Dashboard() {
           {activeTab === "application" && userRole === "tutor" && (
             <TutorApplication
               tutorId={tutorId}
-              onApplicationStatusChange={(status) => setTutorApplicationApproved(status)}
+              onApplicationStatusChange={handleApplicationStatusChange}
             />
           )}
           {/* Superadmin tabs */}

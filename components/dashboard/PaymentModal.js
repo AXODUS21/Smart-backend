@@ -6,7 +6,7 @@ import { loadStripe } from "@stripe/stripe-js";
 
 // Initialize Stripe - only in browser environment
 let stripePromise = null;
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
   if (stripeKey) {
     stripePromise = loadStripe(stripeKey);
@@ -50,7 +50,9 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
         console.error("Non-JSON response:", text);
-        throw new Error("Server error: Received HTML instead of JSON. Please check your server logs and environment variables.");
+        throw new Error(
+          "Server error: Received HTML instead of JSON. Please check your server logs and environment variables."
+        );
       }
 
       const data = await response.json();
@@ -72,7 +74,10 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
         stack: err.stack,
         name: err.name,
       });
-      setError(err.message || "Failed to initiate Stripe payment. Please check the console for details.");
+      setError(
+        err.message ||
+          "Failed to initiate Stripe payment. Please check the console for details."
+      );
       setLoading(false);
     }
   };
@@ -104,7 +109,9 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
         console.error("Non-JSON response:", text);
-        throw new Error("Server error: Received HTML instead of JSON. Please check your server logs.");
+        throw new Error(
+          "Server error: Received HTML instead of JSON. Please check your server logs."
+        );
       }
 
       const data = await response.json();
@@ -135,7 +142,7 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
       const script = document.createElement("script");
       script.src = "https://js.paymongo.com/v1";
       script.async = true;
-      
+
       script.onload = () => {
         setupPayMongoForm(paymentData);
         resolve();
@@ -172,10 +179,13 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
         if (!clientKey) {
           throw new Error("Payment intent client key is missing");
         }
-        
-        console.log("Initializing PayMongo with client key:", clientKey.substring(0, 10) + "...");
+
+        console.log(
+          "Initializing PayMongo with client key:",
+          clientKey.substring(0, 10) + "..."
+        );
         const paymongo = window.Paymongo(clientKey); // Use clientKey for Elements (not publicKey)
-        
+
         // Check if paymongo object is valid
         if (!paymongo) {
           throw new Error("Failed to initialize PayMongo SDK");
@@ -183,7 +193,7 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
 
         console.log("PayMongo object:", paymongo);
         console.log("PayMongo methods:", Object.keys(paymongo));
-        
+
         // Clear any existing content
         cardContainer.innerHTML = "";
 
@@ -230,50 +240,56 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
 
             try {
               console.log("Creating payment method...");
-              
+
               // Create payment method using PayMongo Elements
               // Based on the error log, paymongo.createPaymentMethod exists directly on the paymongo object
               let paymentMethodId;
-              
+
               try {
                 console.log("PayMongo object methods:", Object.keys(paymongo));
-                
+
                 // PayMongo SDK structure: createPaymentMethod is directly on paymongo object
                 // It requires a payload with type property
-                if (typeof paymongo.createPaymentMethod === 'function') {
+                if (typeof paymongo.createPaymentMethod === "function") {
                   console.log("Using paymongo.createPaymentMethod...");
-                  
+
                   // PayMongo createPaymentMethod requires: { type: 'card', ... }
                   // The cardElement from PayMongo Elements needs to be used to get payment method data
                   let result;
-                  
+
                   // PayMongo Elements: Create payment method from card element
                   // The cardElement collects card data, we need to create a payment method from it
-                  
+
                   // Method 1: Try cardElement.createPaymentMethod (if available)
-                  if (typeof cardElement.createPaymentMethod === 'function') {
+                  if (typeof cardElement.createPaymentMethod === "function") {
                     console.log("Using cardElement.createPaymentMethod...");
-                    result = await cardElement.createPaymentMethod({ type: 'card' });
-                  } 
+                    result = await cardElement.createPaymentMethod({
+                      type: "card",
+                    });
+                  }
                   // Method 2: Use paymongo.createPaymentMethod with the cardElement
                   // PayMongo Elements: cardElement is passed as the source
                   else {
-                    console.log("Using paymongo.createPaymentMethod with cardElement...");
+                    console.log(
+                      "Using paymongo.createPaymentMethod with cardElement..."
+                    );
                     // PayMongo expects: { type: 'card', billing: cardElement }
                     // The cardElement from PayMongo Elements contains the card data
                     result = await paymongo.createPaymentMethod({
-                      type: 'card',
+                      type: "card",
                       billing: cardElement,
                     });
                   }
-                  
+
                   console.log("createPaymentMethod result:", result);
-                  
+
                   // Handle different response structures
                   if (result.error) {
-                    throw new Error(result.error.message || "Failed to create payment method");
+                    throw new Error(
+                      result.error.message || "Failed to create payment method"
+                    );
                   }
-                  
+
                   // Extract payment method ID from result
                   if (result.paymentMethod && result.paymentMethod.id) {
                     paymentMethodId = result.paymentMethod.id;
@@ -283,16 +299,22 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
                     paymentMethodId = result.data.id;
                   } else {
                     console.error("Unexpected result structure:", result);
-                    throw new Error("Invalid payment method response structure");
+                    throw new Error(
+                      "Invalid payment method response structure"
+                    );
                   }
                 } else {
-                  throw new Error("paymongo.createPaymentMethod is not available");
+                  throw new Error(
+                    "paymongo.createPaymentMethod is not available"
+                  );
                 }
-                
+
                 if (!paymentMethodId) {
-                  throw new Error("Could not extract payment method ID from response");
+                  throw new Error(
+                    "Could not extract payment method ID from response"
+                  );
                 }
-                
+
                 console.log("Payment method ID created:", paymentMethodId);
               } catch (pmError) {
                 console.error("Payment method creation error:", pmError);
@@ -301,40 +323,52 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
                   stack: pmError.stack,
                   paymongoMethods: Object.keys(paymongo),
                 });
-                throw new Error(`Payment method creation failed: ${pmError.message}`);
+                throw new Error(
+                  `Payment method creation failed: ${pmError.message}`
+                );
               }
 
               console.log("Payment method ID:", paymentMethodId);
 
               // Confirm payment
-              const confirmResponse = await fetch("/api/payments/paymongo/confirm-payment", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  paymentIntentId: paymentData.paymentIntentId,
-                  paymentMethodId: paymentMethodId,
-                }),
-              });
+              const confirmResponse = await fetch(
+                "/api/payments/paymongo/confirm-payment",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    paymentIntentId: paymentData.paymentIntentId,
+                    paymentMethodId: paymentMethodId,
+                  }),
+                }
+              );
 
               // Check if response is JSON
               const contentType = confirmResponse.headers.get("content-type");
               if (!contentType || !contentType.includes("application/json")) {
                 const text = await confirmResponse.text();
                 console.error("Non-JSON confirm response:", text);
-                throw new Error("Server error: Received invalid response from payment confirmation.");
+                throw new Error(
+                  "Server error: Received invalid response from payment confirmation."
+                );
               }
 
               const confirmData = await confirmResponse.json();
               console.log("Confirm payment response:", confirmData);
 
               if (!confirmResponse.ok) {
-                throw new Error(confirmData.error || "Payment confirmation failed");
+                throw new Error(
+                  confirmData.error || "Payment confirmation failed"
+                );
               }
 
               // Handle 3DS if needed
-              if (confirmData.nextAction && confirmData.nextAction.type === "redirect") {
+              if (
+                confirmData.nextAction &&
+                confirmData.nextAction.type === "redirect"
+              ) {
                 // Redirect to 3DS authentication
                 window.location.href = confirmData.nextAction.redirect.url;
               } else if (confirmData.status === "succeeded") {
@@ -388,7 +422,7 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
   }, [selectedPaymentMethod, payMongoPaymentData]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-gray-900/70 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
@@ -427,17 +461,22 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
               <p className="text-slate-600 mb-4">
                 Select your preferred payment method:
               </p>
-              
+
               <button
                 onClick={() => handlePaymentMethodSelect("stripe")}
                 className="w-full p-4 border-2 border-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center justify-between group"
                 disabled={loading}
               >
                 <div className="flex items-center gap-3">
-                  <CreditCard className="text-slate-600 group-hover:text-blue-600" size={24} />
+                  <CreditCard
+                    className="text-slate-600 group-hover:text-blue-600"
+                    size={24}
+                  />
                   <div className="text-left">
                     <p className="font-semibold text-slate-900">Stripe</p>
-                    <p className="text-sm text-slate-500">Pay with card via Stripe</p>
+                    <p className="text-sm text-slate-500">
+                      Pay with card via Stripe
+                    </p>
                   </div>
                 </div>
                 <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -451,10 +490,15 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
                 disabled={loading}
               >
                 <div className="flex items-center gap-3">
-                  <Wallet className="text-slate-600 group-hover:text-blue-600" size={24} />
+                  <Wallet
+                    className="text-slate-600 group-hover:text-blue-600"
+                    size={24}
+                  />
                   <div className="text-left">
                     <p className="font-semibold text-slate-900">PayMongo</p>
-                    <p className="text-sm text-slate-500">Pay with card via PayMongo</p>
+                    <p className="text-sm text-slate-500">
+                      Pay with card via PayMongo
+                    </p>
                   </div>
                 </div>
                 <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -498,7 +542,7 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
               >
                 ← Back to payment methods
               </button>
-              
+
               {!payMongoPaymentData ? (
                 <button
                   onClick={handlePayMongoPayment}
@@ -520,11 +564,14 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Card Information
                     </label>
-                    <div id="paymongo-card-element" className="p-3 border border-slate-300 rounded-lg min-h-[50px]">
+                    <div
+                      id="paymongo-card-element"
+                      className="p-3 border border-slate-300 rounded-lg min-h-[50px]"
+                    >
                       {/* PayMongo card element will be mounted here */}
                     </div>
                   </div>
-                  
+
                   <button
                     type="submit"
                     disabled={loading}
@@ -554,4 +601,3 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
     </div>
   );
 }
-

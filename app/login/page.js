@@ -40,6 +40,65 @@ export default function LoginPage() {
     }
   }, [success]);
 
+  // Helper function to create user profile if it doesn't exist
+  const ensureUserProfile = async (userId, userName, userEmail, userType) => {
+    try {
+      if (userType === 'student') {
+        // Check if student profile exists
+        const { data: existingStudent } = await supabase
+          .from('Students')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!existingStudent) {
+          // Create student profile
+          const { error: insertError } = await supabase
+            .from('Students')
+            .insert({
+              user_id: userId,
+              name: userName || userEmail,
+              email: userEmail,
+              credits: 0,
+            });
+
+          if (insertError) {
+            console.error('Error creating student profile:', insertError);
+            throw new Error('Database error saving new user');
+          }
+        }
+      } else if (userType === 'tutor') {
+        // Check if tutor profile exists
+        const { data: existingTutor } = await supabase
+          .from('Tutors')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!existingTutor) {
+          // Create tutor profile
+          const { error: insertError } = await supabase
+            .from('Tutors')
+            .insert({
+              user_id: userId,
+              name: userName || userEmail,
+              email: userEmail,
+              subjects: [],
+              application_status: false,
+            });
+
+          if (insertError) {
+            console.error('Error creating tutor profile:', insertError);
+            throw new Error('Database error saving new user');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error ensuring user profile:', err);
+      throw err;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -63,9 +122,15 @@ export default function LoginPage() {
         if (authError) throw authError;
 
         if (authData.user) {
-          // Show success message immediately
-          // Note: The database trigger will automatically create the profile
-          // when the user is created in the auth.users table
+          // Try to create profile manually as fallback (in case trigger didn't run)
+          try {
+            await ensureUserProfile(authData.user.id, name, email, userType);
+          } catch (profileError) {
+            // If profile creation fails, still show success but log the error
+            console.error('Profile creation failed:', profileError);
+            // Don't throw here - user account was created, profile can be created later
+          }
+
           setSuccess(`A confirmation email has been sent to ${email}. Please check your inbox (and spam folder) and click the confirmation link to verify your account.`);
           
           // Clear form
@@ -77,12 +142,27 @@ export default function LoginPage() {
         }
       } else {
         // Sign in
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
         if (signInError) throw signInError;
+
+        if (signInData.user) {
+          // Check if profile exists, create if missing
+          const userType = signInData.user.user_metadata?.user_type;
+          const userName = signInData.user.user_metadata?.name || signInData.user.email;
+          
+          if (userType) {
+            try {
+              await ensureUserProfile(signInData.user.id, userName, signInData.user.email, userType);
+            } catch (profileError) {
+              // Log but don't block login
+              console.error('Profile check/creation failed:', profileError);
+            }
+          }
+        }
 
         router.push('/');
         router.refresh();
