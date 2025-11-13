@@ -7,51 +7,51 @@ import { Zap } from "lucide-react";
 import PaymentModal from "./PaymentModal";
 
 const usPlans = [
-  { 
-    id: "starter", 
-    name: "Starter", 
+  {
+    id: "session", 
+    name: "Per Session", 
     credits: 2, 
     price: 30, 
     hours: 1,
-    pricePerHour: 30,
+    pricePerHour: 15,
+    description: "For one-on-one sessions"
+  },
+  { 
+    id: "starter", 
+    name: "Starter", 
+    credits: 6, 
+    price: 75, 
+    hours: 3,
+    pricePerHour: 25,
     description: "Trial or short-term"
   },
   { 
     id: "standard", 
     name: "Standard", 
-    credits: 6, 
-    price: 75, 
-    hours: 3,
-    pricePerHour: 25,
+    credits: 12, 
+    price: 132, 
+    hours: 6,
+    pricePerHour: 22,
     description: "Ongoing support"
   },
   { 
     id: "premium", 
     name: "Premium", 
-    credits: 12, 
-    price: 132, 
-    hours: 6,
-    pricePerHour: 22,
+    credits: 20, 
+    price: 180, 
+    hours: 10,
+    pricePerHour: 18,
     description: "Long-term package"
   },
   { 
     id: "family", 
     name: "Family Pack", 
-    credits: 20, 
-    price: 180, 
-    hours: 10,
-    pricePerHour: 18,
-    description: "With siblings"
-  },
-  { 
-    id: "elite", 
-    name: "Elite Pack", 
     credits: 30, 
     price: 450, 
     hours: 15,
     pricePerHour: 15,
-    description: "Extended family pack"
-  }
+    description: "With siblings"
+  },
 ];
 
 const phPlans = [
