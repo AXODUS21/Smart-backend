@@ -271,9 +271,9 @@ export default function AdminUsers() {
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
               {filteredUsers().map((user) => (
-                <tr key={user.id} className="hover:bg-slate-50">
+                <tr key={user.created_at} className="hover:bg-slate-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
+                    <div key={user.created_at} className="flex items-center">
                       <div className="flex-shrink-0">{getRoleIcon(user.role)}</div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-slate-900">
