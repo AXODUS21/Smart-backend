@@ -26,27 +26,78 @@ export default function AdminAnalytics() {
   });
   const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      .toISOString()
-      .split("T")[0],
-    end: new Date().toISOString().split("T")[0],
-  });
+  // Default to last 12 months to ensure we capture data
+  const getDefaultDateRange = () => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 12);
+    return {
+      start: startDate.toISOString().split("T")[0],
+      end: endDate.toISOString().split("T")[0],
+    };
+  };
+
+  const [dateRange, setDateRange] = useState(getDefaultDateRange());
 
   useEffect(() => {
     fetchAnalytics();
   }, [dateRange]);
 
   const fetchAnalytics = async () => {
+    setLoading(true);
     try {
-      // Fetch all bookings in date range
-      const { data: bookings, error } = await supabase
-        .from("Schedules")
-        .select("*")
-        .gte("start_time_utc", dateRange.start)
-        .lte("end_time_utc", dateRange.end);
+      // Build query - start with base query
+      let query = supabase.from("Schedules").select("*");
+      let startTimestamp = null;
+      let endTimestamp = null;
 
-      if (error) throw error;
+      // Apply date filters if dates are provided
+      if (dateRange.start && dateRange.end) {
+        // Convert date strings to proper timestamps for comparison
+        // Start date should be at beginning of day (00:00:00)
+        const startDate = new Date(dateRange.start + "T00:00:00");
+        startTimestamp = startDate.toISOString().slice(0, 19).replace('T', ' ');
+        
+        // End date should be at end of day (23:59:59)
+        const endDate = new Date(dateRange.end + "T23:59:59");
+        endTimestamp = endDate.toISOString().slice(0, 19).replace('T', ' ');
+
+        query = query
+          .gte("start_time_utc", startTimestamp)
+          .lte("start_time_utc", endTimestamp);
+      }
+
+      // Execute query
+      const { data: bookings, error } = await query;
+
+      if (error) {
+        console.error("Error fetching bookings:", error);
+        throw error;
+      }
+
+      // If no bookings found, log it for debugging
+      if (!bookings || bookings.length === 0) {
+        console.log("No bookings found in date range:", dateRange);
+        if (startTimestamp && endTimestamp) {
+          console.log("Using timestamps:", startTimestamp, "to", endTimestamp);
+        }
+        // Set empty state and return early
+        setAnalytics({
+          totalRevenue: 0,
+          companyShare: 0,
+          tutorShare: 0,
+          totalLessonHours: 0,
+          totalBookings: 0,
+          confirmedBookings: 0,
+          cancelledBookings: 0,
+          pendingBookings: 0,
+        });
+        setMonthlyData([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log(`Found ${bookings.length} bookings in date range`);
 
       const confirmedBookings = bookings.filter(
         (b) => b.status === "confirmed"
@@ -95,14 +146,25 @@ export default function AdminAnalytics() {
         companyShare,
         tutorShare,
         totalLessonHours,
-        totalBookings: bookings.length,
-        confirmedBookings: confirmedBookings.length,
-        cancelledBookings: bookings.filter((b) => b.status === "cancelled")
-          .length,
-        pendingBookings: bookings.filter((b) => b.status === "pending").length,
+        totalBookings: bookings ? bookings.length : 0,
+        confirmedBookings: confirmedBookings ? confirmedBookings.length : 0,
+        cancelledBookings: bookings ? bookings.filter((b) => b.status === "cancelled").length : 0,
+        pendingBookings: bookings ? bookings.filter((b) => b.status === "pending").length : 0,
       });
     } catch (error) {
       console.error("Error fetching analytics:", error);
+      // Set default values on error
+      setAnalytics({
+        totalRevenue: 0,
+        companyShare: 0,
+        tutorShare: 0,
+        totalLessonHours: 0,
+        totalBookings: 0,
+        confirmedBookings: 0,
+        cancelledBookings: 0,
+        pendingBookings: 0,
+      });
+      setMonthlyData([]);
     } finally {
       setLoading(false);
     }
@@ -395,7 +457,7 @@ export default function AdminAnalytics() {
         <h3 className="text-lg font-semibold text-slate-900 mb-4">
           Date Range
         </h3>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Start Date
@@ -422,6 +484,37 @@ export default function AdminAnalytics() {
               className="border border-slate-300 rounded-lg px-4 py-2 text-slate-900"
             />
           </div>
+          <button
+            onClick={() => {
+              // Set to last 12 months
+              const endDate = new Date();
+              const startDate = new Date();
+              startDate.setMonth(startDate.getMonth() - 12);
+              setDateRange({
+                start: startDate.toISOString().split("T")[0],
+                end: endDate.toISOString().split("T")[0],
+              });
+            }}
+            className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+          >
+            Last 12 Months
+          </button>
+          <button
+            onClick={() => {
+              // Set to all time (no date filter)
+              const endDate = new Date();
+              endDate.setFullYear(endDate.getFullYear() + 10); // Far future
+              const startDate = new Date();
+              startDate.setFullYear(startDate.getFullYear() - 10); // Far past
+              setDateRange({
+                start: startDate.toISOString().split("T")[0],
+                end: endDate.toISOString().split("T")[0],
+              });
+            }}
+            className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+          >
+            All Time
+          </button>
         </div>
       </div>
 
