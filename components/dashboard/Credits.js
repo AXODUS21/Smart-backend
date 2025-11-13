@@ -6,11 +6,91 @@ import { supabase } from "@/lib/supabase";
 import { Zap } from "lucide-react";
 import PaymentModal from "./PaymentModal";
 
-const fallbackPlans = [
-  { id: "starter", name: "Starter", credits: 10, price: 29.99, savings: 0 },
-  { id: "popular", name: "Popular", credits: 30, price: 79.99, savings: 10 },
-  { id: "pro", name: "Pro", credits: 60, price: 149.99, savings: 20 },
-  { id: "elite", name: "Elite", credits: 100, price: 229.99, savings: 30 },
+const usPlans = [
+  { 
+    id: "starter", 
+    name: "Starter", 
+    credits: 2, 
+    price: 30, 
+    hours: 1,
+    pricePerHour: 30,
+    description: "Trial or short-term"
+  },
+  { 
+    id: "standard", 
+    name: "Standard", 
+    credits: 6, 
+    price: 75, 
+    hours: 3,
+    pricePerHour: 25,
+    description: "Ongoing support"
+  },
+  { 
+    id: "premium", 
+    name: "Premium", 
+    credits: 12, 
+    price: 132, 
+    hours: 6,
+    pricePerHour: 22,
+    description: "Long-term package"
+  },
+  { 
+    id: "family", 
+    name: "Family Pack", 
+    credits: 20, 
+    price: 180, 
+    hours: 10,
+    pricePerHour: 18,
+    description: "With siblings"
+  },
+  { 
+    id: "elite", 
+    name: "Elite Pack", 
+    credits: 30, 
+    price: 450, 
+    hours: 15,
+    pricePerHour: 15,
+    description: "Extended family pack"
+  }
+];
+
+const phPlans = [
+  { 
+    id: "starter-ph", 
+    name: "Starter Pack", 
+    credits: 5, 
+    price: 750, 
+    hours: 2.5,
+    pricePerCredit: 150,
+    description: "Trial / casual learners"
+  },
+  { 
+    id: "standard-ph", 
+    name: "Standard Pack", 
+    credits: 10, 
+    price: 1400, 
+    hours: 5,
+    pricePerCredit: 140,
+    description: "Regular learners"
+  },
+  { 
+    id: "premium-ph", 
+    name: "Premium Pack", 
+    credits: 20, 
+    price: 2700, 
+    hours: 10,
+    pricePerCredit: 135,
+    description: "Intensive learners / exam prep"
+  },
+  { 
+    id: "family-ph", 
+    name: "Family Pack", 
+    credits: 40, 
+    price: 5000, 
+    hours: 20,
+    pricePerCredit: 125,
+    description: "Multiple siblings / high-usage"
+  }
 ];
 
 export default function Credits() {
@@ -19,7 +99,8 @@ export default function Credits() {
   const [loadingCredits, setLoadingCredits] = useState(true);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [creditPlans, setCreditPlans] = useState(fallbackPlans);
+  const [creditPlans, setCreditPlans] = useState(usPlans);
+  const [userCountry, setUserCountry] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -57,7 +138,61 @@ export default function Credits() {
     fetchCredits();
   }, [user]);
 
-  // Fetch credit plans from database
+  // Detect user's country
+  useEffect(() => {
+    const detectUserCountry = async () => {
+      try {
+        // First try to get country from geolocation
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              try {
+                const { latitude, longitude } = position.coords;
+                const response = await fetch(
+                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                );
+                const data = await response.json();
+                const country = data.address?.country || 'US';
+                setUserCountry(country);
+                setCreditPlans(country === 'Philippines' || country === 'PH' ? phPlans : usPlans);
+              } catch (error) {
+                console.error('Error getting location:', error);
+                setUserCountry('US');
+                setCreditPlans(usPlans);
+              }
+            },
+            (error) => {
+              console.error('Geolocation error:', error);
+              setUserCountry('US');
+              setCreditPlans(usPlans);
+            },
+            { timeout: 5000 }
+          );
+        } else {
+          // Fallback to IP-based country detection if geolocation is not available
+          try {
+            const response = await fetch('https://ipapi.co/json/');
+            const data = await response.json();
+            const country = data.country_name || 'US';
+            setUserCountry(country);
+            setCreditPlans(country === 'Philippines' || country === 'PH' ? phPlans : usPlans);
+          } catch (error) {
+            console.error('Error getting country from IP:', error);
+            setUserCountry('US');
+            setCreditPlans(usPlans);
+          }
+        }
+      } catch (error) {
+        console.error('Error detecting country:', error);
+        setUserCountry('US');
+        setCreditPlans(usPlans);
+      }
+    };
+
+    detectUserCountry();
+  }, []);
+
+  // Fetch credit plans from database (kept for backward compatibility)
   useEffect(() => {
     const fetchPlans = async () => {
       try {
@@ -199,90 +334,68 @@ export default function Credits() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Low credit warning notification */}
-      {credits < 4 && (
-        <div className="flex items-center gap-4 bg-orange-100 border-l-4 border-orange-500 text-orange-800 px-4 py-3 rounded mb-2">
-          <Zap className="text-orange-500" size={28} />
-          <div className="flex-1">
-            <div className="font-bold">Low Credits Warning</div>
-            <div className="text-sm">
-              Your balance is getting low. Please consider buying more credits!
+  <div className="space-y-6">
+    <div>
+      <h2 className="text-2xl font-bold">Your Credits</h2>
+      <p className="text-gray-600">
+        You currently have <span className="font-semibold">{credits} credits</span>
+        {userCountry && (
+          <span className="ml-2 text-sm text-gray-500">
+            (Pricing for {userCountry === 'Philippines' || userCountry === 'PH' ? 'Philippines' : 'International'})
+          </span>
+        )}
+      </p>
+    </div>
+
+    <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 mb-6">
+      <div className="flex items-center gap-3">
+        <Zap className="text-orange-500" size={24} />
+        <div>
+          <p className="font-semibold text-slate-900">Current Balance</p>
+          <p className="text-2xl font-bold text-slate-900">
+            {credits} credits
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-credit-plans>
+      {creditPlans.map((plan) => (
+        <div key={plan.id} className="p-6 border rounded-lg shadow-sm hover:shadow-md transition-shadow bg-white">
+          {plan.savings > 0 && (
+            <div className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded mb-3 inline-block">
+              Save {plan.savings}%
             </div>
-          </div>
+          )}
+          <h3 className="text-lg font-semibold mb-2">{plan.name}</h3>
+          <p className="text-3xl font-bold text-primary mb-2">
+            {userCountry === 'Philippines' || userCountry === 'PH' ? (
+              `₱${plan.price.toLocaleString()}`
+            ) : (
+              `$${plan.price}`
+            )}
+          </p>
+          <p className="text-gray-600 mb-1">{plan.credits} credits</p>
+          <p className="text-gray-600 mb-1">{plan.hours} hours</p>
+          {plan.pricePerHour && (
+            <p className="text-sm text-gray-500">${plan.pricePerHour}/hour</p>
+          )}
+          {plan.pricePerCredit && (
+            <p className="text-sm text-gray-500">₱{plan.pricePerCredit} per credit</p>
+          )}
+          <p className="text-sm text-gray-500 mt-2">{plan.description}</p>
           <button
-            onClick={() => {
-              // Scroll to credit plans section or just focus. (No-op here, can be refined if you add refs)
-              const plans = document.querySelector('[data-credit-plans]');
-              if (plans) {
-                plans.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-              setSelectedPlan(null); // Force plans to reset if needed
-            }}
-            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-2 rounded-lg shadow transition-colors"
+            onClick={() => handlePlanSelect(plan.id)}
+            className="mt-4 w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-2 rounded-lg shadow transition-colors"
           >
             Buy Credits
           </button>
         </div>
-      )}
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
-          Buy Credits
-        </h2>
-        <p className="text-slate-500">1 credit = 30 minutes of tutoring</p>
-      </div>
+      ))}
+    </div>
 
-      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 mb-6">
-        <div className="flex items-center gap-3">
-          <Zap className="text-orange-500" size={24} />
-          <div>
-            <p className="font-semibold text-slate-900">Current Balance</p>
-            <p className="text-2xl font-bold text-slate-900">
-              {credits} credits
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-credit-plans>
-        {creditPlans.map((plan) => (
-          <button
-            key={plan.id}
-            onClick={() => handlePlanSelect(plan.id)}
-            className={`p-6 rounded-lg border-2 transition-all text-left ${
-              selectedPlan === plan.id
-                ? "border-blue-600 bg-blue-50"
-                : "border-slate-200 hover:border-blue-300"
-            }`}
-          >
-            {plan.savings > 0 && (
-              <div className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded mb-3 inline-block">
-                Save {plan.savings}%
-              </div>
-            )}
-            <p className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-1">
-              {plan.name}
-            </p>
-            <p className="text-3xl font-bold text-slate-900 mb-1">
-              {plan.credits}
-            </p>
-            <p className="text-sm text-slate-600 mb-4">credits</p>
-            <p className="text-2xl font-bold text-slate-900">
-              ${plan.price.toFixed(2)}
-            </p>
-            <p className="text-xs text-slate-500 mt-2">
-              $
-              {plan.credits > 0
-                ? (plan.price / plan.credits).toFixed(2)
-                : "0.00"}
-              /credit
-            </p>
-          </button>
-        ))}
-      </div>
-
-      {/* Success Message */}
-      {success && (
+    {/* Success Message */}
+    {success && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
           {success}
         </div>
