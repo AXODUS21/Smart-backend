@@ -35,16 +35,30 @@ export default function AdminAnnouncements() {
     is_active: true,
   });
 
-  // Get admin ID
+  // Get admin ID (for regular admins) or superadmin ID (for superadmins)
   useEffect(() => {
     const fetchAdminId = async () => {
       if (!user) return;
 
+      // First check if user is a superadmin
+      const { data: superadminData } = await supabase
+        .from("superadmins")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (superadminData) {
+        // Superadmins don't need admin_id, set to null
+        setAdminId(null);
+        return;
+      }
+
+      // If not superadmin, check if user is an admin
       const { data: adminData } = await supabase
         .from("admins")
         .select("id")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (adminData) {
         setAdminId(adminData.id);
@@ -105,10 +119,11 @@ export default function AdminAnnouncements() {
         setSuccess("Announcement updated successfully!");
       } else {
         // Create new announcement
+        // admin_id can be null for superadmins
         const { error: insertError } = await supabase
           .from("Announcements")
           .insert({
-            admin_id: adminId,
+            admin_id: adminId || null,
             title: formData.title,
             message: formData.message,
             target_audience: formData.target_audience,

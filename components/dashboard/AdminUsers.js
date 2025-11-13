@@ -29,6 +29,20 @@ export default function AdminUsers() {
         supabase.from("admins").select("*").order("created_at", { ascending: false }),
       ]);
 
+      // Check for errors
+      if (studentsData.error) {
+        console.error("Error fetching students:", studentsData.error);
+        throw studentsData.error;
+      }
+      if (tutorsData.error) {
+        console.error("Error fetching tutors:", tutorsData.error);
+        throw tutorsData.error;
+      }
+      if (adminsData.error) {
+        console.error("Error fetching admins:", adminsData.error);
+        throw adminsData.error;
+      }
+
       setUsers({
         students: studentsData.data || [],
         tutors: tutorsData.data || [],

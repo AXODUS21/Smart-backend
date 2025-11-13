@@ -59,6 +59,28 @@ export default function AdminDashboard() {
           .select("id, status, credits_required, start_time_utc"),
       ]);
 
+      // Check for errors
+      if (studentsData.error) {
+        console.error("Error fetching students:", studentsData.error);
+        throw studentsData.error;
+      }
+      if (tutorsData.error) {
+        console.error("Error fetching tutors:", tutorsData.error);
+        throw tutorsData.error;
+      }
+      if (adminsData.error) {
+        console.error("Error fetching admins:", adminsData.error);
+        throw adminsData.error;
+      }
+      if (bookingsData.error) {
+        console.error("Error fetching bookings:", bookingsData.error);
+        throw bookingsData.error;
+      }
+      if (schedulesData.error) {
+        console.error("Error fetching schedules:", schedulesData.error);
+        throw schedulesData.error;
+      }
+
       const students = studentsData.data || [];
       const tutors = tutorsData.data || [];
       const admins = adminsData.data || [];
