@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, LogIn, UserPlus, GraduationCap, BookOpen } from 'lucide-react';
+import { Eye, EyeOff, LogIn, UserPlus, GraduationCap, BookOpen, X, Mail, Key } from 'lucide-react';
+import emailjs from '@emailjs/browser';
 
 const USER_ROLES = [
   {
@@ -28,9 +29,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetStep, setResetStep] = useState(1); // 1: Email, 2: Code, 3: New Password
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const router = useRouter();
 
-  // Auto-dismiss success message after 10 seconds
+  // Auto-dismiss success message after 10 seconds and handle countdown
   useEffect(() => {
     if (success) {
       const timer = setTimeout(() => {
@@ -39,6 +47,223 @@ export default function LoginPage() {
       return () => clearTimeout(timer);
     }
   }, [success]);
+
+  // Handle countdown timer
+  useEffect(() => {
+    let timer;
+    if (resetStep === 2 && countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown(prev => prev - 1);
+      }, 1000);
+    } else if (countdown === 0 && resetStep === 2) {
+      setError('Verification code has expired. Please request a new one.');
+      setResetStep(1);
+    }
+    return () => clearInterval(timer);
+  }, [countdown, resetStep]);
+
+  // Countdown timer for verification code
+  useEffect(() => {
+    let interval;
+    if (countdown > 0) {
+      interval = setInterval(() => {
+        setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [countdown]);
+
+  const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  const sendVerificationEmail = async (email, code) => {
+    try {
+      const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+      const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
+      const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+
+      const templateParams = {
+        to_email: email,
+        verification_code: code,
+      };
+
+      await emailjs.send(serviceId, templateId, templateParams, publicKey);
+      return true;
+    } catch (error) {
+      console.error('Error sending verification email:', error);
+      return false;
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    if (!resetEmail) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Generate a 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Store in localStorage with expiration (5 minutes)
+      const expiryTime = Date.now() + 300000; // 5 minutes from now
+      localStorage.setItem('resetCode', code);
+      localStorage.setItem('resetEmail', resetEmail);
+      localStorage.setItem('codeExpiry', expiryTime.toString());
+
+      // Send email using Email.js
+      const templateParams = {
+        to_email: resetEmail,
+        verification_code: code,
+      };
+
+      const response = await emailjs.send(
+        process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
+        process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID,
+        templateParams,
+        process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
+      );
+
+      if (response.status === 200) {
+        setResetStep(2); // Move to verification code input
+        setCountdown(300); // 5 minutes countdown
+        setSuccess('Verification code sent to your email!');
+      } else {
+        throw new Error('Failed to send email');
+      }
+    } catch (err) {
+      console.error('Error sending verification code:', err);
+      setError('Failed to send verification code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCode = () => {
+    const storedCode = localStorage.getItem('resetCode');
+    const storedEmail = localStorage.getItem('resetEmail');
+    const expiry = parseInt(localStorage.getItem('codeExpiry') || '0');
+    
+    if (Date.now() > expiry) {
+      setError('Verification code has expired. Please request a new one.');
+      setResetStep(1);
+      return false;
+    }
+    
+    if (verificationCode === storedCode && resetEmail === storedEmail) {
+      setResetStep(3);
+      setError('');
+      setSuccess('Code verified! Please set your new password.');
+      return true;
+    } else {
+      setError('Invalid verification code. Please try again.');
+      return false;
+    }
+  };
+
+  const resendVerificationCode = async () => {
+    if (countdown > 0) return;
+    
+    setLoading(true);
+    try {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiryTime = Date.now() + 300000; // 5 minutes from now
+      
+      localStorage.setItem('resetCode', code);
+      localStorage.setItem('codeExpiry', expiryTime.toString());
+
+      const templateParams = {
+        to_email: resetEmail,
+        verification_code: code,
+      };
+
+      const response = await emailjs.send(
+        process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
+        process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID,
+        templateParams,
+        process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
+      );
+
+      if (response.status === 200) {
+        setCountdown(300); // Reset countdown to 5 minutes
+        setSuccess('New verification code sent to your email!');
+      } else {
+        throw new Error('Failed to resend code');
+      }
+    } catch (err) {
+      console.error('Error resending verification code:', err);
+      setError('Failed to resend verification code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPassword = async () => {
+    if (!newPassword) {
+      setError('Please enter a new password');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const email = localStorage.getItem('resetEmail');
+      if (!email) {
+        throw new Error('Session expired. Please try again.');
+      }
+
+      // Call our API route to update the password
+      const response = await fetch('/api/update-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update password');
+      }
+
+      // Clear the stored code and email
+      localStorage.removeItem('resetCode');
+      localStorage.removeItem('resetEmail');
+      localStorage.removeItem('codeExpiry');
+
+      setSuccess('Password updated successfully! You can now sign in with your new password.');
+      
+      // Reset form and close modal after a delay
+      setTimeout(() => {
+        setShowForgotPassword(false);
+        setResetStep(1);
+        setResetEmail('');
+        setVerificationCode('');
+        setNewPassword('');
+        setSuccess('');
+      }, 2000);
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      setError(err.message || 'Failed to reset password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Helper function to create user profile if it doesn't exist
   const ensureUserProfile = async (userId, userName, userEmail, userType) => {
@@ -281,10 +506,19 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
+              <div className="flex justify-between items-center mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   'Signing in...'
@@ -411,6 +645,184 @@ export default function LoginPage() {
           )}
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md relative">
+            <button
+              onClick={() => {
+                setShowForgotPassword(false);
+                setResetStep(1);
+                setError('');
+                setSuccess('');
+                setResetEmail('');
+                setVerificationCode('');
+                setNewPassword('');
+              }}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                {resetStep === 1 && 'Reset Your Password'}
+                {resetStep === 2 && 'Verify Your Email'}
+                {resetStep === 3 && 'Create New Password'}
+              </h2>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-md text-sm">
+                  {error}
+                </div>
+              )}
+
+              {success && (
+                <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-700 rounded-md text-sm">
+                  {success}
+                </div>
+              )}
+
+              {resetStep === 1 && (
+                <div className="space-y-4">
+                  <p className="text-gray-600 mb-4">
+                    Enter your email address and we'll send you a verification code to reset your password.
+                  </p>
+                  <div className="space-y-2">
+                    <label htmlFor="reset-email" className="text-sm font-medium text-gray-700">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="reset-email"
+                        type="email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        className="w-full pl-10 rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleForgotPassword}
+                    disabled={loading}
+                    className="w-full mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {loading ? 'Sending...' : 'Send Verification Code'}
+                  </button>
+                </div>
+              )}
+
+              {resetStep === 2 && (
+                <div className="space-y-4">
+                  <p className="text-gray-600 mb-4">
+                    We've sent a 6-digit verification code to <span className="font-semibold">{resetEmail}</span>.
+                    Please enter it below to continue.
+                  </p>
+                  <div className="space-y-2">
+                    <label htmlFor="verification-code" className="text-sm font-medium text-gray-700">
+                      Verification Code
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Key className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="verification-code"
+                        type="text"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="Enter 6-digit code"
+                        maxLength={6}
+                        className="w-full pl-10 rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <button
+                        type="button"
+                        onClick={resendVerificationCode}
+                        disabled={countdown > 0 || loading}
+                        className={`text-xs ${countdown > 0 ? 'text-gray-400' : 'text-blue-600 hover:underline'}`}
+                      >
+                        {countdown > 0 ? `Resend code in ${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, '0')}` : 'Resend code'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-6">
+                    <button
+                      onClick={() => setResetStep(1)}
+                      className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={() => verifyCode()}
+                      disabled={verificationCode.length !== 6 || loading}
+                      className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Verifying...' : 'Verify Code'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {resetStep === 3 && (
+                <div className="space-y-4">
+                  <p className="text-gray-600 mb-4">
+                    Please enter your new password. Make sure it's at least 6 characters long.
+                  </p>
+                  <div className="space-y-2">
+                    <label htmlFor="new-password" className="text-sm font-medium text-gray-700">
+                      New Password
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Key className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="new-password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password"
+                        className="w-full pl-10 pr-10 rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-0 top-0 h-full px-3 py-2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-6">
+                    <button
+                      onClick={() => setResetStep(2)}
+                      className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={resetPassword}
+                      disabled={!newPassword || newPassword.length < 6 || loading}
+                      className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Updating...' : 'Update Password'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
