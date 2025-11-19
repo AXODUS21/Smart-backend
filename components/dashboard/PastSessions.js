@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { handleNoShow } from "@/lib/sessionPolicies";
 
 export default function PastSessions() {
   const { user } = useAuth();
@@ -11,6 +13,8 @@ export default function PastSessions() {
   const [showReview, setShowReview] = useState(null);
   const [reviews, setReviews] = useState({});
   const [processing, setProcessing] = useState({});
+  const [showNoShowModal, setShowNoShowModal] = useState(null);
+  const [noShowType, setNoShowType] = useState(null);
 
   // Fetch past sessions for the tutor
   useEffect(() => {
@@ -163,6 +167,40 @@ export default function PastSessions() {
     }
   };
 
+  const handleMarkNoShow = async (id, type) => {
+    setProcessing((prev) => ({ ...prev, [id]: true }));
+
+    try {
+      await handleNoShow(id, type);
+
+      // Update local state
+      setSessions(
+        sessions.map((session) =>
+          session.id === id
+            ? {
+                ...session,
+                status: type === "student-no-show" ? "student-no-show" : "tutor-no-show",
+                action: type,
+              }
+            : session
+        )
+      );
+
+      setShowNoShowModal(null);
+      setNoShowType(null);
+      alert(
+        type === "student-no-show"
+          ? "Student no-show recorded. Credits forfeited."
+          : "Tutor no-show recorded. Credits refunded to student."
+      );
+    } catch (error) {
+      console.error("Error marking no-show:", error);
+      alert("Error marking no-show. Please try again.");
+    } finally {
+      setProcessing((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -276,13 +314,20 @@ export default function PastSessions() {
               )}
 
               {session.status === "completed" && !showReview && (
-                <div className="mt-2">
+                <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => handleWriteReview(session.id)}
                     disabled={processing[session.id]}
                     className="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg font-medium hover:bg-green-200 transition-colors disabled:opacity-50"
                   >
                     Write a Review
+                  </button>
+                  <button
+                    onClick={() => setShowNoShowModal(session.id)}
+                    disabled={processing[session.id]}
+                    className="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
+                  >
+                    Mark No-Show
                   </button>
                 </div>
               )}
@@ -303,6 +348,73 @@ export default function PastSessions() {
           ))
         )}
       </div>
+
+      {/* No-Show Modal */}
+      {showNoShowModal && (
+        <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Mark Session as No-Show
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">
+                Select who did not show up for this session
+              </p>
+            </div>
+
+            <div className="p-6 space-y-3">
+              <button
+                onClick={() => {
+                  setNoShowType("student-no-show");
+                  handleMarkNoShow(showNoShowModal, "student-no-show");
+                }}
+                disabled={processing[showNoShowModal]}
+                className="w-full p-4 border-2 border-red-200 rounded-lg hover:bg-red-50 transition-colors text-left disabled:opacity-50"
+              >
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-slate-900">Student No-Show</p>
+                    <p className="text-sm text-slate-600 mt-1">
+                      Student did not attend the session. Credits will be forfeited.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setNoShowType("tutor-no-show");
+                  handleMarkNoShow(showNoShowModal, "tutor-no-show");
+                }}
+                disabled={processing[showNoShowModal]}
+                className="w-full p-4 border-2 border-amber-200 rounded-lg hover:bg-amber-50 transition-colors text-left disabled:opacity-50"
+              >
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-slate-900">Tutor No-Show</p>
+                    <p className="text-sm text-slate-600 mt-1">
+                      You did not attend the session. Credits will be refunded to student.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowNoShowModal(null);
+                  setNoShowType(null);
+                }}
+                disabled={processing[showNoShowModal]}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg text-slate-900 font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

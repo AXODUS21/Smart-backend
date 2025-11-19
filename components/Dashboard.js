@@ -57,6 +57,7 @@ import SuperadminSidebarConfig from "./dashboard/SuperadminSidebarConfig";
 import SuperadminTasks from "./dashboard/SuperadminTasks";
 import AdminTutorApplications from "./dashboard/AdminTutorApplications";
 import TutorApplication from "./dashboard/TutorApplication";
+import SessionManagement from "./dashboard/SessionManagement";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -263,6 +264,7 @@ export default function Dashboard() {
     { id: "home", label: "Dashboard", icon: Home },
     { id: "assignments", label: "Assignments", icon: BookOpen },
     { id: "find-tutors", label: "Book Sessions", icon: Search },
+    { id: "manage-sessions", label: "Manage Sessions", icon: Clock },
     { id: "meetings", label: "Calendar", icon: Video },
     { id: "feedback", label: "Feedback", icon: MessageSquare },
     { id: "profile", label: "Profile", icon: User },
@@ -549,6 +551,9 @@ export default function Dashboard() {
           {activeTab === "meetings" && userRole === "student" && <Meetings />}
           {activeTab === "find-tutors" && userRole === "student" && (
             <BookSession />
+          )}
+          {activeTab === "manage-sessions" && userRole === "student" && (
+            <SessionManagement />
           )}
           {activeTab === "feedback" && userRole === "student" && (
             <StudentFeedback />

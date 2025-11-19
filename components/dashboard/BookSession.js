@@ -28,6 +28,10 @@ export default function BookSession() {
   const [selectedTutorForDetails, setSelectedTutorForDetails] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [platformSettings, setPlatformSettings] = useState({
+    min_booking_hours_advance: 2,
+    max_daily_sessions_per_student: 5,
+  });
 
   // Fetch tutors and student data
   useEffect(() => {
@@ -58,6 +62,22 @@ export default function BookSession() {
           console.error("Error fetching student credits:", studentError);
         } else {
           setStudentCredits(studentData?.credits || 0);
+        }
+
+        // Fetch platform settings
+        const { data: settingsData, error: settingsError } = await supabase
+          .from("PlatformSettings")
+          .select("setting_key, setting_value");
+
+        if (!settingsError && settingsData) {
+          const settingsMap = {};
+          settingsData.forEach((setting) => {
+            const value = setting.data_type === "integer" 
+              ? parseInt(setting.setting_value) 
+              : setting.setting_value;
+            settingsMap[setting.setting_key] = value;
+          });
+          setPlatformSettings((prev) => ({ ...prev, ...settingsMap }));
         }
       } catch (error) {
         console.error("Error:", error);
@@ -129,10 +149,18 @@ export default function BookSession() {
   const getAvailableDates = () => {
     if (!selectedTutorData?.availability) return [];
 
+    const now = new Date();
+    const minBookingHours = platformSettings.min_booking_hours_advance || 2;
+    const minBookingTime = new Date(now.getTime() + minBookingHours * 60 * 60 * 1000);
+
     const dates = new Set();
     selectedTutorData.availability.forEach((slot) => {
       if (slot.date) {
-        dates.add(slot.date);
+        const slotDate = new Date(slot.date);
+        // Only include dates that are at least minBookingHours in advance
+        if (slotDate >= minBookingTime) {
+          dates.add(slot.date);
+        }
       }
     });
 
@@ -278,6 +306,24 @@ export default function BookSession() {
       const endTime = new Date(startTime);
       const durationMinutes = selectedDuration === "30 mins" ? 30 : 60;
       endTime.setMinutes(endTime.getMinutes() + durationMinutes);
+
+      // Check daily session limit for student
+      const { data: existingSessions, error: sessionCheckError } = await supabase
+        .from("Schedules")
+        .select("id")
+        .eq("student_id", studentData.id)
+        .gte("start_time_utc", new Date(selectedDate).toISOString().split('T')[0])
+        .lt("start_time_utc", new Date(new Date(selectedDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+
+      if (sessionCheckError) throw sessionCheckError;
+
+      const maxDailySessions = platformSettings.max_daily_sessions_per_student || 5;
+      if (existingSessions && existingSessions.length >= maxDailySessions) {
+        alert(
+          `You have reached the maximum of ${maxDailySessions} sessions per day. Please choose a different date.`
+        );
+        return;
+      }
 
       // Create booking request
       const { error: scheduleError } = await supabase.from("Schedules").insert({
