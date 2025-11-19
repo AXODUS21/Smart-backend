@@ -117,7 +117,8 @@ export default function TutorHome() {
 
         // Store tutor ID for other queries
         setTutorId(tutorData.id);
-        setTutorName(tutorData.name || user.email);
+        const fullName = `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim();
+        setTutorName(fullName || user.email);
         
         // Handle both old format (text array) and new format (object array)
         const subjectsData = tutorData.subjects || [];

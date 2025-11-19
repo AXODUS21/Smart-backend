@@ -120,9 +120,10 @@ export default function BookSession() {
   });
 
   // Get selected tutor data
-  const selectedTutorData = tutors.find(
-    (tutor) => tutor.name === selectedTutor
-  );
+  const selectedTutorData = tutors.find((tutor) => {
+    const fullName = `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim();
+    return fullName === selectedTutor;
+  });
 
   // Parse tutor availability and get available dates
   const getAvailableDates = () => {
@@ -447,7 +448,7 @@ export default function BookSession() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="font-medium text-slate-900">
-                          {tutor.name || "Tutor"}
+                          {`${tutor.first_name || ''} ${tutor.last_name || ''}`.trim() || "Tutor"}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -464,7 +465,8 @@ export default function BookSession() {
                         </button>
                         <button
                           onClick={() => {
-                            setSelectedTutor(tutor.name || "Tutor");
+                            const fullName = `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim();
+                            setSelectedTutor(fullName || "Tutor");
                             setStep(4);
                           }}
                           className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -681,7 +683,7 @@ export default function BookSession() {
                     {selectedTutorForDetails.photo_url && !imageError ? (
                       <img
                         src={selectedTutorForDetails.photo_url}
-                        alt={selectedTutorForDetails.name || "Tutor"}
+                        alt={`${selectedTutorForDetails.first_name || ''} ${selectedTutorForDetails.last_name || ''}`.trim() || "Tutor"}
                         className="w-32 h-32 rounded-full object-cover border-4 border-slate-200 mb-4"
                         onError={() => setImageError(true)}
                       />
@@ -691,7 +693,7 @@ export default function BookSession() {
                       </div>
                     )}
                     <h3 className="text-xl font-semibold text-slate-900 mb-1">
-                      {selectedTutorForDetails.name || "Tutor"}
+                      {`${selectedTutorForDetails.first_name || ''} ${selectedTutorForDetails.last_name || ''}`.trim() || "Tutor"}
                     </h3>
                   </div>
                 </div>
@@ -872,7 +874,8 @@ export default function BookSession() {
               </button>
               <button
                 onClick={() => {
-                  setSelectedTutor(selectedTutorForDetails.name || "Tutor");
+                  const fullName = `${selectedTutorForDetails.first_name || ''} ${selectedTutorForDetails.last_name || ''}`.trim();
+                  setSelectedTutor(fullName || "Tutor");
                   setIsDetailsModalOpen(false);
                   setStep(4);
                 }}

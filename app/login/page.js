@@ -23,7 +23,8 @@ export default function LoginPage() {
   const [activeTab, setActiveTab] = useState('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [userType, setUserType] = useState('student');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -266,7 +267,7 @@ export default function LoginPage() {
   };
 
   // Helper function to create user profile if it doesn't exist
-  const ensureUserProfile = async (userId, userName, userEmail, userType) => {
+  const ensureUserProfile = async (userId, userFirstName, userLastName, userEmail, userType) => {
     try {
       if (userType === 'student') {
         // Check if student profile exists
@@ -282,7 +283,8 @@ export default function LoginPage() {
             .from('Students')
             .insert({
               user_id: userId,
-              name: userName || userEmail,
+              first_name: userFirstName || '',
+              last_name: userLastName || '',
               email: userEmail,
               credits: 0,
             });
@@ -306,7 +308,8 @@ export default function LoginPage() {
             .from('Tutors')
             .insert({
               user_id: userId,
-              name: userName || userEmail,
+              first_name: userFirstName || '',
+              last_name: userLastName || '',
               email: userEmail,
               subjects: [],
               application_status: false,
@@ -338,7 +341,8 @@ export default function LoginPage() {
           password,
           options: {
             data: {
-              name: name,
+              first_name: firstName,
+              last_name: lastName,
               user_type: userType,
             },
           },
@@ -349,7 +353,7 @@ export default function LoginPage() {
         if (authData.user) {
           // Try to create profile manually as fallback (in case trigger didn't run)
           try {
-            await ensureUserProfile(authData.user.id, name, email, userType);
+            await ensureUserProfile(authData.user.id, firstName, lastName, email, userType);
           } catch (profileError) {
             // If profile creation fails, still show success but log the error
             console.error('Profile creation failed:', profileError);
@@ -361,7 +365,8 @@ export default function LoginPage() {
           // Clear form
           setEmail('');
           setPassword('');
-          setName('');
+          setFirstName('');
+          setLastName('');
           setUserType('student');
           setActiveTab('signin');
         }
@@ -377,11 +382,12 @@ export default function LoginPage() {
         if (signInData.user) {
           // Check if profile exists, create if missing
           const userType = signInData.user.user_metadata?.user_type;
-          const userName = signInData.user.user_metadata?.name || signInData.user.email;
+          const userFirstName = signInData.user.user_metadata?.first_name || '';
+          const userLastName = signInData.user.user_metadata?.last_name || '';
           
           if (userType) {
             try {
-              await ensureUserProfile(signInData.user.id, userName, signInData.user.email, userType);
+              await ensureUserProfile(signInData.user.id, userFirstName, userLastName, signInData.user.email, userType);
             } catch (profileError) {
               // Log but don't block login
               console.error('Profile check/creation failed:', profileError);
@@ -535,20 +541,37 @@ export default function LoginPage() {
           {/* Sign Up Form */}
           {activeTab === 'signup' && (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="signup-name" className="text-sm font-medium text-gray-700">
-                  Full Name
-                </label>
-                <input
-                  id="signup-name"
-                  name="fullName"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  required
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="signup-firstname" className="text-sm font-medium text-gray-700">
+                    First Name
+                  </label>
+                  <input
+                    id="signup-firstname"
+                    name="firstName"
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Enter your first name"
+                    required
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="signup-lastname" className="text-sm font-medium text-gray-700">
+                    Last Name
+                  </label>
+                  <input
+                    id="signup-lastname"
+                    name="lastName"
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Enter your last name"
+                    required
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <label htmlFor="signup-email" className="text-sm font-medium text-gray-700">

@@ -48,7 +48,7 @@ export default function AdminDashboard() {
       ] = await Promise.all([
         supabase
           .from("Students")
-          .select("id, name, email, created_at, credits", { count: "exact" }),
+          .select("id, first_name, last_name, email, created_at, credits", { count: "exact" }),
         supabase.from("Tutors").select("id", { count: "exact" }),
         supabase.from("admins").select("id", { count: "exact" }),
         supabase
@@ -115,7 +115,7 @@ export default function AdminDashboard() {
       // Fetch students from the last 7 days using Supabase query
       const { data: newStudentsQuery, error: newStudentsError } = await supabase
         .from("Students")
-        .select("id, name, email, created_at, credits")
+        .select("id, first_name, last_name, email, created_at, credits")
         .gte("created_at", sevenDaysAgoISO)
         .order("created_at", { ascending: false });
 
@@ -128,13 +128,16 @@ export default function AdminDashboard() {
         const createdAt = new Date(student.created_at);
         const daysDiff = (now - createdAt) / (1000 * 60 * 60 * 24);
         return daysDiff <= 7;
-      });
+      }).map((student) => ({
+        ...student,
+        name: `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.email || "Unnamed Student"
+      }));
 
       // Get students with low credits (less than 5 credits)
       // Fetch all students with credits to properly filter
       const { data: allStudentsData, error: allStudentsError } = await supabase
         .from("Students")
-        .select("id, name, email, credits")
+        .select("id, first_name, last_name, email, credits")
         .gt("credits", 0)
         .lt("credits", 5)
         .order("credits", { ascending: true })
@@ -144,7 +147,10 @@ export default function AdminDashboard() {
         console.error("Error fetching students with low credits:", allStudentsError);
       }
 
-      const expiringStudents = allStudentsData || [];
+      const expiringStudents = (allStudentsData || []).map((student) => ({
+        ...student,
+        name: `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.email || "Unnamed Student"
+      }));
 
       setStats({
         totalStudents,

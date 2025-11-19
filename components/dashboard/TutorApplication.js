@@ -68,9 +68,10 @@ export default function TutorApplication({ onApplicationStatusChange, tutorId: i
         }
         return prev;
       });
+      const fullName = `${tutorRecord.first_name || ''} ${tutorRecord.last_name || ''}`.trim();
       setFormValues((prev) => ({
         ...prev,
-        fullName: tutorRecord.name || prev.fullName || user?.user_metadata?.full_name || "",
+        fullName: fullName || prev.fullName || user?.user_metadata?.full_name || "",
         email: tutorRecord.email || prev.email || user?.email || "",
       }));
     },
@@ -87,7 +88,7 @@ export default function TutorApplication({ onApplicationStatusChange, tutorId: i
         if (!resolvedTutorId) {
           const { data: tutorRecord, error: tutorError } = await supabase
             .from("Tutors")
-            .select("id, name, email, application_status")
+            .select("id, first_name, last_name, email, application_status")
             .eq("user_id", user.id)
             .maybeSingle();
 
@@ -99,7 +100,7 @@ export default function TutorApplication({ onApplicationStatusChange, tutorId: i
         } else if (!skipStatusUpdate) {
           const { data: tutorRecord, error: tutorError } = await supabase
             .from("Tutors")
-            .select("id, name, email, application_status")
+            .select("id, first_name, last_name, email, application_status")
             .eq("id", resolvedTutorId)
             .maybeSingle();
           if (tutorError) throw tutorError;

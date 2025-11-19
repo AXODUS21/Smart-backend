@@ -5,26 +5,31 @@
     CREATE OR REPLACE FUNCTION public.handle_new_user()
     RETURNS TRIGGER AS $$
     DECLARE
-    user_name TEXT;
+    user_first_name TEXT;
+    user_last_name TEXT;
     user_type TEXT;
     BEGIN
     -- Get user metadata
-    user_name := NEW.raw_user_meta_data->>'name';
+    user_first_name := NEW.raw_user_meta_data->>'first_name';
+    user_last_name := NEW.raw_user_meta_data->>'last_name';
     user_type := NEW.raw_user_meta_data->>'user_type';
     
-    -- If name is not provided, use email as fallback
-    IF user_name IS NULL OR user_name = '' THEN
-        user_name := NEW.email;
+    -- If names are not provided, use empty strings
+    IF user_first_name IS NULL THEN
+        user_first_name := '';
+    END IF;
+    IF user_last_name IS NULL THEN
+        user_last_name := '';
     END IF;
     
     -- Create profile based on user_type
     IF user_type = 'student' THEN
-        INSERT INTO public."Students" (user_id, name, email, credits)
-        VALUES (NEW.id, user_name, NEW.email, 0)
+        INSERT INTO public."Students" (user_id, first_name, last_name, email, credits)
+        VALUES (NEW.id, user_first_name, user_last_name, NEW.email, 0)
         ON CONFLICT (user_id) DO NOTHING;
     ELSIF user_type = 'tutor' THEN
-        INSERT INTO public."Tutors" (user_id, name, email, subjects, application_status)
-        VALUES (NEW.id, user_name, NEW.email, '[]'::jsonb, false)
+        INSERT INTO public."Tutors" (user_id, first_name, last_name, email, subjects, application_status)
+        VALUES (NEW.id, user_first_name, user_last_name, NEW.email, '[]'::jsonb, false)
         ON CONFLICT (user_id) DO NOTHING;
     END IF;
     

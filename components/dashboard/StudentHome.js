@@ -35,12 +35,13 @@ export default function StudentHome({ setActiveTab }) {
         // Get student data
         const { data: studentData } = await supabase
           .from("Students")
-          .select("id, name, credits")
+          .select("id, first_name, last_name, credits")
           .eq("user_id", user.id)
           .single();
 
         if (studentData) {
-          setStudentName(studentData.name || user.email);
+          const fullName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim();
+          setStudentName(fullName || user.email);
           setMetrics((prev) => ({
             ...prev,
             creditsAvailable: studentData.credits || 0,
@@ -53,7 +54,8 @@ export default function StudentHome({ setActiveTab }) {
               `
               *,
               tutor:tutor_id (
-                name,
+                first_name,
+                last_name,
                 email
               )
             `
@@ -89,12 +91,15 @@ export default function StudentHome({ setActiveTab }) {
                 (a, b) => new Date(b.end_time_utc) - new Date(a.end_time_utc)
               )
               .slice(0, 3)
-              .map((session) => ({
-                description: `Session completed with ${
-                  session.tutor?.name || "tutor"
-                }`,
-                time: getTimeAgo(new Date(session.end_time_utc)),
-              }));
+              .map((session) => {
+                const tutorFullName = session.tutor 
+                  ? `${session.tutor.first_name || ''} ${session.tutor.last_name || ''}`.trim() 
+                  : '';
+                return {
+                  description: `Session completed with ${tutorFullName || "tutor"}`,
+                  time: getTimeAgo(new Date(session.end_time_utc)),
+                };
+              });
             setRecentActivity(recent);
           }
         }
@@ -300,7 +305,9 @@ export default function StudentHome({ setActiveTab }) {
                     </p>
                   </div>
                   <span className="text-sm font-medium text-blue-600">
-                    {session.tutor?.name || "Tutor"}
+                    {session.tutor 
+                      ? `${session.tutor.first_name || ''} ${session.tutor.last_name || ''}`.trim() || "Tutor"
+                      : "Tutor"}
                   </span>
                 </div>
               ))}

@@ -149,24 +149,26 @@ export default function Dashboard() {
         // Check if user is in Students table
         const { data: studentData, error: studentError } = await supabase
           .from("Students")
-          .select("id, name, email, credits")
+          .select("id, first_name, last_name, email, credits")
           .eq("user_id", user.id)
           .maybeSingle();
 
         if (studentData) {
           setUserRole("student");
-          setUserName(studentData.name || user.email);
+          const fullName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim();
+          setUserName(fullName || user.email);
         } else {
           // Check if user is in Tutors table
           const { data: tutorData, error: tutorError } = await supabase
             .from("Tutors")
-            .select("id, name, email, subjects, application_status")
+            .select("id, first_name, last_name, email, subjects, application_status")
             .eq("user_id", user.id)
             .maybeSingle();
 
           if (tutorData) {
             setUserRole("tutor");
-            setUserName(tutorData.name || user.email);
+            const fullName = `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim();
+            setUserName(fullName || user.email);
             setTutorId(tutorData.id);
             const isApproved = Boolean(tutorData.application_status);
             setTutorApplicationApproved(isApproved);
@@ -176,7 +178,8 @@ export default function Dashboard() {
           } else {
             // Profile doesn't exist - try to create it from user metadata
             const userType = user.user_metadata?.user_type;
-            const userName = user.user_metadata?.name || user.email;
+            const userFirstName = user.user_metadata?.first_name || '';
+            const userLastName = user.user_metadata?.last_name || '';
 
             if (userType === 'student') {
               // Create student profile
@@ -184,16 +187,18 @@ export default function Dashboard() {
                 .from("Students")
                 .insert({
                   user_id: user.id,
-                  name: userName,
+                  first_name: userFirstName,
+                  last_name: userLastName,
                   email: user.email,
                   credits: 0,
                 })
-                .select("id, name, email, credits")
+                .select("id, first_name, last_name, email, credits")
                 .single();
 
               if (!createError && newStudent) {
                 setUserRole("student");
-                setUserName(newStudent.name || user.email);
+                const fullName = `${newStudent.first_name || ''} ${newStudent.last_name || ''}`.trim();
+                setUserName(fullName || user.email);
               } else {
                 console.error("Error creating student profile:", createError);
               }
@@ -203,17 +208,19 @@ export default function Dashboard() {
                 .from("Tutors")
                 .insert({
                   user_id: user.id,
-                  name: userName,
+                  first_name: userFirstName,
+                  last_name: userLastName,
                   email: user.email,
                   subjects: [],
                   application_status: false,
                 })
-                .select("id, name, email, subjects, application_status")
+                .select("id, first_name, last_name, email, subjects, application_status")
                 .single();
 
               if (!createError && newTutor) {
                 setUserRole("tutor");
-                setUserName(newTutor.name || user.email);
+                const fullName = `${newTutor.first_name || ''} ${newTutor.last_name || ''}`.trim();
+                setUserName(fullName || user.email);
                 setTutorId(newTutor.id);
                 setTutorApplicationApproved(false);
                 setActiveTab("application");

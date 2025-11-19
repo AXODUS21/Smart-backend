@@ -479,7 +479,9 @@ export default function TutorProfile() {
                 </div>
               )}
               <h3 className="text-xl font-semibold text-slate-900 mb-1">
-                {tutorData?.name || user?.email || "Tutor"}
+                {tutorData 
+                  ? `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim() || user?.email || "Tutor"
+                  : user?.email || "Tutor"}
               </h3>
             </div>
           </div>
