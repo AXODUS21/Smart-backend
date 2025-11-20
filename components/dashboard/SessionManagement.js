@@ -10,6 +10,7 @@ export default function SessionManagement() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [platformSettings, setPlatformSettings] = useState({
+    min_booking_hours_advance: 2,
     cancellation_notice_hours: 24,
     rescheduling_notice_hours: 24,
   });
@@ -21,6 +22,9 @@ export default function SessionManagement() {
     newTime: "",
   });
   const [processing, setProcessing] = useState(false);
+  const [tutorAvailability, setTutorAvailability] = useState(null);
+  const [availableDates, setAvailableDates] = useState([]);
+  const [availableTimes, setAvailableTimes] = useState([]);
 
   // Fetch sessions and platform settings
   useEffect(() => {
@@ -37,7 +41,7 @@ export default function SessionManagement() {
 
         if (!studentData) return;
 
-        // Fetch upcoming sessions
+        // Fetch upcoming sessions (exclude cancelled and rescheduled)
         const { data: sessionsData, error: sessionsError } = await supabase
           .from("Schedules")
           .select(
@@ -46,12 +50,14 @@ export default function SessionManagement() {
             tutor:tutor_id (
               first_name,
               last_name,
-              email
+              email,
+              availability
             )
           `
           )
           .eq("student_id", studentData.id)
           .gt("start_time_utc", new Date().toISOString())
+          .not("status", "in", "(cancelled,rescheduled)")
           .order("start_time_utc", { ascending: true });
 
         if (sessionsError) {
@@ -110,6 +116,63 @@ export default function SessionManagement() {
     return Math.round((sessionStart - now) / (1000 * 60 * 60) * 10) / 10;
   };
 
+  // Get available dates from tutor availability
+  const getAvailableDatesForReschedule = (tutor) => {
+    if (!tutor?.availability) return [];
+
+    const now = new Date();
+    const minBookingHours = platformSettings.min_booking_hours_advance || 2;
+    const minBookingTime = new Date(now.getTime() + minBookingHours * 60 * 60 * 1000);
+
+    const dates = new Set();
+    tutor.availability.forEach((slot) => {
+      if (slot.date) {
+        const slotDate = new Date(slot.date);
+        if (slotDate >= minBookingTime) {
+          dates.add(slot.date);
+        }
+      }
+    });
+
+    return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
+  };
+
+  // Get available times for selected date from tutor availability
+  const getAvailableTimesForReschedule = (tutor, selectedDate) => {
+    if (!tutor?.availability || !selectedDate) return [];
+
+    const slots = tutor.availability.filter((slot) => slot.date === selectedDate);
+    const timeSlots = [];
+
+    slots.forEach((slot) => {
+      const startTime = slot.startTime;
+      const endTime = slot.endTime;
+
+      const parseTime = (timeStr) => {
+        const [time, period] = timeStr.split(" ");
+        const [hours, minutes] = time.split(":");
+        let hour24 = parseInt(hours);
+        if (period === "PM" && hour24 !== 12) hour24 += 12;
+        if (period === "AM" && hour24 === 12) hour24 = 0;
+        return hour24 * 60 + parseInt(minutes);
+      };
+
+      const startMinutes = parseTime(startTime);
+      const endMinutes = parseTime(endTime);
+
+      for (let minutes = startMinutes; minutes < endMinutes; minutes += 30) {
+        const hour = Math.floor(minutes / 60);
+        const min = minutes % 60;
+        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        const period = hour >= 12 ? "PM" : "AM";
+        const timeStr = `${displayHour}:${min.toString().padStart(2, "0")} ${period}`;
+        timeSlots.push(timeStr);
+      }
+    });
+
+    return timeSlots.sort();
+  };
+
   // Handle cancellation
   const handleCancellation = async () => {
     if (!selectedSession || !cancellationReason.trim()) {
@@ -156,6 +219,14 @@ export default function SessionManagement() {
           .eq("id", selectedSession.student_id);
       }
 
+      // Create notification for tutor about cancellation
+      const studentName = studentData?.name || "A student";
+      const notificationMessage = `${studentName} cancelled a session scheduled for ${new Date(selectedSession.start_time_utc).toLocaleDateString()} at ${new Date(selectedSession.start_time_utc).toLocaleTimeString()}. Reason: ${cancellationReason}`;
+      
+      // Store notification in a notifications table or send email
+      // For now, we'll log it and you can add email notification later
+      console.log("Tutor Notification:", notificationMessage);
+
       alert("Session cancelled successfully. Credits have been refunded.");
       setSessions(sessions.filter((s) => s.id !== selectedSession.id));
       setSelectedSession(null);
@@ -181,6 +252,13 @@ export default function SessionManagement() {
       alert(
         `Rescheduling must be done at least ${platformSettings.rescheduling_notice_hours} hours in advance. Your session is in ${hoursUntilSession} hours.`
       );
+      return;
+    }
+
+    // Validate that selected time is within tutor availability
+    const availableTimes = getAvailableTimesForReschedule(selectedSession.tutor, reschedulingData.newDate);
+    if (!availableTimes.includes(reschedulingData.newTime)) {
+      alert("The selected time is not available. Please choose from the available times.");
       return;
     }
 
@@ -448,8 +526,8 @@ export default function SessionManagement() {
       {/* Rescheduling Modal */}
       {actionType === "reschedule" && selectedSession && (
         <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
               <h3 className="text-lg font-semibold text-slate-900">
                 Reschedule Session
               </h3>
@@ -458,6 +536,8 @@ export default function SessionManagement() {
                   setActionType(null);
                   setSelectedSession(null);
                   setReschedulingData({ newDate: "", newTime: "" });
+                  setAvailableDates([]);
+                  setAvailableTimes([]);
                 }}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -481,43 +561,73 @@ export default function SessionManagement() {
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-700">
-                  Credits will be automatically adjusted for the new session time.
+                  Select from tutor's available times only.
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-900 mb-2">
-                  New Date
+                  Select New Date
                 </label>
-                <input
-                  type="date"
-                  value={reschedulingData.newDate}
-                  onChange={(e) =>
-                    setReschedulingData({
-                      ...reschedulingData,
-                      newDate: e.target.value,
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                  {getAvailableDatesForReschedule(selectedSession.tutor).length === 0 ? (
+                    <p className="text-sm text-slate-500 col-span-2">No available dates</p>
+                  ) : (
+                    getAvailableDatesForReschedule(selectedSession.tutor).map((date) => {
+                      const dateObj = new Date(date);
+                      const formattedDate = dateObj.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      });
+                      return (
+                        <button
+                          key={date}
+                          onClick={() => {
+                            setReschedulingData({ ...reschedulingData, newDate: date, newTime: "" });
+                            setAvailableTimes(getAvailableTimesForReschedule(selectedSession.tutor, date));
+                          }}
+                          className={`p-2 rounded-lg border-2 transition-all text-sm ${
+                            reschedulingData.newDate === date
+                              ? "border-blue-600 bg-blue-50"
+                              : "border-slate-200 hover:border-blue-300"
+                          }`}
+                        >
+                          {formattedDate}
+                        </button>
+                      );
                     })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
+                  )}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">
-                  New Time
-                </label>
-                <input
-                  type="time"
-                  value={reschedulingData.newTime}
-                  onChange={(e) =>
-                    setReschedulingData({
-                      ...reschedulingData,
-                      newTime: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
+              {reschedulingData.newDate && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-2">
+                    Select New Time
+                  </label>
+                  <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+                    {availableTimes.length === 0 ? (
+                      <p className="text-sm text-slate-500 col-span-3">No available times</p>
+                    ) : (
+                      availableTimes.map((time) => (
+                        <button
+                          key={time}
+                          onClick={() =>
+                            setReschedulingData({ ...reschedulingData, newTime: time })
+                          }
+                          className={`p-2 rounded-lg border-2 transition-all text-sm ${
+                            reschedulingData.newTime === time
+                              ? "border-blue-600 bg-blue-50"
+                              : "border-slate-200 hover:border-blue-300"
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <button
@@ -525,6 +635,8 @@ export default function SessionManagement() {
                     setActionType(null);
                     setSelectedSession(null);
                     setReschedulingData({ newDate: "", newTime: "" });
+                    setAvailableDates([]);
+                    setAvailableTimes([]);
                   }}
                   className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-900 font-medium hover:bg-slate-50 transition-colors"
                 >
@@ -532,7 +644,7 @@ export default function SessionManagement() {
                 </button>
                 <button
                   onClick={handleRescheduling}
-                  disabled={processing}
+                  disabled={processing || !reschedulingData.newDate || !reschedulingData.newTime}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
                   {processing ? "Rescheduling..." : "Reschedule"}
