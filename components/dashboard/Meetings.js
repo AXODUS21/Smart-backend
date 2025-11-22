@@ -115,6 +115,7 @@ export default function Meetings() {
 
         if (!tutorData) return;
 
+        // Fetch ALL bookings (pending, confirmed, rejected)
         const { data, error } = await supabase
           .from("Schedules")
           .select(
@@ -127,7 +128,7 @@ export default function Meetings() {
           `
           )
           .eq("tutor_id", tutorData.id)
-          .eq("status", "pending")
+          .in("status", ["pending", "confirmed", "rejected"])
           .order("start_time_utc", { ascending: true });
 
         if (error) {
@@ -194,7 +195,7 @@ export default function Meetings() {
           `
           )
           .eq("tutor_id", tutorData.id)
-          .eq("status", "pending")
+          .in("status", ["pending", "confirmed", "rejected"])
           .order("start_time_utc", { ascending: true });
 
         setTutorBookings(data || []);
@@ -309,7 +310,7 @@ export default function Meetings() {
           `
           )
           .eq("tutor_id", tutorData.id)
-          .eq("status", "pending")
+          .in("status", ["pending", "confirmed", "rejected"])
           .order("start_time_utc", { ascending: true });
 
         setTutorBookings(data || []);
@@ -710,7 +711,7 @@ export default function Meetings() {
                           {booking.subject}
                         </p>
                         <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-xs">
-                          {booking.status}
+                          {booking.cancellation_reason ? "Cancelled" : booking.status}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mb-1">
@@ -724,6 +725,11 @@ export default function Meetings() {
                         {booking.duration_min} min • {booking.credits_required}{" "}
                         credits refunded
                       </p>
+                      {booking.cancellation_reason && (
+                        <p className="text-xs text-red-700 mt-2 bg-red-100 p-2 rounded">
+                          <span className="font-medium">Cancellation reason:</span> {booking.cancellation_reason}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))

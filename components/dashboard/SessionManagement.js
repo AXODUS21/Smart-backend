@@ -52,7 +52,7 @@ export default function SessionManagement() {
 
       console.log("Student ID:", studentData.id);
 
-      // Fetch upcoming sessions (only confirmed sessions that can be managed)
+      // Fetch upcoming sessions (confirmed and pending that can be managed)
       const { data: sessionsData, error: sessionsError } = await supabase
         .from("Schedules")
         .select(
@@ -67,7 +67,7 @@ export default function SessionManagement() {
         `
         )
         .eq("student_id", studentData.id)
-        .eq("status", "confirmed")
+        .in("status", ["confirmed", "pending"])
         .gt("start_time_utc", new Date().toISOString())
         .order("start_time_utc", { ascending: true });
 
@@ -413,13 +413,24 @@ export default function SessionManagement() {
           {sessions.map((session) => (
             <div
               key={session.id}
-              className="bg-white rounded-lg p-6 shadow-sm border border-slate-200"
+              className={`rounded-lg p-6 shadow-sm border ${
+                session.status === "pending"
+                  ? "bg-slate-50 border-slate-200 opacity-60"
+                  : "bg-white border-slate-200"
+              }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    {session.subject}
-                  </h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      {session.subject}
+                    </h3>
+                    {session.status === "pending" && (
+                      <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-medium">
+                        Awaiting Tutor Acceptance
+                      </span>
+                    )}
+                  </div>
                   <div className="space-y-1 text-sm text-slate-600">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
