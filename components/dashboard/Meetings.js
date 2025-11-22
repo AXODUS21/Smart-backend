@@ -115,7 +115,7 @@ export default function Meetings() {
 
         if (!tutorData) return;
 
-        // Fetch ALL bookings (pending, confirmed, rejected)
+        // Fetch ALL bookings (pending, confirmed, rejected, cancelled)
         const { data, error } = await supabase
           .from("Schedules")
           .select(
@@ -128,7 +128,7 @@ export default function Meetings() {
           `
           )
           .eq("tutor_id", tutorData.id)
-          .in("status", ["pending", "confirmed", "rejected"])
+          .in("status", ["pending", "confirmed", "rejected", "cancelled"])
           .order("start_time_utc", { ascending: true });
 
         if (error) {
@@ -195,7 +195,7 @@ export default function Meetings() {
           `
           )
           .eq("tutor_id", tutorData.id)
-          .in("status", ["pending", "confirmed", "rejected"])
+          .in("status", ["pending", "confirmed", "rejected", "cancelled"])
           .order("start_time_utc", { ascending: true });
 
         setTutorBookings(data || []);
@@ -310,7 +310,7 @@ export default function Meetings() {
           `
           )
           .eq("tutor_id", tutorData.id)
-          .in("status", ["pending", "confirmed", "rejected"])
+          .in("status", ["pending", "confirmed", "rejected", "cancelled"])
           .order("start_time_utc", { ascending: true });
 
         setTutorBookings(data || []);
@@ -496,7 +496,7 @@ export default function Meetings() {
     (booking) => booking.status === "pending"
   );
   const confirmedBookings = tutorBookings.filter(
-    (booking) => booking.status === "confirmed"
+    (booking) => booking.status === "confirmed" || booking.status === "cancelled"
   );
   const rejectedBookings = tutorBookings.filter(
     (booking) => booking.status === "rejected"
@@ -651,15 +651,23 @@ export default function Meetings() {
                 confirmedBookings.map((booking) => (
                   <div
                     key={booking.id}
-                    className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      booking.status === "cancelled"
+                        ? "bg-red-50 border-red-200"
+                        : "bg-green-50 border-green-200"
+                    }`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-medium text-sm text-slate-900">
                           {booking.subject}
                         </p>
-                        <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs">
-                          {booking.status}
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${
+                          booking.status === "cancelled"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-green-100 text-green-800"
+                        }`}>
+                          {booking.status === "cancelled" ? "Cancelled" : booking.status}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mb-1">
@@ -671,9 +679,14 @@ export default function Meetings() {
                       </p>
                       <p className="text-xs text-slate-400">
                         {booking.duration_min} min • {booking.credits_required}{" "}
-                        credits
+                        credits {booking.status === "cancelled" ? "refunded" : ""}
                       </p>
-                      {booking.meeting_link && (
+                      {booking.cancellation_reason && (
+                        <p className="text-xs text-red-700 mt-2 bg-red-100 p-2 rounded">
+                          <span className="font-medium">Cancellation reason:</span> {booking.cancellation_reason}
+                        </p>
+                      )}
+                      {booking.meeting_link && booking.status !== "cancelled" && (
                         <a
                           href={booking.meeting_link}
                           target="_blank"
