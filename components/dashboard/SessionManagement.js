@@ -31,14 +31,26 @@ export default function SessionManagement() {
     if (!user) return;
 
     try {
+      console.log("Fetching sessions for user:", user.id);
+      
       // Fetch student ID
-      const { data: studentData } = await supabase
+      const { data: studentData, error: studentError } = await supabase
         .from("Students")
         .select("id")
         .eq("user_id", user.id)
         .single();
 
-      if (!studentData) return;
+      if (studentError) {
+        console.error("Error fetching student:", studentError);
+        return;
+      }
+
+      if (!studentData) {
+        console.log("No student data found");
+        return;
+      }
+
+      console.log("Student ID:", studentData.id);
 
       // Fetch upcoming sessions (only confirmed sessions that can be managed)
       const { data: sessionsData, error: sessionsError } = await supabase
@@ -62,6 +74,7 @@ export default function SessionManagement() {
       if (sessionsError) {
         console.error("Error fetching sessions:", sessionsError);
       } else {
+        console.log("Fetched sessions:", sessionsData);
         setSessions(sessionsData || []);
       }
 
@@ -88,6 +101,7 @@ export default function SessionManagement() {
   };
 
   useEffect(() => {
+    setLoading(true);
     fetchSessions();
   }, [user]);
 
@@ -180,18 +194,23 @@ export default function SessionManagement() {
       return;
     }
 
+    const hoursUntilSession = getHoursUntilSession(selectedSession);
+    const requiredHours = platformSettings.cancellation_notice_hours || 24;
+    console.log("Cancellation check - Hours until session:", hoursUntilSession, "Required hours:", requiredHours);
+    
     if (!canCancelSession(selectedSession)) {
-      const hoursUntilSession = getHoursUntilSession(selectedSession);
       alert(
-        `Cancellations must be made at least ${platformSettings.cancellation_notice_hours} hours in advance. Your session is in ${hoursUntilSession} hours.`
+        `Cancellations must be made at least ${requiredHours} hours in advance. Your session is in ${hoursUntilSession} hours.`
       );
       return;
     }
 
     setProcessing(true);
     try {
+      console.log("Starting cancellation for session:", selectedSession.id);
+      
       // Update session with cancellation info
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from("Schedules")
         .update({
           status: "cancelled",
@@ -200,36 +219,56 @@ export default function SessionManagement() {
           cancellation_status: "approved",
           credits_refunded: selectedSession.credits_required,
         })
-        .eq("id", selectedSession.id);
+        .eq("id", selectedSession.id)
+        .select();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Error updating session status:", updateError);
+        throw updateError;
+      }
+      
+      console.log("Session cancelled in database:", updateData);
 
       // Refund credits to student
-      const { data: studentData } = await supabase
+      const { data: studentData, error: studentError } = await supabase
         .from("Students")
-        .select("credits")
+        .select("credits, id")
         .eq("id", selectedSession.student_id)
         .single();
 
+      if (studentError) {
+        console.error("Error fetching student:", studentError);
+        throw studentError;
+      }
+
       if (studentData) {
         const newCredits = (studentData.credits || 0) + selectedSession.credits_required;
-        await supabase
+        const { error: creditError } = await supabase
           .from("Students")
           .update({ credits: newCredits })
-          .eq("id", selectedSession.student_id);
+          .eq("id", studentData.id)
+          .select();
+        
+        if (creditError) {
+          console.error("Error updating credits:", creditError);
+          throw creditError;
+        }
+        
+        console.log("Credits refunded. New balance:", newCredits);
       }
 
       // Create notification for tutor about cancellation
       const studentName = studentData?.name || "A student";
       const notificationMessage = `${studentName} cancelled a session scheduled for ${new Date(selectedSession.start_time_utc).toLocaleDateString()} at ${new Date(selectedSession.start_time_utc).toLocaleTimeString()}. Reason: ${cancellationReason}`;
-      
-      // Store notification in a notifications table or send email
-      // For now, we'll log it and you can add email notification later
       console.log("Tutor Notification:", notificationMessage);
 
       alert("Session cancelled successfully. Credits have been refunded.");
-      // Refresh sessions list from database
-      await fetchSessions();
+      
+      // Remove from local state immediately
+      const updatedSessions = sessions.filter(s => s.id !== selectedSession.id);
+      console.log("Updated sessions list:", updatedSessions);
+      setSessions(updatedSessions);
+      
       setSelectedSession(null);
       setActionType(null);
       setCancellationReason("");
@@ -294,7 +333,7 @@ export default function SessionManagement() {
       const newEndTime = new Date(newStartTimeUTC);
       newEndTime.setMinutes(newEndTime.getMinutes() + selectedSession.duration_min);
 
-      // Create new session with correct UTC times
+      // Create new session with correct UTC times - status should be pending so tutor can accept
       const { data: newSession, error: insertError } = await supabase
         .from("Schedules")
         .insert({
@@ -323,9 +362,13 @@ export default function SessionManagement() {
 
       if (updateError) throw updateError;
 
-      alert("Session rescheduled successfully. Credits automatically adjusted.");
-      // Refresh sessions list from database
-      await fetchSessions();
+      alert("Session rescheduled successfully. A new booking request has been sent to the tutor.");
+      
+      // Remove old session from local state (it's now marked as rescheduled)
+      // The new session is pending, so it won't show in Manage Sessions until tutor accepts it
+      const updatedSessions = sessions.filter(s => s.id !== selectedSession.id);
+      setSessions(updatedSessions);
+      
       setSelectedSession(null);
       setActionType(null);
       setReschedulingData({ newDate: "", newTime: "" });
