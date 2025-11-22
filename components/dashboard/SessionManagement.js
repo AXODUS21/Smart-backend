@@ -27,68 +27,68 @@ export default function SessionManagement() {
   const [availableTimes, setAvailableTimes] = useState([]);
 
   // Fetch sessions and platform settings
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
+  const fetchSessions = async () => {
+    if (!user) return;
 
-      try {
-        // Fetch student ID
-        const { data: studentData } = await supabase
-          .from("Students")
-          .select("id")
-          .eq("user_id", user.id)
-          .single();
+    try {
+      // Fetch student ID
+      const { data: studentData } = await supabase
+        .from("Students")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
 
-        if (!studentData) return;
+      if (!studentData) return;
 
-        // Fetch upcoming sessions (exclude cancelled and rescheduled)
-        const { data: sessionsData, error: sessionsError } = await supabase
-          .from("Schedules")
-          .select(
-            `
-            *,
-            tutor:tutor_id (
-              first_name,
-              last_name,
-              email,
-              availability
-            )
+      // Fetch upcoming sessions (only confirmed sessions that can be managed)
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from("Schedules")
+        .select(
           `
+          *,
+          tutor:tutor_id (
+            first_name,
+            last_name,
+            email,
+            availability
           )
-          .eq("student_id", studentData.id)
-          .gt("start_time_utc", new Date().toISOString())
-          .not("status", "in", "(cancelled,rescheduled)")
-          .order("start_time_utc", { ascending: true });
+        `
+        )
+        .eq("student_id", studentData.id)
+        .eq("status", "confirmed")
+        .gt("start_time_utc", new Date().toISOString())
+        .order("start_time_utc", { ascending: true });
 
-        if (sessionsError) {
-          console.error("Error fetching sessions:", sessionsError);
-        } else {
-          setSessions(sessionsData || []);
-        }
-
-        // Fetch platform settings
-        const { data: settingsData, error: settingsError } = await supabase
-          .from("PlatformSettings")
-          .select("setting_key, setting_value");
-
-        if (!settingsError && settingsData) {
-          const settingsMap = {};
-          settingsData.forEach((setting) => {
-            const value = setting.data_type === "integer"
-              ? parseInt(setting.setting_value)
-              : setting.setting_value;
-            settingsMap[setting.setting_key] = value;
-          });
-          setPlatformSettings((prev) => ({ ...prev, ...settingsMap }));
-        }
-      } catch (error) {
-        console.error("Error:", error);
-      } finally {
-        setLoading(false);
+      if (sessionsError) {
+        console.error("Error fetching sessions:", sessionsError);
+      } else {
+        setSessions(sessionsData || []);
       }
-    };
 
-    fetchData();
+      // Fetch platform settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from("PlatformSettings")
+        .select("setting_key, setting_value");
+
+      if (!settingsError && settingsData) {
+        const settingsMap = {};
+        settingsData.forEach((setting) => {
+          const value = setting.data_type === "integer"
+            ? parseInt(setting.setting_value)
+            : setting.setting_value;
+          settingsMap[setting.setting_key] = value;
+        });
+        setPlatformSettings((prev) => ({ ...prev, ...settingsMap }));
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSessions();
   }, [user]);
 
   // Check if cancellation is allowed
@@ -228,7 +228,8 @@ export default function SessionManagement() {
       console.log("Tutor Notification:", notificationMessage);
 
       alert("Session cancelled successfully. Credits have been refunded.");
-      setSessions(sessions.filter((s) => s.id !== selectedSession.id));
+      // Refresh sessions list from database
+      await fetchSessions();
       setSelectedSession(null);
       setActionType(null);
       setCancellationReason("");
@@ -276,12 +277,19 @@ export default function SessionManagement() {
         hour24 = 0;
       }
 
-      // Create date in local timezone first
-      const newStartTime = new Date(reschedulingData.newDate);
-      newStartTime.setHours(hour24, parseInt(minutes), 0, 0);
+      // Parse date string (YYYY-MM-DD format from input)
+      const [year, month, day] = reschedulingData.newDate.split("-");
       
-      // Convert to UTC ISO string for database storage
-      const newStartTimeUTC = new Date(newStartTime.toISOString());
+      // Create a UTC date directly with the selected date and time
+      const newStartTimeUTC = new Date(Date.UTC(
+        parseInt(year),
+        parseInt(month) - 1, // Month is 0-indexed
+        parseInt(day),
+        hour24,
+        parseInt(minutes),
+        0,
+        0
+      ));
 
       const newEndTime = new Date(newStartTimeUTC);
       newEndTime.setMinutes(newEndTime.getMinutes() + selectedSession.duration_min);
@@ -316,11 +324,8 @@ export default function SessionManagement() {
       if (updateError) throw updateError;
 
       alert("Session rescheduled successfully. Credits automatically adjusted.");
-      setSessions(
-        sessions.map((s) =>
-          s.id === selectedSession.id ? { ...s, status: "rescheduled" } : s
-        )
-      );
+      // Refresh sessions list from database
+      await fetchSessions();
       setSelectedSession(null);
       setActionType(null);
       setReschedulingData({ newDate: "", newTime: "" });

@@ -127,6 +127,7 @@ export default function Meetings() {
           `
           )
           .eq("tutor_id", tutorData.id)
+          .not("status", "in", "(cancelled,rescheduled)")
           .order("start_time_utc", { ascending: true });
 
         if (error) {
@@ -193,6 +194,7 @@ export default function Meetings() {
           `
           )
           .eq("tutor_id", tutorData.id)
+          .not("status", "in", "(cancelled,rescheduled)")
           .order("start_time_utc", { ascending: true });
 
         setTutorBookings(data || []);
@@ -307,6 +309,7 @@ export default function Meetings() {
           `
           )
           .eq("tutor_id", tutorData.id)
+          .not("status", "in", "(cancelled,rescheduled)")
           .order("start_time_utc", { ascending: true });
 
         setTutorBookings(data || []);

@@ -305,12 +305,19 @@ export default function BookSession() {
         hour24 = 0;
       }
 
-      // Create date in local timezone first
-      const startTime = new Date(selectedDate);
-      startTime.setHours(hour24, parseInt(minutes), 0, 0);
+      // Parse date string (YYYY-MM-DD format from input)
+      const [year, month, day] = selectedDate.split("-");
       
-      // Convert to UTC ISO string for database storage
-      const startTimeUTC = new Date(startTime.toISOString());
+      // Create a UTC date directly with the selected date and time
+      const startTimeUTC = new Date(Date.UTC(
+        parseInt(year),
+        parseInt(month) - 1, // Month is 0-indexed
+        parseInt(day),
+        hour24,
+        parseInt(minutes),
+        0,
+        0
+      ));
 
       const endTime = new Date(startTimeUTC);
       const durationMinutes = selectedDuration === "30 mins" ? 30 : 60;
