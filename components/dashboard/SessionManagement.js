@@ -264,27 +264,36 @@ export default function SessionManagement() {
 
     setProcessing(true);
     try {
-      // Parse new time
+      // Parse new time - handle AM/PM conversion correctly
       const [time, period] = reschedulingData.newTime.split(" ");
       const [hours, minutes] = time.split(":");
       let hour24 = parseInt(hours);
-      if (period === "PM" && hour24 !== 12) hour24 += 12;
-      if (period === "AM" && hour24 === 12) hour24 = 0;
+      
+      // Correct AM/PM to 24-hour conversion
+      if (period === "PM" && hour24 !== 12) {
+        hour24 += 12;
+      } else if (period === "AM" && hour24 === 12) {
+        hour24 = 0;
+      }
 
+      // Create date in local timezone first
       const newStartTime = new Date(reschedulingData.newDate);
       newStartTime.setHours(hour24, parseInt(minutes), 0, 0);
+      
+      // Convert to UTC ISO string for database storage
+      const newStartTimeUTC = new Date(newStartTime.toISOString());
 
-      const newEndTime = new Date(newStartTime);
+      const newEndTime = new Date(newStartTimeUTC);
       newEndTime.setMinutes(newEndTime.getMinutes() + selectedSession.duration_min);
 
-      // Create new session
+      // Create new session with correct UTC times
       const { data: newSession, error: insertError } = await supabase
         .from("Schedules")
         .insert({
           student_id: selectedSession.student_id,
           tutor_id: selectedSession.tutor_id,
           subject: selectedSession.subject,
-          start_time_utc: newStartTime.toISOString(),
+          start_time_utc: newStartTimeUTC.toISOString(),
           end_time_utc: newEndTime.toISOString(),
           duration_min: selectedSession.duration_min,
           credits_required: selectedSession.credits_required,

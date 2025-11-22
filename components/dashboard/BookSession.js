@@ -293,17 +293,26 @@ export default function BookSession() {
 
       if (tutorError) throw tutorError;
 
-      // Calculate start and end times
+      // Calculate start and end times with proper UTC conversion
       const [time, period] = selectedTime.split(" ");
       const [hours, minutes] = time.split(":");
       let hour24 = parseInt(hours);
-      if (period === "PM" && hour24 !== 12) hour24 += 12;
-      if (period === "AM" && hour24 === 12) hour24 = 0;
+      
+      // Correct AM/PM to 24-hour conversion
+      if (period === "PM" && hour24 !== 12) {
+        hour24 += 12;
+      } else if (period === "AM" && hour24 === 12) {
+        hour24 = 0;
+      }
 
+      // Create date in local timezone first
       const startTime = new Date(selectedDate);
       startTime.setHours(hour24, parseInt(minutes), 0, 0);
+      
+      // Convert to UTC ISO string for database storage
+      const startTimeUTC = new Date(startTime.toISOString());
 
-      const endTime = new Date(startTime);
+      const endTime = new Date(startTimeUTC);
       const durationMinutes = selectedDuration === "30 mins" ? 30 : 60;
       endTime.setMinutes(endTime.getMinutes() + durationMinutes);
 
@@ -325,12 +334,12 @@ export default function BookSession() {
         return;
       }
 
-      // Create booking request
+      // Create booking request with correct UTC times
       const { error: scheduleError } = await supabase.from("Schedules").insert({
         student_id: studentData.id,
         tutor_id: tutorData.id,
         subject: selectedSubject,
-        start_time_utc: startTime.toISOString(),
+        start_time_utc: startTimeUTC.toISOString(),
         end_time_utc: endTime.toISOString(),
         duration_min: durationMinutes,
         credits_required: creditsRequired,
