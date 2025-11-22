@@ -112,14 +112,26 @@ export default function BookingModal({
 
   if (!isOpen || !tutor) return null;
 
-  // Group availability by date
+  // Helper function to check if a date is in the past
+  const isPastDate = (dateString) => {
+    if (!dateString) return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    const slotDate = new Date(dateString);
+    slotDate.setHours(0, 0, 0, 0);
+    return slotDate < today;
+  };
+
+  // Group availability by date, filtering out past dates
   const availabilityByDate = {};
-  (tutor.availability || []).forEach((slot) => {
-    if (!availabilityByDate[slot.date]) {
-      availabilityByDate[slot.date] = [];
-    }
-    availabilityByDate[slot.date].push(slot);
-  });
+  (tutor.availability || [])
+    .filter((slot) => slot.date && !isPastDate(slot.date))
+    .forEach((slot) => {
+      if (!availabilityByDate[slot.date]) {
+        availabilityByDate[slot.date] = [];
+      }
+      availabilityByDate[slot.date].push(slot);
+    });
 
   // Sort dates
   const sortedDates = Object.keys(availabilityByDate).sort(

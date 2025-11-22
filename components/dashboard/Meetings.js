@@ -100,6 +100,79 @@ export default function Meetings() {
     fetchMeetings();
   }, [user, userRole]);
 
+  // Helper function to check if a booking's start time is in the past
+  const isPastBooking = (startTimeUtc) => {
+    if (!startTimeUtc) return false;
+    const now = new Date();
+    const bookingStart = new Date(startTimeUtc);
+    return bookingStart < now;
+  };
+
+  // Automatically reject/cancel past pending bookings
+  const handlePastPendingBookings = async (bookings) => {
+    const now = new Date();
+    const pastPendingBookings = bookings.filter(
+      (booking) =>
+        booking.status === "pending" && isPastBooking(booking.start_time_utc)
+    );
+
+    if (pastPendingBookings.length === 0) return bookings;
+
+    // Process each past pending booking
+    for (const booking of pastPendingBookings) {
+      try {
+        // Get the booking details first
+        const { data: bookingData } = await supabase
+          .from("Schedules")
+          .select("student_id, credits_required")
+          .eq("id", booking.id)
+          .single();
+
+        if (bookingData && bookingData.student_id) {
+          // Try to refund credits to student
+          try {
+            const { data: studentData } = await supabase
+              .from("Students")
+              .select("credits")
+              .eq("id", bookingData.student_id)
+              .single();
+
+            if (studentData) {
+              const newCredits =
+                (studentData.credits || 0) + (bookingData.credits_required || 0);
+
+              await supabase
+                .from("Students")
+                .update({ credits: newCredits })
+                .eq("id", bookingData.student_id);
+            }
+          } catch (creditError) {
+            console.warn("Error refunding credits for past booking:", creditError);
+          }
+
+          // Update booking status to rejected (past bookings are automatically rejected)
+          await supabase
+            .from("Schedules")
+            .update({ status: "rejected" })
+            .eq("id", booking.id);
+        }
+      } catch (error) {
+        console.error("Error processing past booking:", error);
+      }
+    }
+
+    // Return updated bookings list
+    return bookings.map((booking) => {
+      if (
+        booking.status === "pending" &&
+        isPastBooking(booking.start_time_utc)
+      ) {
+        return { ...booking, status: "rejected" };
+      }
+      return booking;
+    });
+  };
+
   // Fetch bookings for tutors
   useEffect(() => {
     const fetchTutorBookings = async () => {
@@ -134,7 +207,9 @@ export default function Meetings() {
         if (error) {
           console.error("Error fetching tutor bookings:", error);
         } else {
-          setTutorBookings(data || []);
+          // Automatically handle past pending bookings
+          const processedBookings = await handlePastPendingBookings(data || []);
+          setTutorBookings(processedBookings);
         }
       } catch (error) {
         console.error("Error:", error);
@@ -492,14 +567,21 @@ export default function Meetings() {
   }
 
   // Tutor view
+  // Filter out past pending bookings (they should have been auto-rejected)
   const pendingBookings = tutorBookings.filter(
-    (booking) => booking.status === "pending"
+    (booking) =>
+      booking.status === "pending" && !isPastBooking(booking.start_time_utc)
   );
+  // Filter out past confirmed/cancelled bookings
   const confirmedBookings = tutorBookings.filter(
-    (booking) => booking.status === "confirmed" || booking.status === "cancelled"
+    (booking) =>
+      (booking.status === "confirmed" || booking.status === "cancelled") &&
+      !isPastBooking(booking.start_time_utc)
   );
+  // Filter out past rejected bookings
   const rejectedBookings = tutorBookings.filter(
-    (booking) => booking.status === "rejected"
+    (booking) =>
+      booking.status === "rejected" && !isPastBooking(booking.start_time_utc)
   );
 
   const formatDate = (dateString) => {

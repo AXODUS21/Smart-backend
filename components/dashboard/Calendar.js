@@ -29,6 +29,49 @@ export default function Calendar() {
     endTime: "",
   });
 
+  // Helper function to check if a date is in the past
+  const isPastDate = (dateString) => {
+    if (!dateString) return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    const slotDate = new Date(dateString);
+    slotDate.setHours(0, 0, 0, 0);
+    return slotDate < today;
+  };
+
+  // Remove past dates from availability and update database
+  const removePastDates = async (currentAvailability) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const filteredAvailability = currentAvailability.filter((slot) => {
+      if (!slot.date) return false;
+      const slotDate = new Date(slot.date);
+      slotDate.setHours(0, 0, 0, 0);
+      return slotDate >= today;
+    });
+
+    // Only update if there were past dates removed
+    if (filteredAvailability.length !== currentAvailability.length) {
+      try {
+        const { error } = await supabase
+          .from("Tutors")
+          .update({ availability: filteredAvailability })
+          .eq("user_id", user.id);
+
+        if (error) {
+          console.error("Error removing past dates:", error);
+        } else {
+          return filteredAvailability;
+        }
+      } catch (error) {
+        console.error("Error removing past dates:", error);
+      }
+    }
+
+    return filteredAvailability;
+  };
+
   // Fetch tutor's availability
   useEffect(() => {
     const fetchAvailability = async () => {
@@ -44,7 +87,10 @@ export default function Calendar() {
         if (error) {
           console.error("Error fetching availability:", error);
         } else {
-          setAvailability(data?.availability || []);
+          const currentAvailability = data?.availability || [];
+          // Remove past dates and update database
+          const cleanedAvailability = await removePastDates(currentAvailability);
+          setAvailability(cleanedAvailability);
         }
       } catch (error) {
         console.error("Error:", error);
@@ -108,13 +154,21 @@ export default function Calendar() {
     }
   };
 
-  // Remove availability slot
-  const handleRemoveAvailability = async (index) => {
+  // Remove availability slot by unique identifier
+  const handleRemoveAvailability = async (slotToRemove) => {
     setSaving(true);
     setSuccess("");
 
     try {
-      const updatedAvailability = availability.filter((_, i) => i !== index);
+      const updatedAvailability = availability.filter(
+        (slot) =>
+          !(
+            slot.date === slotToRemove.date &&
+            slot.startTime === slotToRemove.startTime &&
+            slot.endTime === slotToRemove.endTime &&
+            (slot.id === slotToRemove.id || (!slot.id && !slotToRemove.id))
+          )
+      );
 
       const { error } = await supabase
         .from("Tutors")
@@ -172,7 +226,7 @@ export default function Calendar() {
     return days;
   };
 
-  // Check if a date has availability
+  // Check if a date has availability (and is not in the past)
   const hasAvailability = (date) => {
     if (!date) return false;
     // Format date to YYYY-MM-DD in local timezone
@@ -180,6 +234,10 @@ export default function Calendar() {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     const dateString = `${year}-${month}-${day}`;
+    
+    // Check if date is in the past
+    if (isPastDate(dateString)) return false;
+    
     return availability.some((slot) => slot.date === dateString);
   };
 
@@ -397,7 +455,7 @@ export default function Calendar() {
         {/* Current Availability */}
         <div>
           <h4 className="text-md font-semibold text-gray-700 mb-4">
-            Your Availability ({availability.length} slots)
+            Your Availability ({availability.filter((slot) => !isPastDate(slot.date)).length} slots)
           </h4>
 
           {availability.length === 0 ? (
@@ -410,31 +468,33 @@ export default function Calendar() {
             </div>
           ) : (
             <div className="space-y-3">
-              {availability.map((slot, index) => (
-                <div
-                  key={slot.id || index}
-                  className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                      {formatDate(slot.date)}
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <Clock className="h-4 w-4" />
-                      <span className="font-medium">
-                        {slot.startTime} - {slot.endTime}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleRemoveAvailability(index)}
-                    disabled={saving}
-                    className="text-red-600 hover:text-red-800 disabled:opacity-50 p-1"
+              {availability
+                .filter((slot) => !isPastDate(slot.date))
+                .map((slot, index) => (
+                  <div
+                    key={slot.id || `${slot.date}-${slot.startTime}-${index}`}
+                    className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between"
                   >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-4">
+                      <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                        {formatDate(slot.date)}
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Clock className="h-4 w-4" />
+                        <span className="font-medium">
+                          {slot.startTime} - {slot.endTime}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveAvailability(slot)}
+                      disabled={saving}
+                      className="text-red-600 hover:text-red-800 disabled:opacity-50 p-1"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
             </div>
           )}
         </div>

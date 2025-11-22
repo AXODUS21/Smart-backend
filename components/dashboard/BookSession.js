@@ -145,6 +145,16 @@ export default function BookSession() {
     return fullName === selectedTutor;
   });
 
+  // Helper function to check if a date is in the past
+  const isPastDate = (dateString) => {
+    if (!dateString) return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    const slotDate = new Date(dateString);
+    slotDate.setHours(0, 0, 0, 0);
+    return slotDate < today;
+  };
+
   // Parse tutor availability and get available dates
   const getAvailableDates = () => {
     if (!selectedTutorData?.availability) return [];
@@ -156,6 +166,9 @@ export default function BookSession() {
     const dates = new Set();
     selectedTutorData.availability.forEach((slot) => {
       if (slot.date) {
+        // First check if date is in the past
+        if (isPastDate(slot.date)) return;
+        
         const slotDate = new Date(slot.date);
         // Only include dates that are at least minBookingHours in advance
         if (slotDate >= minBookingTime) {
@@ -172,7 +185,7 @@ export default function BookSession() {
     if (!selectedTutorData?.availability || !selectedDate) return [];
 
     const slots = selectedTutorData.availability.filter(
-      (slot) => slot.date === selectedDate
+      (slot) => slot.date === selectedDate && !isPastDate(slot.date)
     );
     const timeSlots = [];
 
