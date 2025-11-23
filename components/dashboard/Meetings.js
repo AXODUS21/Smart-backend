@@ -13,6 +13,7 @@ import {
   User,
   Link,
 } from "lucide-react";
+import { notifySessionResponse } from "@/lib/notifications";
 
 export default function Meetings() {
   const { user } = useAuth();
@@ -236,6 +237,29 @@ export default function Meetings() {
     setProcessing((prev) => ({ ...prev, [bookingId]: "accepting" }));
 
     try {
+      // Get booking details first
+      const { data: bookingData, error: fetchError } = await supabase
+        .from("Schedules")
+        .select(
+          `
+          *,
+          student:student_id (
+            first_name,
+            last_name,
+            email
+          ),
+          tutor:tutor_id (
+            first_name,
+            last_name,
+            email
+          )
+        `
+        )
+        .eq("id", bookingId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
       const { error } = await supabase
         .from("Schedules")
         .update({
@@ -245,6 +269,29 @@ export default function Meetings() {
         .eq("id", bookingId);
 
       if (error) throw error;
+
+      // Send notification to student and admins
+      try {
+        const studentName = `${bookingData.student?.first_name || ''} ${bookingData.student?.last_name || ''}`.trim() || bookingData.student?.email || 'Student';
+        const tutorName = `${bookingData.tutor?.first_name || ''} ${bookingData.tutor?.last_name || ''}`.trim() || bookingData.tutor?.email || 'Tutor';
+        const sessionDate = new Date(bookingData.start_time_utc).toLocaleString();
+        
+        await notifySessionResponse({
+          action: 'accepted',
+          studentEmail: bookingData.student?.email || '',
+          studentName: studentName,
+          tutorEmail: bookingData.tutor?.email || '',
+          tutorName: tutorName,
+          subject: bookingData.subject || 'Tutoring Session',
+          sessionDate: sessionDate,
+          duration: bookingData.duration_min || 60,
+          credits: bookingData.credits_required || 0,
+          meetingLink: meetingLink.trim(),
+          supabase,
+        });
+      } catch (notificationError) {
+        console.error('Failed to send session acceptance notification:', notificationError);
+      }
 
       // Close modal
       setMeetingLinkModal({ isOpen: false, bookingId: null });
@@ -264,7 +311,8 @@ export default function Meetings() {
             `
             *,
             student:student_id (
-              name,
+              first_name,
+              last_name,
               email
             )
           `
@@ -297,7 +345,25 @@ export default function Meetings() {
       // Get the booking details first
       const { data: bookingData, error: bookingError } = await supabase
         .from("Schedules")
-        .select("student_id")
+        .select(
+          `
+          student_id,
+          credits_required,
+          duration_min,
+          subject,
+          start_time_utc,
+          student:student_id (
+            first_name,
+            last_name,
+            email
+          ),
+          tutor:tutor_id (
+            first_name,
+            last_name,
+            email
+          )
+        `
+        )
         .eq("id", bookingId)
         .maybeSingle();
 
@@ -363,6 +429,29 @@ export default function Meetings() {
       if (updateBookingError) {
         console.error("Error updating booking status:", updateBookingError);
         throw new Error("Failed to reject booking");
+      }
+
+      // Send notification to student and admins
+      try {
+        const studentName = `${bookingData.student?.first_name || ''} ${bookingData.student?.last_name || ''}`.trim() || bookingData.student?.email || 'Student';
+        const tutorName = `${bookingData.tutor?.first_name || ''} ${bookingData.tutor?.last_name || ''}`.trim() || bookingData.tutor?.email || 'Tutor';
+        const sessionDate = new Date(bookingData.start_time_utc).toLocaleString();
+        
+        await notifySessionResponse({
+          action: 'declined',
+          studentEmail: bookingData.student?.email || '',
+          studentName: studentName,
+          tutorEmail: bookingData.tutor?.email || '',
+          tutorName: tutorName,
+          subject: bookingData.subject || 'Tutoring Session',
+          sessionDate: sessionDate,
+          duration: bookingData.duration_min || 60,
+          credits: bookingData.credits_required || 0,
+          meetingLink: '',
+          supabase,
+        });
+      } catch (notificationError) {
+        console.error('Failed to send session decline notification:', notificationError);
       }
 
       // Refresh bookings

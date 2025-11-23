@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, LogIn, UserPlus, GraduationCap, BookOpen, X, Mail, Key } from 'lucide-react';
 import emailjs from '@emailjs/browser';
+import { notifySignup } from '@/lib/notifications';
 
 const USER_ROLES = [
   {
@@ -367,6 +368,19 @@ export default function LoginPage() {
             // If profile creation fails, still show success but log the error
             console.error('Profile creation failed:', profileError);
             // Don't throw here - user account was created, profile can be created later
+          }
+
+          // Send signup notification
+          try {
+            await notifySignup({
+              email,
+              firstName,
+              lastName,
+              userType,
+            });
+          } catch (notificationError) {
+            // Log but don't fail signup if notification fails
+            console.error('Failed to send signup notification:', notificationError);
           }
 
           setSuccess(`A confirmation email has been sent to ${email}. Please check your inbox (and spam folder) and click the confirmation link to verify your account.`);

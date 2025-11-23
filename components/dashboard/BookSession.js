@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { notifyBookingAction } from "@/lib/notifications";
 
 export default function BookSession() {
   const { user } = useAuth();
@@ -289,10 +290,10 @@ export default function BookSession() {
     }
 
     try {
-      // Get student and tutor IDs
+      // Get student and tutor IDs with emails
       const { data: studentData, error: studentError } = await supabase
         .from("Students")
-        .select("id, credits")
+        .select("id, credits, first_name, last_name, email")
         .eq("user_id", user.id)
         .single();
 
@@ -300,8 +301,8 @@ export default function BookSession() {
 
       const { data: tutorData, error: tutorError } = await supabase
         .from("Tutors")
-        .select("id")
-        .eq("name", selectedTutor)
+        .select("id, first_name, last_name, email")
+        .eq("id", selectedTutorData.id)
         .single();
 
       if (tutorError) throw tutorError;
@@ -376,6 +377,30 @@ export default function BookSession() {
         .eq("id", studentData.id);
 
       if (updateCreditsError) throw updateCreditsError;
+
+      // Send booking notification to tutor and admins
+      try {
+        const studentName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || studentData.email || 'Student';
+        const tutorName = `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim() || tutorData.email || 'Tutor';
+        const sessionDate = `${new Date(selectedDate).toLocaleDateString()} at ${selectedTime}`;
+        
+        await notifyBookingAction({
+          action: 'created',
+          studentEmail: studentData.email || user.email || '',
+          studentName: studentName,
+          tutorEmail: tutorData.email || '',
+          tutorName: tutorName,
+          subject: selectedSubject,
+          sessionDate: sessionDate,
+          duration: durationMinutes,
+          credits: creditsRequired,
+          cancellationReason: '',
+          supabase,
+        });
+      } catch (notificationError) {
+        // Log but don't fail if notification fails
+        console.error('Failed to send booking notification:', notificationError);
+      }
 
       alert(
         `Session booked!\nTutor: ${selectedTutor}\nGrade Level: ${selectedGradeLevel}\nSubject: ${selectedSubject}\nDate: ${selectedDate}\nTime: ${selectedTime}\nDuration: ${selectedDuration}\nCredits used: ${creditsRequired}`
