@@ -12,7 +12,6 @@ import {
   XCircle,
   FileText,
 } from "lucide-react";
-import { notifyTutorApplication } from "@/lib/notifications";
 
 const INITIAL_FORM = {
   fullName: "",
@@ -247,26 +246,11 @@ export default function TutorApplication({ onApplicationStatusChange, tutorId: i
         status: "pending",
       };
 
-      const { data: insertedData, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from("TutorApplications")
-        .insert(insertPayload)
-        .select()
-        .single();
+        .insert(insertPayload);
 
       if (insertError) throw insertError;
-
-      // Send notification to admins/superadmins
-      try {
-        await notifyTutorApplication({
-          tutorName: formValues.fullName.trim(),
-          tutorEmail: formValues.email.trim(),
-          applicationId: insertedData?.id || '',
-          supabase,
-        });
-      } catch (notificationError) {
-        // Log but don't fail if notification fails
-        console.error('Failed to send tutor application notification:', notificationError);
-      }
 
       setSuccess("Application submitted successfully. We'll notify you once it's reviewed.");
       setFormValues((prev) => ({ ...prev, resumeFile: null }));

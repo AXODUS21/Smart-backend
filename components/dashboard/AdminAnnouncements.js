@@ -16,7 +16,6 @@ import {
   GraduationCap,
   BookOpen,
 } from "lucide-react";
-import { notifyAnnouncement } from "@/lib/notifications";
 
 export default function AdminAnnouncements() {
   const { user } = useAuth();
@@ -134,20 +133,6 @@ export default function AdminAnnouncements() {
 
         if (insertError) throw insertError;
         setSuccess("Announcement created successfully!");
-
-        // Send announcement notifications
-        try {
-          await notifyAnnouncement({
-            title: formData.title,
-            message: formData.message,
-            priority: formData.priority,
-            targetAudience: formData.target_audience,
-            supabase,
-          });
-        } catch (notificationError) {
-          // Log but don't fail if notification fails
-          console.error('Failed to send announcement notifications:', notificationError);
-        }
       }
 
       // Reset form

@@ -5,7 +5,6 @@ import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { handleNoShow } from "@/lib/sessionPolicies";
-import { notifyTutorReview } from "@/lib/notifications";
 
 export default function PastSessions() {
   const { user } = useAuth();
@@ -126,38 +125,14 @@ export default function PastSessions() {
 
       if (error) throw error;
 
-      // Get session and student information for notification
+      // Award credits to tutor
       const session = sessions.find((s) => s.id === id);
       if (session) {
         const { data: tutorData } = await supabase
           .from("Tutors")
-          .select("first_name, last_name, email")
+          .select("id")
           .eq("user_id", user.id)
           .single();
-
-        const { data: studentData } = await supabase
-          .from("Students")
-          .select("first_name, last_name, email")
-          .eq("id", session.student_id)
-          .single();
-
-        // Send notification to student
-        try {
-          const studentName = `${studentData?.first_name || ''} ${studentData?.last_name || ''}`.trim() || studentData?.email || 'Student';
-          const tutorName = `${tutorData?.first_name || ''} ${tutorData?.last_name || ''}`.trim() || tutorData?.email || 'Tutor';
-          const sessionDate = new Date(session.start_time_utc).toLocaleDateString();
-          
-          await notifyTutorReview({
-            studentEmail: studentData?.email || '',
-            studentName: studentName,
-            tutorName: tutorName,
-            subject: session.subject || 'Tutoring Session',
-            sessionDate: sessionDate,
-            review: reviews[id],
-          });
-        } catch (notificationError) {
-          console.error('Failed to send tutor review notification:', notificationError);
-        }
 
         if (tutorData) {
           // You might want to add a credits_earned field to Tutors table

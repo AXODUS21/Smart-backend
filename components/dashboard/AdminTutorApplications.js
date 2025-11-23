@@ -12,7 +12,6 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
-import { notifyTutorApproval } from "@/lib/notifications";
 
 const STATUS_COLORS = {
   pending: "bg-amber-100 text-amber-700",
@@ -101,19 +100,6 @@ export default function AdminTutorApplications() {
         .eq("id", application.id);
 
       if (updateApplicationError) throw updateApplicationError;
-
-      // Send notification to tutor
-      try {
-        await notifyTutorApproval({
-          tutorEmail: application.email || application.tutor?.email || '',
-          tutorName: application.full_name || application.tutor?.name || 'Tutor',
-          status: status,
-          notes: notes || '',
-        });
-      } catch (notificationError) {
-        // Log but don't fail if notification fails
-        console.error('Failed to send tutor approval notification:', notificationError);
-      }
 
       await loadApplications();
       setDecisionNotes((prev) => ({

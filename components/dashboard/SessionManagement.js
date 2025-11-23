@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { X, Calendar, Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { notifyBookingAction } from "@/lib/notifications";
 
 export default function SessionManagement() {
   const { user } = useAuth();
@@ -258,41 +257,10 @@ export default function SessionManagement() {
         console.log("Credits refunded. New balance:", newCredits);
       }
 
-      // Get tutor and student information for notification
-      const { data: tutorInfo } = await supabase
-        .from("Tutors")
-        .select("first_name, last_name, email")
-        .eq("id", selectedSession.tutor_id)
-        .single();
-
-      const { data: studentInfo } = await supabase
-        .from("Students")
-        .select("first_name, last_name, email")
-        .eq("id", selectedSession.student_id)
-        .single();
-
-      // Send cancellation notification
-      try {
-        const studentName = `${studentInfo?.first_name || ''} ${studentInfo?.last_name || ''}`.trim() || studentInfo?.email || 'Student';
-        const tutorName = `${tutorInfo?.first_name || ''} ${tutorInfo?.last_name || ''}`.trim() || tutorInfo?.email || 'Tutor';
-        const sessionDate = new Date(selectedSession.start_time_utc).toLocaleString();
-        
-        await notifyBookingAction({
-          action: 'cancelled',
-          studentEmail: studentInfo?.email || '',
-          studentName: studentName,
-          tutorEmail: tutorInfo?.email || '',
-          tutorName: tutorName,
-          subject: selectedSession.subject || 'Tutoring Session',
-          sessionDate: sessionDate,
-          duration: selectedSession.duration_min || 60,
-          credits: selectedSession.credits_required || 0,
-          cancellationReason: cancellationReason,
-          supabase,
-        });
-      } catch (notificationError) {
-        console.error('Failed to send cancellation notification:', notificationError);
-      }
+      // Create notification for tutor about cancellation
+      const studentName = studentData?.name || "A student";
+      const notificationMessage = `${studentName} cancelled a session scheduled for ${new Date(selectedSession.start_time_utc).toLocaleDateString()} at ${new Date(selectedSession.start_time_utc).toLocaleTimeString()}. Reason: ${cancellationReason}`;
+      console.log("Tutor Notification:", notificationMessage);
 
       alert("Session cancelled successfully. Credits have been refunded.");
       

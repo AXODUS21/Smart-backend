@@ -22,9 +22,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 # Get it from: Supabase Dashboard > Project Settings > API > service_role key
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
+# Resend (Required for email notifications)
+# Get your API key from: https://resend.com
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+RESEND_FROM_EMAIL=noreply@yourdomain.com
+
 # Optional
 USD_TO_PHP_RATE=56
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
+APP_NAME=Smart Tutoring Platform
 ```
 
 ## Important Notes
@@ -55,6 +61,12 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
 ### Error: "PayMongo secret key not configured"
 - Check if `PAYMONGO_SECRET_KEY` is in `.env.local`
+- Make sure there are no typos in the variable name
+- Restart the dev server
+
+### Error: "RESEND_API_KEY is not configured"
+- Check if `RESEND_API_KEY` is in `.env.local`
+- Get your API key from https://resend.com
 - Make sure there are no typos in the variable name
 - Restart the dev server
 
