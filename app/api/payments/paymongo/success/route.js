@@ -56,25 +56,6 @@ export async function GET(request) {
     const paymentData = await retrieveResponse.json();
     const status = paymentData.data.attributes.status;
 
-    // If payment succeeded and we haven't updated credits yet, update them
-    if (status === 'succeeded' && credits > 0 && userId) {
-      const { data: currentData, error: fetchError } = await supabase
-        .from('Students')
-        .select('credits')
-        .eq('user_id', userId)
-        .single();
-
-      if (!fetchError && currentData) {
-        const currentCredits = currentData?.credits || 0;
-        const newCredits = currentCredits + credits;
-
-        await supabase
-          .from('Students')
-          .update({ credits: newCredits })
-          .eq('user_id', userId);
-      }
-    }
-
     // Redirect based on payment status
     if (status === 'succeeded') {
       return NextResponse.redirect(

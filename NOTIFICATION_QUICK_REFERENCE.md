@@ -128,3 +128,4 @@ Each notification type uses specific variables. See `NOTIFICATION_SYSTEM.md` for
 - `NOTIFICATION_SYSTEM.md` - Full documentation
 - `NOTIFICATION_QUICK_REFERENCE.md` - This file
 
+

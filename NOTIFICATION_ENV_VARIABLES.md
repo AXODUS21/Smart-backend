@@ -244,3 +244,4 @@ All notification functions require specific data variables. See the detailed lis
 - **Template Variables:** All notification functions in `lib/notificationService.js`
 - **Email Templates:** `app/api/notifications/send/route.js` (EMAIL_TEMPLATES object)
 
+
