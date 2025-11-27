@@ -112,6 +112,46 @@ export default function PastSessions() {
     setProcessing((prev) => ({ ...prev, [id]: true }));
 
     try {
+      // First, check if credits were already awarded (check current session status from DB)
+      const { data: currentSession, error: fetchError } = await supabase
+        .from("Schedules")
+        .select("session_status, credits_required")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Award credits only if session wasn't already marked as successful
+      const shouldAwardCredits = currentSession.session_status !== "successful";
+      
+      if (shouldAwardCredits && currentSession.credits_required) {
+        const { data: tutorData, error: tutorFetchError } = await supabase
+          .from("Tutors")
+          .select("id, credits")
+          .eq("user_id", user.id)
+          .single();
+
+        if (tutorData && !tutorFetchError) {
+          // Add credits to tutor
+          const creditsEarned = parseFloat(currentSession.credits_required || 0);
+          const currentCredits = parseFloat(tutorData.credits || 0);
+          const newCredits = currentCredits + creditsEarned;
+
+          const { error: updateCreditsError } = await supabase
+            .from("Tutors")
+            .update({ credits: newCredits })
+            .eq("id", tutorData.id);
+
+          if (updateCreditsError) {
+            console.error("Error updating tutor credits:", updateCreditsError);
+          } else {
+            console.log(
+              `Tutor earned ${creditsEarned} credits for session ${id}. New balance: ${newCredits}`
+            );
+          }
+        }
+      }
+
       // Update session with review and mark as successful using the new database fields
       const { error } = await supabase
         .from("Schedules")
@@ -124,24 +164,6 @@ export default function PastSessions() {
         .eq("id", id);
 
       if (error) throw error;
-
-      // Award credits to tutor
-      const session = sessions.find((s) => s.id === id);
-      if (session) {
-        const { data: tutorData } = await supabase
-          .from("Tutors")
-          .select("id")
-          .eq("user_id", user.id)
-          .single();
-
-        if (tutorData) {
-          // You might want to add a credits_earned field to Tutors table
-          // For now, we'll just update the session status
-          console.log(
-            `Tutor earned ${session.credits_required} credits for session ${id}`
-          );
-        }
-      }
 
       // Update local state
       setSessions(

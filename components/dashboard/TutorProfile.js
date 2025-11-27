@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, X, Edit, User, Briefcase, Award, BookOpen, CheckCircle } from "lucide-react";
+import { Save, Plus, X, Edit, User, Briefcase, Award, BookOpen, CheckCircle, Wallet, DollarSign } from "lucide-react";
 import { ImageUpload } from "@/components/ImageUpload";
 
 const PROFILE_PHOTOS_BUCKET = "profile-photos";
@@ -16,6 +16,10 @@ export default function TutorProfile() {
   const [error, setError] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [tutorData, setTutorData] = useState(null);
+  const [credits, setCredits] = useState(0);
+  const [balanceInfo, setBalanceInfo] = useState(null);
+  const [cashoutLoading, setCashoutLoading] = useState(false);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   // Form state
   const [bio, setBio] = useState("");
@@ -113,6 +117,41 @@ export default function TutorProfile() {
           });
           setSubjects(normalizedSubjects);
           setCertifications(tutorData?.certifications || []);
+
+          // Calculate credits from confirmed sessions (same logic as dashboard)
+          if (tutorData?.id) {
+            const { data: sessions, error: sessionsError } = await supabase
+              .from("Schedules")
+              .select("credits_required, status")
+              .eq("tutor_id", tutorData.id);
+
+            if (!sessionsError && sessions) {
+              // Calculate total credits from confirmed sessions (same as dashboard)
+              const totalCreditsEarned = sessions
+                .filter((s) => s.status === "confirmed")
+                .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
+
+              // Get total amount withdrawn (convert PHP to credits)
+              const { data: withdrawals } = await supabase
+                .from("TutorWithdrawals")
+                .select("amount")
+                .eq("tutor_id", tutorData.id)
+                .in("status", ["pending", "approved", "completed"]);
+
+              const totalWithdrawnCredits = withdrawals
+                ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 140, 0) // Convert PHP to credits (1 credit = 140 PHP)
+                : 0;
+
+              // Net credits = earned - withdrawn
+              const netCredits = totalCreditsEarned - totalWithdrawnCredits;
+              setCredits(Math.max(0, netCredits)); // Ensure non-negative
+            } else {
+              // Fallback to stored credits if session fetch fails
+              setCredits(parseFloat(tutorData?.credits || 0));
+            }
+          } else {
+            setCredits(parseFloat(tutorData?.credits || 0));
+          }
         }
       } catch (error) {
         console.error("Error:", error);
@@ -123,6 +162,117 @@ export default function TutorProfile() {
 
     fetchProfile();
   }, [user]);
+
+  // Fetch balance information
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!user || !tutorData) return;
+
+      setBalanceLoading(true);
+      try {
+        const response = await fetch(`/api/tutor/balance?userId=${user.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setBalanceInfo(data);
+        }
+      } catch (error) {
+        console.error("Error fetching balance:", error);
+      } finally {
+        setBalanceLoading(false);
+      }
+    };
+
+    if (tutorData) {
+      fetchBalance();
+    }
+  }, [user, tutorData]);
+
+  // Handle cash out
+  const handleCashOut = async () => {
+    if (!user) return;
+
+    if (credits <= 0) {
+      setError("No credits available to cash out.");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to cash out ${credits} credits (${(credits * 140).toFixed(2)} PHP)?`
+    );
+
+    if (!confirmed) return;
+
+    setCashoutLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/tutor/cashout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to process cash out");
+      }
+
+      setSuccess(data.message || "Cash out request submitted successfully!");
+
+      // Refresh balance info
+      const balanceResponse = await fetch(`/api/tutor/balance?userId=${user.id}`);
+      if (balanceResponse.ok) {
+        const balanceData = await balanceResponse.json();
+        setBalanceInfo(balanceData);
+      }
+
+      // Recalculate credits after cash out (same logic as initial fetch)
+      const { data: updatedTutorData } = await supabase
+        .from("Tutors")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (updatedTutorData?.id) {
+        const { data: sessions } = await supabase
+          .from("Schedules")
+          .select("credits_required, status")
+          .eq("tutor_id", updatedTutorData.id);
+
+        if (sessions) {
+          const totalCreditsEarned = sessions
+            .filter((s) => s.status === "confirmed")
+            .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
+
+          const { data: withdrawals } = await supabase
+            .from("TutorWithdrawals")
+            .select("amount")
+            .eq("tutor_id", updatedTutorData.id)
+            .in("status", ["pending", "approved", "completed"]);
+
+          const totalWithdrawnCredits = withdrawals
+            ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 140, 0)
+            : 0;
+
+          const netCredits = totalCreditsEarned - totalWithdrawnCredits;
+          setCredits(Math.max(0, netCredits));
+        }
+      }
+
+      setTimeout(() => setSuccess(""), 5000);
+    } catch (error) {
+      console.error("Error cashing out:", error);
+      setError(error.message || "Failed to process cash out. Please try again.");
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setCashoutLoading(false);
+    }
+  };
 
   // Add experience
   const handleAddExperience = () => {
@@ -463,6 +613,18 @@ export default function TutorProfile() {
           </button>
         </div>
 
+        {/* Success/Error Messages */}
+        {success && (
+          <div className="p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+            {success}
+          </div>
+        )}
+        {error && (
+          <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Profile Photo and Basic Info */}
           <div className="lg:col-span-1 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
@@ -486,8 +648,58 @@ export default function TutorProfile() {
             </div>
           </div>
 
-          {/* Bio */}
+          {/* Credits & Earnings */}
           <div className="lg:col-span-2 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Wallet className="text-emerald-600" size={20} />
+              <h3 className="text-lg font-semibold text-slate-900">Earnings & Credits</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg border border-emerald-200">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Available Credits</p>
+                  <p className="text-3xl font-bold text-slate-900">{credits.toFixed(2)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-slate-600 mb-1">Equivalent in PHP</p>
+                  <p className="text-2xl font-bold text-emerald-600">
+                    ₱{(credits * 140).toFixed(2)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">1 credit = 140 PHP</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCashOut}
+                disabled={credits <= 0 || cashoutLoading}
+                className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <DollarSign size={18} />
+                {cashoutLoading ? "Processing..." : "Cash Out Credits"}
+              </button>
+              {balanceInfo && (
+                <div className="pt-4 border-t border-slate-200">
+                  <p className="text-xs text-slate-500 mb-2">Payment Account Balances:</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-slate-600">Stripe:</span>
+                      <span className="ml-2 font-medium text-slate-900">
+                        ₱{balanceInfo.stripe?.available?.toFixed(2) || "0.00"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">PayMongo:</span>
+                      <span className="ml-2 font-medium text-slate-900">
+                        ₱{balanceInfo.paymongo?.balance?.toFixed(2) || "0.00"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bio */}
+          <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
             <div className="flex items-center gap-2 mb-4">
               <User className="text-blue-600" size={20} />
               <h3 className="text-lg font-semibold text-slate-900">About Me</h3>
