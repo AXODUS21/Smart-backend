@@ -39,10 +39,10 @@ export async function POST(request) {
 
     const supabase = getSupabaseClient();
 
-    // Get tutor data
+    // Get tutor data including payment information
     const { data: tutorData, error: tutorError } = await supabase
       .from('Tutors')
-      .select('id, stripe_account_id, paymongo_account_id')
+      .select('id, stripe_account_id, paymongo_account_id, payment_method, bank_account_name, bank_account_number, bank_name, bank_branch, paypal_email, gcash_number, gcash_name')
       .eq('user_id', userId)
       .single();
 
@@ -84,6 +84,28 @@ export async function POST(request) {
     if (credits <= 0) {
       return NextResponse.json(
         { error: 'No credits available to cash out' },
+        { status: 400 }
+      );
+    }
+
+    // Validate payment information exists
+    const hasBankInfo = tutorData.payment_method === 'bank' && 
+      tutorData.bank_account_number && 
+      tutorData.bank_account_name && 
+      tutorData.bank_name;
+    
+    const hasPayPalInfo = tutorData.payment_method === 'paypal' && tutorData.paypal_email;
+    
+    const hasGCashInfo = tutorData.payment_method === 'gcash' && 
+      tutorData.gcash_number && 
+      tutorData.gcash_name;
+
+    if (!hasBankInfo && !hasPayPalInfo && !hasGCashInfo) {
+      return NextResponse.json(
+        { 
+          error: 'Payment information is required. Please add your payment details in your profile before cashing out.',
+          requiresPaymentInfo: true
+        },
         { status: 400 }
       );
     }
@@ -137,14 +159,14 @@ export async function POST(request) {
       }
     }
 
-    // Record withdrawal in database
+    // Record withdrawal in database first
     const { data: withdrawal, error: withdrawalError } = await supabase
       .from('TutorWithdrawals')
       .insert({
         tutor_id: tutorData.id,
         amount: amountPhp,
         status: 'pending',
-        note: `Cash out (${credits} credits) via ${usedSource}`,
+        note: `Cash out (${credits} credits) via ${usedSource} - ${tutorData.payment_method}`,
       })
       .select()
       .single();
@@ -156,8 +178,70 @@ export async function POST(request) {
       );
     }
 
-    // Note: We don't reset credits to 0 here because credits are calculated dynamically
-    // from sessions minus withdrawals. The withdrawal record is enough.
+    // Process actual payout based on payment method
+    let payoutResult = null;
+    let payoutError = null;
+
+    try {
+      if (usedSource === 'stripe' || usedSource === 'both') {
+        // For Stripe, create a payout or transfer
+        // Note: In production, you'd use Stripe Connect or create a payout to the tutor's bank
+        const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+        if (stripeSecretKey) {
+          const stripe = new Stripe(stripeSecretKey);
+          
+          // Convert PHP to USD for Stripe (assuming USD payouts)
+          const usdToPhpRate = parseFloat(process.env.USD_TO_PHP_RATE || '56');
+          const amountUsd = amountPhp / usdToPhpRate;
+          const amountInCents = Math.round(amountUsd * 100);
+
+          // For now, we'll just record it. In production, you would:
+          // 1. Create a Stripe Connect account for the tutor, OR
+          // 2. Create a payout/transfer to their bank account
+          
+          payoutResult = {
+            provider: 'stripe',
+            status: 'pending',
+            note: 'Payout will be processed via Stripe. In production, integrate with Stripe Connect or Payouts API.',
+          };
+        }
+      }
+
+      if (usedSource === 'paymongo' || usedSource === 'both') {
+        // For PayMongo, create a payout
+        // Note: PayMongo has a Payouts API for sending money to bank accounts or GCash
+        const paymongoSecretKey = process.env.PAYMONGO_SECRET_KEY;
+        if (paymongoSecretKey) {
+          // In production, you would use PayMongo Payouts API
+          // Example: Create a payout to the tutor's bank account or GCash
+          
+          payoutResult = {
+            provider: 'paymongo',
+            status: 'pending',
+            note: 'Payout will be processed via PayMongo. In production, integrate with PayMongo Payouts API.',
+          };
+        }
+      }
+
+      // Update withdrawal with payout information
+      await supabase
+        .from('TutorWithdrawals')
+        .update({
+          note: `${withdrawal.note} | Payout: ${JSON.stringify(payoutResult)}`,
+        })
+        .eq('id', withdrawal.id);
+
+    } catch (error) {
+      console.error('Error processing payout:', error);
+      payoutError = error.message;
+      // Don't fail the withdrawal - admin can process manually if needed
+    }
+
+    // Note: In a production system, you would:
+    // 1. Use Stripe Connect to create connected accounts for tutors
+    // 2. Use Stripe Transfers/Payouts to send money to their accounts
+    // 3. OR use PayMongo Payouts API to send money to bank accounts/GCash
+    // 4. For now, withdrawals are marked as 'pending' and can be processed manually by admin
 
     cashoutResult = {
       success: true,

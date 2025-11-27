@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, X, Edit, User, Briefcase, Award, BookOpen, CheckCircle, Wallet, DollarSign } from "lucide-react";
+import { Save, Plus, X, Edit, User, Briefcase, Award, BookOpen, CheckCircle, Wallet, DollarSign, CreditCard, AlertCircle } from "lucide-react";
 import { ImageUpload } from "@/components/ImageUpload";
 
 const PROFILE_PHOTOS_BUCKET = "profile-photos";
@@ -20,6 +20,17 @@ export default function TutorProfile() {
   const [balanceInfo, setBalanceInfo] = useState(null);
   const [cashoutLoading, setCashoutLoading] = useState(false);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState({
+    payment_method: "bank",
+    bank_account_name: "",
+    bank_account_number: "",
+    bank_name: "",
+    bank_branch: "",
+    paypal_email: "",
+    gcash_number: "",
+    gcash_name: "",
+  });
+  const [isEditingPaymentInfo, setIsEditingPaymentInfo] = useState(false);
 
   // Form state
   const [bio, setBio] = useState("");
@@ -668,14 +679,33 @@ export default function TutorProfile() {
                   <p className="text-xs text-slate-500 mt-1">1 credit = 140 PHP</p>
                 </div>
               </div>
-              <button
-                onClick={handleCashOut}
-                disabled={credits <= 0 || cashoutLoading}
-                className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <DollarSign size={18} />
-                {cashoutLoading ? "Processing..." : "Cash Out Credits"}
-              </button>
+              {/* Check if payment info is complete */}
+              {(!paymentInfo.bank_account_number && paymentInfo.payment_method === "bank") &&
+               (!paymentInfo.paypal_email && paymentInfo.payment_method === "paypal") &&
+               (!paymentInfo.gcash_number && paymentInfo.payment_method === "gcash") ? (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="text-amber-600 mt-0.5" size={20} />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-amber-800 mb-1">
+                        Payment Information Required
+                      </p>
+                      <p className="text-xs text-amber-700">
+                        Please add your payment information below before cashing out.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleCashOut}
+                  disabled={credits <= 0 || cashoutLoading}
+                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <DollarSign size={18} />
+                  {cashoutLoading ? "Processing..." : "Cash Out Credits"}
+                </button>
+              )}
               {balanceInfo && (
                 <div className="pt-4 border-t border-slate-200">
                   <p className="text-xs text-slate-500 mb-2">Payment Account Balances:</p>
@@ -696,6 +726,223 @@ export default function TutorProfile() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Payment Information */}
+          <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CreditCard className="text-blue-600" size={20} />
+                <h3 className="text-lg font-semibold text-slate-900">Payment Information</h3>
+              </div>
+              {!isEditingPaymentInfo && (
+                <button
+                  onClick={() => setIsEditingPaymentInfo(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Edit size={16} />
+                  {paymentInfo.bank_account_number || paymentInfo.paypal_email || paymentInfo.gcash_number ? "Edit" : "Add"}
+                </button>
+              )}
+            </div>
+
+            {isEditingPaymentInfo ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Payment Method
+                  </label>
+                  <select
+                    value={paymentInfo.payment_method}
+                    onChange={(e) => setPaymentInfo({ ...paymentInfo, payment_method: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                  >
+                    <option value="bank">Bank Transfer</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="gcash">GCash</option>
+                  </select>
+                </div>
+
+                {paymentInfo.payment_method === "bank" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Account Holder Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={paymentInfo.bank_account_name}
+                        onChange={(e) => setPaymentInfo({ ...paymentInfo, bank_account_name: e.target.value })}
+                        placeholder="Enter account holder name"
+                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Account Number *
+                      </label>
+                      <input
+                        type="text"
+                        value={paymentInfo.bank_account_number}
+                        onChange={(e) => setPaymentInfo({ ...paymentInfo, bank_account_number: e.target.value })}
+                        placeholder="Enter account number"
+                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Bank Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={paymentInfo.bank_name}
+                        onChange={(e) => setPaymentInfo({ ...paymentInfo, bank_name: e.target.value })}
+                        placeholder="e.g., BDO, BPI, Metrobank"
+                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Branch (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={paymentInfo.bank_branch}
+                        onChange={(e) => setPaymentInfo({ ...paymentInfo, bank_branch: e.target.value })}
+                        placeholder="Enter branch location"
+                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {paymentInfo.payment_method === "paypal" && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      PayPal Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={paymentInfo.paypal_email}
+                      onChange={(e) => setPaymentInfo({ ...paymentInfo, paypal_email: e.target.value })}
+                      placeholder="your.email@example.com"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                    />
+                  </div>
+                )}
+
+                {paymentInfo.payment_method === "gcash" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        GCash Mobile Number *
+                      </label>
+                      <input
+                        type="text"
+                        value={paymentInfo.gcash_number}
+                        onChange={(e) => setPaymentInfo({ ...paymentInfo, gcash_number: e.target.value })}
+                        placeholder="09XX XXX XXXX"
+                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        GCash Account Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={paymentInfo.gcash_name}
+                        onChange={(e) => setPaymentInfo({ ...paymentInfo, gcash_name: e.target.value })}
+                        placeholder="Enter account name"
+                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={async () => {
+                      setSaving(true);
+                      try {
+                        const { error } = await supabase
+                          .from("Tutors")
+                          .update(paymentInfo)
+                          .eq("user_id", user.id);
+                        
+                        if (error) throw error;
+                        setSuccess("Payment information saved successfully!");
+                        setIsEditingPaymentInfo(false);
+                        setTimeout(() => setSuccess(""), 3000);
+                        
+                        // Refresh tutor data
+                        const { data: updated } = await supabase
+                          .from("Tutors")
+                          .select("*")
+                          .eq("user_id", user.id)
+                          .single();
+                        if (updated) setTutorData(updated);
+                      } catch (error) {
+                        setError(error.message || "Failed to save payment information");
+                        setTimeout(() => setError(""), 3000);
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    disabled={saving}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditingPaymentInfo(false);
+                      // Reset to original values
+                      setPaymentInfo({
+                        payment_method: tutorData?.payment_method || "bank",
+                        bank_account_name: tutorData?.bank_account_name || "",
+                        bank_account_number: tutorData?.bank_account_number || "",
+                        bank_name: tutorData?.bank_name || "",
+                        bank_branch: tutorData?.bank_branch || "",
+                        paypal_email: tutorData?.paypal_email || "",
+                        gcash_number: tutorData?.gcash_number || "",
+                        gcash_name: tutorData?.gcash_name || "",
+                      });
+                    }}
+                    className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {paymentInfo.payment_method === "bank" && paymentInfo.bank_account_number ? (
+                  <div className="p-4 bg-slate-50 rounded-lg">
+                    <p className="text-sm font-medium text-slate-900">Bank Transfer</p>
+                    <p className="text-sm text-slate-600">{paymentInfo.bank_account_name}</p>
+                    <p className="text-sm text-slate-600">{paymentInfo.bank_account_number}</p>
+                    <p className="text-sm text-slate-600">{paymentInfo.bank_name}</p>
+                    {paymentInfo.bank_branch && (
+                      <p className="text-sm text-slate-600">{paymentInfo.bank_branch}</p>
+                    )}
+                  </div>
+                ) : paymentInfo.payment_method === "paypal" && paymentInfo.paypal_email ? (
+                  <div className="p-4 bg-slate-50 rounded-lg">
+                    <p className="text-sm font-medium text-slate-900">PayPal</p>
+                    <p className="text-sm text-slate-600">{paymentInfo.paypal_email}</p>
+                  </div>
+                ) : paymentInfo.payment_method === "gcash" && paymentInfo.gcash_number ? (
+                  <div className="p-4 bg-slate-50 rounded-lg">
+                    <p className="text-sm font-medium text-slate-900">GCash</p>
+                    <p className="text-sm text-slate-600">{paymentInfo.gcash_name}</p>
+                    <p className="text-sm text-slate-600">{paymentInfo.gcash_number}</p>
+                  </div>
+                ) : (
+                  <p className="text-slate-400 italic">No payment information added yet.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bio */}
