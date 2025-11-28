@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Shield, Eye, EyeOff, X } from "lucide-react";
+import { Shield, Eye, EyeOff, X, Users, Plus, Trash2 } from "lucide-react";
+import {
+  DEFAULT_PROFILE_ID,
+  buildProfileOptions,
+  getActiveProfile,
+  createEmptyProfile,
+  sanitizeProfiles,
+  getExtraProfiles,
+} from "@/lib/studentProfiles";
 
 export default function StudentProfile({ studentModeEnabled, onChangeStudentMode, onCancel }) {
   const { user } = useAuth();
@@ -14,6 +22,10 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
   const [success, setSuccess] = useState("");
 
   const [studentRecord, setStudentRecord] = useState(null);
+  const [profileOptions, setProfileOptions] = useState([]);
+  const [activeProfileId, setActiveProfileId] = useState(DEFAULT_PROFILE_ID);
+  const [newProfile, setNewProfile] = useState(() => createEmptyProfile());
+  const [profileSaving, setProfileSaving] = useState(false);
   const [pricingRegion, setPricingRegion] = useState("US");
   const [savingRegion, setSavingRegion] = useState(false);
   const [regionStatus, setRegionStatus] = useState({ type: null, message: "" });
@@ -40,7 +52,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
       try {
         const { data, error } = await supabase
           .from("Students")
-          .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region")
+          .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region, first_name, last_name, extra_profiles, active_profile_id")
           .eq("user_id", user.id)
           .single();
         if (error) throw error;
@@ -71,6 +83,12 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
     }
   }, [studentRecord]);
 
+  useEffect(() => {
+    if (!studentRecord) return;
+    setProfileOptions(buildProfileOptions(studentRecord));
+    setActiveProfileId(studentRecord.active_profile_id || DEFAULT_PROFILE_ID);
+  }, [studentRecord]);
+
   const handleToggleStudentMode = async () => {
     setError("");
     setSuccess("");
@@ -78,6 +96,115 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
     // When pin exists, prompt for it prior to toggling
     setShowPinPrompt(true);
   };
+
+  const handleProfileFieldChange = (field, value) => {
+    setNewProfile((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleAddProfile = async () => {
+    setError("");
+    setSuccess("");
+    if (!newProfile.name.trim()) {
+      setError("Profile name is required");
+      return;
+    }
+    setProfileSaving(true);
+    try {
+      const existing = getExtraProfiles(studentRecord);
+      const updatedProfiles = sanitizeProfiles([
+        ...existing,
+        {
+          ...newProfile,
+        },
+      ]);
+      const { error } = await supabase
+        .from("Students")
+        .update({
+          extra_profiles: updatedProfiles,
+        })
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setStudentRecord((prev) => ({
+        ...(prev || {}),
+        extra_profiles: updatedProfiles,
+      }));
+      setNewProfile(createEmptyProfile());
+      setSuccess("Profile added");
+    } catch (e) {
+      console.error(e);
+      setError("Failed to add profile");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleRemoveProfile = async (profileId) => {
+    setError("");
+    setSuccess("");
+    setProfileSaving(true);
+    try {
+      const existing = getExtraProfiles(studentRecord);
+      const updatedProfiles = existing.filter((profile) => profile.id !== profileId);
+      const updatePayload = {
+        extra_profiles: updatedProfiles,
+      };
+      if (studentRecord.active_profile_id === profileId) {
+        updatePayload.active_profile_id = null;
+        setActiveProfileId(DEFAULT_PROFILE_ID);
+      }
+      const { error } = await supabase
+        .from("Students")
+        .update(updatePayload)
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setStudentRecord((prev) => ({
+        ...(prev || {}),
+        extra_profiles: updatedProfiles,
+        active_profile_id: updatePayload.active_profile_id ?? prev?.active_profile_id,
+      }));
+      setSuccess("Profile removed");
+    } catch (e) {
+      console.error(e);
+      setError("Failed to remove profile");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleSetActiveProfile = async (profileId) => {
+    setError("");
+    setSuccess("");
+    setProfileSaving(true);
+    try {
+      const nextValue = profileId === DEFAULT_PROFILE_ID ? null : profileId;
+      const { error } = await supabase
+        .from("Students")
+        .update({
+          active_profile_id: nextValue,
+        })
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setStudentRecord((prev) => ({
+        ...(prev || {}),
+        active_profile_id: nextValue,
+      }));
+      setActiveProfileId(profileId);
+      setSuccess("Active profile updated");
+    } catch (e) {
+      console.error(e);
+      setError("Failed to update active profile");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const activeProfileLabel = useMemo(() => {
+    const activeProfile = getActiveProfile(studentRecord);
+    return activeProfile?.name;
+  }, [studentRecord]);
 
   const saveSetup = async () => {
     setError("");
@@ -196,6 +323,109 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
           </button>
         </div>
         <div className="mt-2 text-sm text-slate-600">Label: <span className="font-medium">student mode</span></div>
+      </div>
+
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Users className="text-blue-600" />
+            <div>
+              <div className="text-slate-900 font-semibold">Family Profiles</div>
+              <div className="text-slate-500 text-sm">
+                Active profile: <span className="font-medium">{activeProfileLabel || "Primary"}</span>
+              </div>
+            </div>
+          </div>
+          {profileSaving && (
+            <div className="text-sm text-slate-500">Saving...</div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {profileOptions.map((profile) => (
+            <div
+              key={profile.id}
+              className="flex items-center justify-between border border-slate-200 rounded-lg p-3"
+            >
+              <div>
+                <div className="font-medium text-slate-900">{profile.name}</div>
+                <div className="text-xs text-slate-500">
+                  {profile.isPrimary ? "Primary profile" : profile.grade_level ? `Grade ${profile.grade_level}` : "Family member"}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSetActiveProfile(profile.id)}
+                  disabled={activeProfileId === profile.id || profileSaving}
+                  className={`px-3 py-1 rounded-full text-sm border ${
+                    activeProfileId === profile.id
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "border-slate-300 text-slate-700 hover:border-blue-300"
+                  }`}
+                >
+                  {activeProfileId === profile.id ? "Active" : "Set Active"}
+                </button>
+                {!profile.isPrimary && (
+                  <button
+                    onClick={() => handleRemoveProfile(profile.id)}
+                    className="p-2 rounded-full border border-transparent text-red-600 hover:bg-red-50"
+                    disabled={profileSaving}
+                    aria-label={`Remove ${profile.name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-slate-200 pt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Plus className="w-4 h-4 text-blue-600" />
+            <div className="text-sm font-medium text-slate-900">Add Family Profile</div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="md:col-span-1">
+              <label className="block text-sm text-slate-600 mb-1">Name</label>
+              <input
+                type="text"
+                value={newProfile.name}
+                onChange={(e) => handleProfileFieldChange("name", e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                placeholder="e.g. Sarah"
+              />
+            </div>
+            <div className="md:col-span-1">
+              <label className="block text-sm text-slate-600 mb-1">Grade Level</label>
+              <input
+                type="text"
+                value={newProfile.grade_level || ""}
+                onChange={(e) => handleProfileFieldChange("grade_level", e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                placeholder="e.g. 4"
+              />
+            </div>
+            <div className="md:col-span-1">
+              <label className="block text-sm text-slate-600 mb-1">Notes</label>
+              <input
+                type="text"
+                value={newProfile.notes || ""}
+                onChange={(e) => handleProfileFieldChange("notes", e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+          <button
+            className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60"
+            onClick={handleAddProfile}
+            disabled={profileSaving}
+          >
+            <Plus className="w-4 h-4" />
+            Save Profile
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 space-y-4">

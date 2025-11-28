@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { buildPrimaryProfileName, DEFAULT_PROFILE_ID } from "@/lib/studentProfiles";
 import {
   BookOpen,
   Calendar,
@@ -73,7 +74,7 @@ export default function TutorAssignments() {
         // Get ALL students registered in the app
         const { data: studentsData, error: studentsError } = await supabase
           .from("Students")
-          .select("id, name, email, user_id");
+          .select("id, name, email, user_id, first_name, last_name, extra_profiles");
 
         if (studentsError) {
           console.error("Error fetching students:", studentsError);
@@ -83,20 +84,40 @@ export default function TutorAssignments() {
 
         if (studentsData && studentsData.length > 0) {
           // Filter out students without user_id and map
-          const mappedStudents = studentsData
-            .filter((s) => s.user_id) // Only include students with user_id
-            .map((s) => ({
-              student_id: s.user_id,
-              id: s.id,
-              name: s.name || s.email || "Unnamed Student",
-              email: s.email || "No email",
-            }))
-            .sort((a, b) => {
-              // Sort by name, handling nulls
-              const nameA = a.name.toLowerCase();
-              const nameB = b.name.toLowerCase();
-              return nameA.localeCompare(nameB);
+          const mappedStudents = [];
+
+          studentsData
+            .filter((s) => s.user_id)
+            .forEach((s) => {
+              const baseName = buildPrimaryProfileName(s);
+              mappedStudents.push({
+                key: `${s.id}::${DEFAULT_PROFILE_ID}`,
+                studentRecordId: s.id,
+                userId: s.user_id,
+                profileId: DEFAULT_PROFILE_ID,
+                profileName: baseName,
+                displayName: `${baseName} (Primary)`,
+                email: s.email || "No email",
+              });
+
+              if (Array.isArray(s.extra_profiles)) {
+                s.extra_profiles.forEach((profile) => {
+                  mappedStudents.push({
+                    key: `${s.id}::${profile.id}`,
+                    studentRecordId: s.id,
+                    userId: s.user_id,
+                    profileId: profile.id,
+                    profileName: profile.name || baseName,
+                    displayName: `${profile.name || "Family Member"} (${baseName})`,
+                    email: s.email || "No email",
+                  });
+                });
+              }
             });
+
+          mappedStudents.sort((a, b) =>
+            a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
+          );
 
           console.log("Fetched students:", mappedStudents.length, mappedStudents);
           setStudents(mappedStudents);
@@ -176,9 +197,9 @@ export default function TutorAssignments() {
         return;
       }
 
-      // Get student's bigint ID from the selected student_id (which is user_id)
+      // Find the selected student profile entry
       const selectedStudent = students.find(
-        (s) => s.student_id === formData.student_id
+        (s) => s.key === formData.student_id
       );
       if (!selectedStudent) {
         setError("Selected student not found.");
@@ -234,7 +255,9 @@ export default function TutorAssignments() {
         .from("Assignments")
         .insert({
           tutor_id: tutorId,
-          student_id: selectedStudent.id, // Use bigint ID
+          student_id: selectedStudent.studentRecordId,
+          profile_id: selectedStudent.profileId,
+          profile_name: selectedStudent.profileName,
           title: formData.title,
           description: formData.description || null,
           subject: formData.subject || null,
@@ -504,8 +527,8 @@ export default function TutorAssignments() {
                   >
                     <option value="">Select a student...</option>
                     {students.map((student) => (
-                      <option key={student.student_id || student.id} value={student.student_id}>
-                        {student.name} ({student.email})
+                      <option key={student.key} value={student.key}>
+                        {student.displayName} ({student.email})
                       </option>
                     ))}
                   </select>
@@ -516,7 +539,7 @@ export default function TutorAssignments() {
                   )}
                   {students.length > 0 && (
                     <p className="text-xs text-slate-500 mt-1">
-                      {students.length} student{students.length !== 1 ? 's' : ''} available
+                      {students.length} profile{students.length !== 1 ? 's' : ''} available
                     </p>
                   )}
                 </>
@@ -746,6 +769,13 @@ export default function TutorAssignments() {
                       <span className="truncate">
                         {assignment.student?.name || assignment.student?.email || "Unknown"}
                       </span>
+                      {assignment.profile_name && (
+                        <>
+                          <span className="text-slate-400">•</span>
+                          <span className="font-medium">Profile:</span>
+                          <span>{assignment.profile_name}</span>
+                        </>
+                      )}
                       {assignment.subject && (
                         <>
                           <span className="text-slate-400">•</span>
@@ -878,6 +908,11 @@ export default function TutorAssignments() {
                      selectedAssignmentForGrading.student?.email || 
                      "Unknown"}
                   </div>
+                  {selectedAssignmentForGrading.profile_name && (
+                    <div>
+                      <span className="font-medium">Profile:</span> {selectedAssignmentForGrading.profile_name}
+                    </div>
+                  )}
                   {selectedAssignmentForGrading.max_points && (
                     <div>
                       <span className="font-medium">Max Points:</span> {selectedAssignmentForGrading.max_points}

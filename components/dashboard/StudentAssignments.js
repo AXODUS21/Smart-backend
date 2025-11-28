@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_PROFILE_ID, getActiveProfile } from "@/lib/studentProfiles";
 import {
   BookOpen,
   Calendar,
@@ -19,6 +20,7 @@ import {
 export default function StudentAssignments() {
   const { user } = useAuth();
   const [studentId, setStudentId] = useState(null);
+  const [studentRecord, setStudentRecord] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState({});
@@ -30,6 +32,10 @@ export default function StudentAssignments() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("status"); // status=priority default
   const [searchTerm, setSearchTerm] = useState("");
+  const activeProfile = useMemo(() => {
+    if (!studentRecord) return null;
+    return getActiveProfile(studentRecord);
+  }, [studentRecord]);
 
   // Get student's bigint ID
   useEffect(() => {
@@ -38,12 +44,13 @@ export default function StudentAssignments() {
 
       const { data: studentData } = await supabase
         .from("Students")
-        .select("id")
+        .select("id, first_name, last_name, extra_profiles, active_profile_id")
         .eq("user_id", user.id)
         .single();
 
       if (studentData) {
         setStudentId(studentData.id);
+        setStudentRecord(studentData);
       }
     };
 
@@ -54,6 +61,7 @@ export default function StudentAssignments() {
   useEffect(() => {
     const fetchAssignments = async () => {
       if (!studentId) return;
+      const profileIdFilter = studentRecord?.active_profile_id || DEFAULT_PROFILE_ID;
 
       try {
         const { data, error } = await supabase
@@ -87,7 +95,12 @@ export default function StudentAssignments() {
           return assignment;
         });
 
-        setAssignments(updatedAssignments);
+        const filteredAssignments = updatedAssignments.filter((assignment) => {
+          if (!assignment.profile_id) return true;
+          return assignment.profile_id === profileIdFilter;
+        });
+
+        setAssignments(filteredAssignments);
       } catch (error) {
         console.error("Error fetching assignments:", error);
       } finally {
@@ -96,7 +109,7 @@ export default function StudentAssignments() {
     };
 
     fetchAssignments();
-  }, [studentId]);
+  }, [studentId, studentRecord]);
 
   // Handle submission
   const handleSubmitAssignment = async (assignmentId) => {
@@ -169,7 +182,13 @@ export default function StudentAssignments() {
         .eq("student_id", studentId)
         .order("created_at", { ascending: false });
 
-      setAssignments(updatedData || []);
+      const profileIdFilter = studentRecord?.active_profile_id || DEFAULT_PROFILE_ID;
+      const filteredData = (updatedData || []).filter((assignment) => {
+        if (!assignment.profile_id) return true;
+        return assignment.profile_id === profileIdFilter;
+      });
+
+      setAssignments(filteredData);
     } catch (error) {
       console.error("Error submitting assignment:", error);
       setError(error.message || "Failed to submit assignment.");
@@ -276,6 +295,11 @@ export default function StudentAssignments() {
           <p className="text-sm text-slate-500">
             View and submit your assignments
           </p>
+          {activeProfile && (
+            <p className="text-xs text-slate-500 mt-1">
+              Viewing assignments for <span className="font-medium">{activeProfile.name}</span>. Change active profile in Student Settings.
+            </p>
+          )}
         </div>
         <div>
           <select
@@ -380,6 +404,13 @@ export default function StudentAssignments() {
                       <span className="font-medium">Tutor:</span>
                       <span className="truncate">{assignment.tutor?.name || assignment.tutor?.email || 'Unknown'}</span>
                       {assignment.subject && <><span className="text-slate-400">•</span><BookOpen className="w-3 h-3 flex-shrink-0" /><span className="truncate">{assignment.subject}</span></>}<span className="text-slate-400">•</span><Calendar className="w-3 h-3 flex-shrink-0" /><span className="truncate">Due: {formatDate(assignment.due_date)}</span>{assignment.max_points && <><span className="text-slate-400">•</span><span className="font-medium">Points:</span><span>{assignment.points !== null && assignment.points !== undefined ? `${assignment.points}` : 'Not graded'}{assignment.max_points && ` / ${assignment.max_points}`}</span></>}
+                      {assignment.profile_name && (
+                        <>
+                          <span className="text-slate-400">•</span>
+                          <span className="font-medium">Profile:</span>
+                          <span>{assignment.profile_name}</span>
+                        </>
+                      )}
                     </div>
                     {assignment.description && (
                       <p className="text-xs text-slate-700 mt-1 whitespace-pre-wrap line-clamp-2">{assignment.description}</p>

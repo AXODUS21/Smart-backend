@@ -10,3 +10,4 @@ WHERE pricing_region IS NULL;
 
 COMMENT ON COLUMN public."Students".pricing_region IS 'Set to PH to use Philippines credit pricing; defaults to US (international).';
 
+

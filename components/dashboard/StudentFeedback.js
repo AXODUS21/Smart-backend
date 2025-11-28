@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { MessageSquare } from "lucide-react";
+import { DEFAULT_PROFILE_ID, getActiveProfile } from "@/lib/studentProfiles";
 
 export default function StudentFeedback() {
   const { user } = useAuth();
   const [feedbackList, setFeedbackList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [studentRecord, setStudentRecord] = useState(null);
 
   // Fetch feedback for the student
   useEffect(() => {
@@ -19,11 +21,13 @@ export default function StudentFeedback() {
         // Get student ID first
         const { data: studentData } = await supabase
           .from("Students")
-          .select("id")
+          .select("id, first_name, last_name, extra_profiles, active_profile_id")
           .eq("user_id", user.id)
           .single();
 
         if (!studentData) return;
+        setStudentRecord(studentData);
+        const profileIdFilter = studentData.active_profile_id || DEFAULT_PROFILE_ID;
 
         // Fetch sessions with tutor reviews (feedback)
         const { data, error } = await supabase
@@ -38,7 +42,6 @@ export default function StudentFeedback() {
           `
           )
           .eq("student_id", studentData.id)
-          .eq("session_status", "successful")
           .not("tutor_review", "is", null)
           .order("start_time_utc", { ascending: false });
 
@@ -46,12 +49,19 @@ export default function StudentFeedback() {
           console.error("Error fetching feedback:", error);
         } else {
           // Transform data to match component structure
-          const transformedFeedback = (data || []).map((session) => ({
+          const filteredSessions = (data || []).filter((session) => {
+            if (!session.profile_id) {
+              return profileIdFilter === DEFAULT_PROFILE_ID;
+            }
+            return session.profile_id === profileIdFilter;
+          });
+          const transformedFeedback = filteredSessions.map((session) => ({
             id: session.id,
             tutor: session.tutor?.name || session.tutor?.email || "Tutor",
             subject: session.subject || "Tutoring Session",
             date: formatDate(session.start_time_utc),
             feedback: session.tutor_review || "",
+            profile: session.profile_name,
           }));
           setFeedbackList(transformedFeedback);
         }
@@ -96,11 +106,18 @@ export default function StudentFeedback() {
     );
   }
 
+  const activeProfile = studentRecord ? getActiveProfile(studentRecord) : null;
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-semibold text-slate-900 mb-1">Feedback</h2>
         <p className="text-sm text-slate-500">View feedback from your tutors</p>
+        {activeProfile && (
+          <p className="text-xs text-slate-500 mt-1">
+            Showing feedback for <span className="font-medium">{activeProfile.name}</span>. Switch profiles in Student Settings.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -123,6 +140,11 @@ export default function StudentFeedback() {
                 <p className="text-xs text-slate-500">
                   {item.subject} • {item.date}
                 </p>
+                {item.profile && (
+                  <p className="text-xs text-slate-500">
+                    Profile: <span className="font-medium">{item.profile}</span>
+                  </p>
+                )}
               </div>
               <div className="bg-slate-50 rounded p-2">
                 <p className="text-sm text-slate-700 leading-snug">

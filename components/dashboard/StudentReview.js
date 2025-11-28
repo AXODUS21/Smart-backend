@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_PROFILE_ID, getActiveProfile, buildPrimaryProfileName } from "@/lib/studentProfiles";
 
 export default function StudentReview() {
   const { user } = useAuth();
   const [studentId, setStudentId] = useState(null);
   const [studentName, setStudentName] = useState("");
+  const [studentRecord, setStudentRecord] = useState(null);
   const [parentName, setParentName] = useState("");
   const [rating, setRating] = useState(5);
   const [message, setMessage] = useState("");
@@ -18,16 +20,24 @@ export default function StudentReview() {
   useEffect(() => {
     const loadStudent = async () => {
       if (!user) return;
-      const { data, error: err } = await supabase
-        .from("Students")
-        .select("id, name")
+        const { data, error: err } = await supabase
+          .from("Students")
+          .select("id, name, first_name, last_name, extra_profiles, active_profile_id")
         .eq("user_id", user.id)
         .single();
       if (!err && data) {
         setStudentId(data.id);
         setStudentName(data.name || "");
+          setStudentRecord(data);
       }
     };
+  const activeProfile = studentRecord ? getActiveProfile(studentRecord) : null;
+  const profileIdForReview =
+    studentRecord?.active_profile_id || DEFAULT_PROFILE_ID;
+  const profileNameForReview =
+    activeProfile?.name ||
+    (studentRecord ? buildPrimaryProfileName(studentRecord) : studentName || user?.email || "Primary Student");
+
     loadStudent();
   }, [user]);
 
@@ -50,6 +60,8 @@ export default function StudentReview() {
         parent_name: parentName || null,
         rating: Number(rating) || null,
         message: message.trim(),
+        profile_id: profileIdForReview,
+        profile_name: profileNameForReview,
       });
 
       if (insertError) throw insertError;
@@ -68,7 +80,12 @@ export default function StudentReview() {
   return (
     <div className="max-w-2xl">
       <h2 className="text-2xl font-semibold text-slate-900 mb-2">Parent Review</h2>
-      <p className="text-slate-500 mb-6">Parents can send feedback directly to the admin.</p>
+      <p className="text-slate-500">Parents can send feedback directly to the admin.</p>
+      {profileNameForReview && (
+        <p className="text-xs text-slate-500 mb-6">
+          This review will be associated with <span className="font-medium">{profileNameForReview}</span>. Switch profiles in Student Settings if needed.
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Parent Name (optional)</label>

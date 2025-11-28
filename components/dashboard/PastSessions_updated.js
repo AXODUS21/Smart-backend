@@ -60,6 +60,7 @@ export default function PastSessions() {
             credits_required: session.credits_required || 0,
             student_id: session.student_id,
             review: session.tutor_review || null,
+            profile_name: session.profile_name,
           }));
           setSessions(transformedSessions);
         }
@@ -278,6 +279,11 @@ export default function PastSessions() {
                     {session.subject} • {session.date}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">{session.time}</p>
+                  {session.profile_name && (
+                    <p className="text-xs text-slate-500">
+                      Profile: <span className="font-medium">{session.profile_name}</span>
+                    </p>
+                  )}
                 </div>
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-semibold ${

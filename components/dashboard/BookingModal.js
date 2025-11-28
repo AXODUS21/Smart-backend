@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { getActiveProfile, buildPrimaryProfileName, DEFAULT_PROFILE_ID } from "@/lib/studentProfiles";
 import { Clock, X, Check, CreditCard } from "lucide-react";
 
 export default function BookingModal({
@@ -47,7 +48,7 @@ export default function BookingModal({
       // Get student and tutor IDs (bigint) from their respective tables
       const { data: studentData, error: studentError } = await supabase
         .from("Students")
-        .select("id, credits")
+        .select("id, credits, first_name, last_name, extra_profiles, active_profile_id")
         .eq("user_id", user.id)
         .single();
 
@@ -70,6 +71,11 @@ export default function BookingModal({
       }
 
       // Create booking request in Schedules table
+      const profileInfo = getActiveProfile(studentData);
+      const profileIdForInsert = studentData.active_profile_id || DEFAULT_PROFILE_ID;
+      const profileNameForInsert =
+        profileInfo?.name || buildPrimaryProfileName(studentData);
+
       const { data: scheduleData, error: scheduleError } = await supabase
         .from("Schedules")
         .insert({
@@ -80,6 +86,8 @@ export default function BookingModal({
           end_time_utc: endTime.toISOString(),
           duration_min: duration,
           credits_required: creditsRequired,
+          profile_id: profileIdForInsert,
+          profile_name: profileNameForInsert,
           status: "pending",
         })
         .select()

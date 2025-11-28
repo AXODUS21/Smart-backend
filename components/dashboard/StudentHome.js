@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { getActiveProfile, buildPrimaryProfileName, DEFAULT_PROFILE_ID } from "@/lib/studentProfiles";
 
 export default function StudentHome({ setActiveTab }) {
   const { user } = useAuth();
@@ -26,6 +27,13 @@ export default function StudentHome({ setActiveTab }) {
   const [recentActivity, setRecentActivity] = useState([]);
   const [studentName, setStudentName] = useState("");
   const [announcements, setAnnouncements] = useState([]);
+  const [studentRecord, setStudentRecord] = useState(null);
+  const activeProfile = studentRecord ? getActiveProfile(studentRecord) : null;
+  const activeProfileName = activeProfile
+    ? activeProfile.name
+    : studentRecord
+    ? buildPrimaryProfileName(studentRecord)
+    : null;
 
   useEffect(() => {
     if (!user) return;
@@ -35,17 +43,20 @@ export default function StudentHome({ setActiveTab }) {
         // Get student data
         const { data: studentData } = await supabase
           .from("Students")
-          .select("id, first_name, last_name, credits")
+          .select("id, first_name, last_name, credits, extra_profiles, active_profile_id")
           .eq("user_id", user.id)
           .single();
 
         if (studentData) {
+          setStudentRecord(studentData);
           const fullName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim();
           setStudentName(fullName || user.email);
           setMetrics((prev) => ({
             ...prev,
             creditsAvailable: studentData.credits || 0,
           }));
+
+          const profileIdFilter = studentData.active_profile_id || DEFAULT_PROFILE_ID;
 
           // Get sessions
           const { data: sessions } = await supabase
@@ -64,12 +75,19 @@ export default function StudentHome({ setActiveTab }) {
             .order("start_time_utc", { ascending: true });
 
           if (sessions) {
-            const upcoming = sessions
+            const relevantSessions = sessions.filter((session) => {
+              if (!session.profile_id) {
+                return profileIdFilter === DEFAULT_PROFILE_ID;
+              }
+              return session.profile_id === profileIdFilter;
+            });
+
+            const upcoming = relevantSessions
               .filter((s) => new Date(s.start_time_utc) > new Date())
               .slice(0, 3);
             setUpcomingSessions(upcoming);
 
-            const completed = sessions.filter(
+            const completed = relevantSessions.filter(
               (s) =>
                 s.status === "confirmed" &&
                 new Date(s.end_time_utc) < new Date()
@@ -81,7 +99,7 @@ export default function StudentHome({ setActiveTab }) {
 
             setMetrics((prev) => ({
               ...prev,
-              sessionsBooked: sessions.length,
+              sessionsBooked: relevantSessions.length,
               hoursCompleted: hoursCompleted.toFixed(1),
             }));
 
@@ -254,6 +272,11 @@ export default function StudentHome({ setActiveTab }) {
           Welcome Back, {studentName || user?.email}
         </h2>
         <p className="text-slate-500">{getCurrentDate()}</p>
+        {activeProfileName && (
+          <p className="text-xs text-slate-500 mt-1">
+            Viewing dashboard for <span className="font-medium">{activeProfileName}</span>. Switch profiles in Student Settings.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -303,6 +326,11 @@ export default function StudentHome({ setActiveTab }) {
                       {new Date(session.start_time_utc).toLocaleDateString()} •{" "}
                       {new Date(session.start_time_utc).toLocaleTimeString()}
                     </p>
+                    {session.profile_name && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Profile: <span className="font-medium">{session.profile_name}</span>
+                      </p>
+                    )}
                   </div>
                   <span className="text-sm font-medium text-blue-600">
                     {session.tutor 

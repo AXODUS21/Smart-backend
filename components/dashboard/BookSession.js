@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { getActiveProfile, buildPrimaryProfileName, DEFAULT_PROFILE_ID } from "@/lib/studentProfiles";
 
 export default function BookSession() {
   const { user } = useAuth();
@@ -24,6 +25,7 @@ export default function BookSession() {
   const [selectedDuration, setSelectedDuration] = useState("");
   const [tutors, setTutors] = useState([]);
   const [studentCredits, setStudentCredits] = useState(0);
+  const [studentRecord, setStudentRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedTutorForDetails, setSelectedTutorForDetails] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -32,6 +34,12 @@ export default function BookSession() {
     min_booking_hours_advance: 2,
     max_daily_sessions_per_student: 5,
   });
+  const activeProfile = studentRecord ? getActiveProfile(studentRecord) : null;
+  const activeProfileLabel = activeProfile
+    ? activeProfile.name
+    : studentRecord
+    ? buildPrimaryProfileName(studentRecord)
+    : null;
 
   // Fetch tutors and student data
   useEffect(() => {
@@ -54,7 +62,7 @@ export default function BookSession() {
         // Fetch student credits
         const { data: studentData, error: studentError } = await supabase
           .from("Students")
-          .select("credits")
+          .select("id, credits, first_name, last_name, extra_profiles, active_profile_id")
           .eq("user_id", user?.id)
           .single();
 
@@ -62,6 +70,7 @@ export default function BookSession() {
           console.error("Error fetching student credits:", studentError);
         } else {
           setStudentCredits(studentData?.credits || 0);
+          setStudentRecord(studentData || null);
         }
 
         // Fetch platform settings
@@ -292,7 +301,7 @@ export default function BookSession() {
       // Get student and tutor IDs
       const { data: studentData, error: studentError } = await supabase
         .from("Students")
-        .select("id, credits")
+        .select("id, credits, first_name, last_name, extra_profiles, active_profile_id")
         .eq("user_id", user.id)
         .single();
 
@@ -337,10 +346,16 @@ export default function BookSession() {
       endTime.setMinutes(endTime.getMinutes() + durationMinutes);
 
       // Check daily session limit for student
+      const profileIdForInsert = studentData.active_profile_id || DEFAULT_PROFILE_ID;
+      const profileInfo = getActiveProfile(studentData);
+      const profileNameForInsert =
+        profileInfo?.name || buildPrimaryProfileName(studentData);
+
       const { data: existingSessions, error: sessionCheckError } = await supabase
         .from("Schedules")
         .select("id")
         .eq("student_id", studentData.id)
+        .eq("profile_id", profileIdForInsert)
         .gte("start_time_utc", new Date(selectedDate).toISOString().split('T')[0])
         .lt("start_time_utc", new Date(new Date(selectedDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
@@ -363,6 +378,8 @@ export default function BookSession() {
         end_time_utc: endTime.toISOString(),
         duration_min: durationMinutes,
         credits_required: creditsRequired,
+        profile_id: profileIdForInsert,
+        profile_name: profileNameForInsert,
         status: "pending",
       });
 
@@ -390,6 +407,9 @@ export default function BookSession() {
       setSelectedTime("");
       setSelectedDuration("");
       setStudentCredits(newCredits);
+      setStudentRecord((prev) =>
+        prev ? { ...prev, credits: newCredits } : prev
+      );
     } catch (error) {
       console.error("Error booking session:", error);
       alert("Error booking session. Please try again.");
@@ -422,6 +442,11 @@ export default function BookSession() {
           Book a Session
         </h2>
         <p className="text-slate-500">Step {step} of 6</p>
+        {activeProfileLabel && (
+          <p className="text-xs text-slate-500 mt-1">
+            Booking for <span className="font-medium">{activeProfileLabel}</span>. Change active profile in Student Settings.
+          </p>
+        )}
       </div>
 
       <div className="bg-white rounded-lg p-8 shadow-sm border border-slate-200">
