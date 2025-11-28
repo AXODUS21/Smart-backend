@@ -14,6 +14,9 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
   const [success, setSuccess] = useState("");
 
   const [studentRecord, setStudentRecord] = useState(null);
+  const [pricingRegion, setPricingRegion] = useState("US");
+  const [savingRegion, setSavingRegion] = useState(false);
+  const [regionStatus, setRegionStatus] = useState({ type: null, message: "" });
 
   // PIN and security fields
   const [pin, setPin] = useState("");
@@ -37,7 +40,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
       try {
         const { data, error } = await supabase
           .from("Students")
-          .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email")
+          .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region")
           .eq("user_id", user.id)
           .single();
         if (error) throw error;
@@ -58,6 +61,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
     setPin(studentRecord.student_pin || "");
     setSecurityQuestion(studentRecord.student_security_question || STATIC_QUESTION);
     setSecurityAnswer(studentRecord.student_security_answer || "");
+    setPricingRegion(studentRecord.pricing_region === "PH" ? "PH" : "US");
   }, [studentRecord]);
 
   // If no PIN exists, show setup modal immediately when profile opens
@@ -137,6 +141,33 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
     }
   };
 
+  const handleSavePricingRegion = async () => {
+    if (!user || !studentRecord) return;
+    const regionToSave = pricingRegion === "PH" ? "PH" : "US";
+    setRegionStatus({ type: null, message: "" });
+    try {
+      setSavingRegion(true);
+      const { error } = await supabase
+        .from("Students")
+        .update({ pricing_region: regionToSave })
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setStudentRecord((prev) => (prev ? { ...prev, pricing_region: regionToSave } : prev));
+      setRegionStatus({
+        type: "success",
+        message: "Location saved. Credit pricing will use this setting.",
+      });
+    } catch (e) {
+      console.error("Error saving pricing region:", e);
+      setRegionStatus({
+        type: "error",
+        message: "Failed to save location. Please try again.",
+      });
+    } finally {
+      setSavingRegion(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg p-6 border border-slate-200">Loading profile...</div>
@@ -165,6 +196,45 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
           </button>
         </div>
         <div className="mt-2 text-sm text-slate-600">Label: <span className="font-medium">student mode</span></div>
+      </div>
+
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 space-y-4">
+        <div>
+          <div className="text-slate-900 font-semibold">Pricing Location</div>
+          <div className="text-slate-500 text-sm">Choose where you reside so credits show the correct pricing.</div>
+        </div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-end">
+          <div className="flex-1">
+            <label className="block text-sm text-slate-600 mb-1">Select location</label>
+            <select
+              value={pricingRegion}
+              onChange={(e) => {
+                setPricingRegion(e.target.value);
+                setRegionStatus({ type: null, message: "" });
+              }}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"
+            >
+              <option value="PH">Philippines</option>
+              <option value="US">International</option>
+            </select>
+          </div>
+          <button
+            onClick={handleSavePricingRegion}
+            disabled={savingRegion || !studentRecord}
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-60"
+          >
+            {savingRegion ? "Saving..." : "Save Location"}
+          </button>
+        </div>
+        {regionStatus.message && (
+          <div
+            className={`text-sm ${
+              regionStatus.type === "error" ? "text-red-600" : "text-green-600"
+            }`}
+          >
+            {regionStatus.message}
+          </div>
+        )}
       </div>
 
       {/* Setup Modal */}

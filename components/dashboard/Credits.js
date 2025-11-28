@@ -53,67 +53,19 @@ export default function Credits() {
     }
   };
 
-  // Detect user's country
   useEffect(() => {
-    const detectCountry = async () => {
-      try {
-        // First try geolocation API
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            async (position) => {
-              try {
-                const response = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&accept-language=en`
-                );
-                const data = await response.json();
-                const countryCode = data?.address?.country_code?.toUpperCase();
-                if (countryCode === 'PH') {
-                  setUserCountry('PH');
-                }
-              } catch (err) {
-                console.error('Error getting location from coordinates:', err);
-                // Fallback to IP-based detection
-                await detectCountryByIP();
-              }
-            },
-            async () => {
-              // If geolocation is denied, fallback to IP-based detection
-              await detectCountryByIP();
-            }
-          );
-        } else {
-          // If geolocation is not available, use IP-based detection
-          await detectCountryByIP();
-        }
-      } catch (err) {
-        console.error('Error detecting country:', err);
-        setUserCountry('US'); // Default to US on error
-      }
-    };
-
-    const detectCountryByIP = async () => {
-      try {
-        const response = await fetch('https://ipapi.co/json/');
-        const data = await response.json();
-        setUserCountry(data.country === 'PH' ? 'PH' : 'US');
-      } catch (err) {
-        console.error('Error detecting country by IP:', err);
-        setUserCountry('US'); // Default to US on error
-      }
-    };
-
-    detectCountry();
     fetchPlans();
   }, []);
 
   // Filter plans based on user's country
   const filteredPlans = plans.filter(plan => plan.region === userCountry);
 
-  // Fetch user credits
+  // Fetch user credits and pricing region
   useEffect(() => {
-    const fetchCredits = async () => {
+    const fetchCreditsAndRegion = async () => {
       if (!user) {
         setLoadingCredits(false);
+        setUserCountry('US');
         return;
       }
 
@@ -121,23 +73,25 @@ export default function Credits() {
       try {
         const { data, error } = await supabase
           .from("Students")
-          .select("credits")
+          .select("credits, pricing_region")
           .eq("user_id", user.id)
           .single();
 
         if (error) {
-          console.error("Error fetching credits:", error);
-        } else {
-          setCredits(data?.credits || 0);
+          throw error;
         }
+
+        setCredits(data?.credits || 0);
+        setUserCountry(data?.pricing_region === 'PH' ? 'PH' : 'US');
       } catch (error) {
-        console.error("Error:", error);
+        console.error("Error fetching credits/location:", error);
+        setUserCountry('US');
       } finally {
         setLoadingCredits(false);
       }
     };
 
-    fetchCredits();
+    fetchCreditsAndRegion();
   }, [user]);
 
   // Handle URL parameters for payment success/error
@@ -158,12 +112,13 @@ export default function Credits() {
         if (user) {
           supabase
             .from("Students")
-            .select("credits")
+            .select("credits, pricing_region")
             .eq("user_id", user.id)
             .single()
             .then(({ data }) => {
               if (data) {
                 setCredits(data.credits || 0);
+                setUserCountry(data.pricing_region === 'PH' ? 'PH' : 'US');
               }
             });
         }
