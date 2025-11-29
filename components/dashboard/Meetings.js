@@ -29,6 +29,8 @@ export default function Meetings() {
 
   const [view, setView] = useState("upcoming");
   const [tutorView, setTutorView] = useState("pending");
+  const [sortBy, setSortBy] = useState("current"); // "current", "name", "scheduled_with"
+  const [selectedTutorFilter, setSelectedTutorFilter] = useState("all"); // "all" or tutor ID
 
   // Determine user role
   useEffect(() => {
@@ -413,15 +415,63 @@ export default function Meetings() {
 
   // Student view
   if (userRole === "student") {
-    const upcomingSessions = scheduledMeetings.filter(
+    // Helper function to filter and sort sessions
+    const filterAndSortSessions = (sessionList) => {
+      // Filter by tutor
+      let filtered = sessionList;
+      if (selectedTutorFilter !== "all") {
+        const filterTutorId = parseInt(selectedTutorFilter);
+        filtered = sessionList.filter((s) => s.tutor_id === filterTutorId);
+      }
+
+      // Sort sessions
+      let sorted = [...filtered];
+      if (sortBy === "name" || sortBy === "scheduled_with") {
+        sorted.sort((a, b) => {
+          const tutorA = a.tutor?.name || a.tutor?.email || "Unknown";
+          const tutorB = b.tutor?.name || b.tutor?.email || "Unknown";
+          return tutorA.localeCompare(tutorB);
+        });
+      } else {
+        // Default: current status - pending first, then confirmed, sorted by time
+        sorted.sort((a, b) => {
+          if (a.status !== b.status) {
+            return a.status === "pending" ? -1 : 1;
+          }
+          return new Date(a.start_time_utc) - new Date(b.start_time_utc);
+        });
+      }
+      return sorted;
+    };
+
+    const allUpcomingSessions = scheduledMeetings.filter(
       (m) =>
         new Date(m.start_time_utc) > new Date() ||
         m.status === "pending" ||
         m.status === "confirmed"
     );
-    const pastSessions = scheduledMeetings.filter(
+    const allPastSessions = scheduledMeetings.filter(
       (m) => new Date(m.end_time_utc) < new Date() && m.status === "confirmed"
     );
+
+    const upcomingSessions = filterAndSortSessions(allUpcomingSessions);
+    const pastSessions = filterAndSortSessions(allPastSessions);
+
+    // Get unique tutors for filter dropdown
+    const uniqueTutors = (() => {
+      const tutorMap = new Map();
+      scheduledMeetings
+        .filter((s) => s.tutor && s.tutor_id)
+        .forEach((s) => {
+          if (!tutorMap.has(s.tutor_id)) {
+            const tutorName = s.tutor?.name || s.tutor?.email || "Unknown";
+            tutorMap.set(s.tutor_id, tutorName);
+          }
+        });
+      return Array.from(tutorMap.entries()).sort((a, b) =>
+        a[1].localeCompare(b[1])
+      );
+    })();
 
     const formatDate = (dateString) => {
       const date = new Date(dateString);
@@ -481,6 +531,45 @@ export default function Meetings() {
               Past Sessions
             </button>
           </div>
+
+          {/* Filtering Controls */}
+          {(uniqueTutors.length > 0 || sortBy !== "current") && (
+            <div className="p-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Filter by Tutor
+                  </label>
+                  <select
+                    value={selectedTutorFilter}
+                    onChange={(e) => setSelectedTutorFilter(e.target.value)}
+                    className="w-full md:w-64 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Tutors</option>
+                    {uniqueTutors.map(([id, name]) => (
+                      <option key={id} value={id}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Sort By
+                  </label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full md:w-64 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="current">Current Status (Default)</option>
+                    <option value="name">By Tutor Name</option>
+                    <option value="scheduled_with">By Scheduled With</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="p-4">
             {view === "upcoming" && (

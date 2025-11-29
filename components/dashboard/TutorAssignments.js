@@ -29,6 +29,7 @@ export default function TutorAssignments() {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [studentFilter, setStudentFilter] = useState("all"); // "all" or student_id
   const [sortBy, setSortBy] = useState("status"); // newest, oldest, student, dueDate, status, submittedDate
 
   // Form state
@@ -386,7 +387,10 @@ export default function TutorAssignments() {
       const matchesStatus =
         statusFilter === "all" || assignment.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      const matchesStudent =
+        studentFilter === "all" || assignment.student_id === parseInt(studentFilter);
+
+      return matchesSearch && matchesStatus && matchesStudent;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -699,7 +703,32 @@ export default function TutorAssignments() {
                   className="w-full md:w-64 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <select
+                  value={studentFilter}
+                  onChange={(e) => setStudentFilter(e.target.value)}
+                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Students</option>
+                  {(() => {
+                    const studentMap = new Map();
+                    assignments
+                      .filter((a) => a.student_id)
+                      .forEach((a) => {
+                        if (!studentMap.has(a.student_id)) {
+                          const studentName = a.student?.name || a.student?.email || "Unknown";
+                          studentMap.set(a.student_id, studentName);
+                        }
+                      });
+                    return Array.from(studentMap.entries())
+                      .sort((a, b) => a[1].localeCompare(b[1]))
+                      .map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ));
+                  })()}
+                </select>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}

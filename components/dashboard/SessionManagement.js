@@ -25,6 +25,8 @@ export default function SessionManagement() {
   const [tutorAvailability, setTutorAvailability] = useState(null);
   const [availableDates, setAvailableDates] = useState([]);
   const [availableTimes, setAvailableTimes] = useState([]);
+  const [sortBy, setSortBy] = useState("current"); // "current", "name", "scheduled_with"
+  const [selectedTutorFilter, setSelectedTutorFilter] = useState("all"); // "all" or tutor ID
 
   // Fetch sessions and platform settings
   const fetchSessions = async () => {
@@ -410,7 +412,101 @@ export default function SessionManagement() {
         </div>
       ) : (
         <div className="space-y-4">
-          {sessions.map((session) => (
+          {/* Filtering Controls */}
+          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
+            <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Filter by Tutor
+                </label>
+                <select
+                  value={selectedTutorFilter}
+                  onChange={(e) => setSelectedTutorFilter(e.target.value)}
+                  className="w-full md:w-64 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Tutors</option>
+                  {(() => {
+                    const tutorMap = new Map();
+                    sessions
+                      .filter((s) => s.tutor && s.tutor_id)
+                      .forEach((s) => {
+                        if (!tutorMap.has(s.tutor_id)) {
+                          const tutorName = `${s.tutor.first_name || ""} ${
+                            s.tutor.last_name || ""
+                          }`.trim() || "Unknown";
+                          tutorMap.set(s.tutor_id, tutorName);
+                        }
+                      });
+                    return Array.from(tutorMap.entries())
+                      .sort((a, b) => a[1].localeCompare(b[1]))
+                      .map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ));
+                  })()}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Sort By
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full md:w-64 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="current">Current Status (Default)</option>
+                  <option value="name">By Tutor Name</option>
+                  <option value="scheduled_with">By Scheduled With</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Filtered and Sorted Sessions */}
+          {(() => {
+            // Filter by tutor
+            let filteredSessions = sessions;
+            if (selectedTutorFilter !== "all") {
+              const filterTutorId = parseInt(selectedTutorFilter);
+              filteredSessions = sessions.filter(
+                (s) => s.tutor_id === filterTutorId
+              );
+            }
+
+            // Sort sessions
+            let sortedSessions = [...filteredSessions];
+            if (sortBy === "name" || sortBy === "scheduled_with") {
+              sortedSessions.sort((a, b) => {
+                const tutorA = a.tutor
+                  ? `${a.tutor.first_name || ""} ${a.tutor.last_name || ""}`.trim() ||
+                    "Unknown"
+                  : "Unknown";
+                const tutorB = b.tutor
+                  ? `${b.tutor.first_name || ""} ${b.tutor.last_name || ""}`.trim() ||
+                    "Unknown"
+                  : "Unknown";
+                return tutorA.localeCompare(tutorB);
+              });
+            } else {
+              // Default: current status - pending first, then confirmed, sorted by time
+              sortedSessions.sort((a, b) => {
+                if (a.status !== b.status) {
+                  return a.status === "pending" ? -1 : 1;
+                }
+                return (
+                  new Date(a.start_time_utc) - new Date(b.start_time_utc)
+                );
+              });
+            }
+
+            return sortedSessions.length === 0 ? (
+              <div className="bg-white rounded-lg p-8 shadow-sm border border-slate-200 text-center">
+                <p className="text-slate-500">No sessions match your filters.</p>
+              </div>
+            ) : (
+              sortedSessions.map((session) => (
             <div
               key={session.id}
               className={`rounded-lg p-6 shadow-sm border ${
@@ -504,7 +600,9 @@ export default function SessionManagement() {
                 </div>
               </div>
             </div>
-          ))}
+              ))
+            );
+          })()}
         </div>
       )}
 
