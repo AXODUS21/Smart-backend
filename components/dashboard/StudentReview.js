@@ -31,15 +31,16 @@ export default function StudentReview() {
           setStudentRecord(data);
       }
     };
+    loadStudent();
+  }, [user]);
+
+  // Compute profile info from studentRecord state
   const activeProfile = studentRecord ? getActiveProfile(studentRecord) : null;
   const profileIdForReview =
     studentRecord?.active_profile_id || DEFAULT_PROFILE_ID;
   const profileNameForReview =
     activeProfile?.name ||
     (studentRecord ? buildPrimaryProfileName(studentRecord) : studentName || user?.email || "Primary Student");
-
-    loadStudent();
-  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

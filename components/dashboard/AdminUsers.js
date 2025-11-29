@@ -23,31 +23,72 @@ export default function AdminUsers() {
 
   const fetchUsers = async () => {
     try {
-      const [studentsData, tutorsData, adminsData] = await Promise.all([
-        supabase.from("Students").select("*").order("created_at", { ascending: false }),
-        supabase.from("Tutors").select("*").order("created_at", { ascending: false }),
-        supabase.from("admins").select("*").order("created_at", { ascending: false }),
-      ]);
+      // Use the database function to get all users including those without profiles
+      const { data: allUsersData, error: allUsersError } = await supabase
+        .rpc('get_all_users_for_admin');
 
-      // Check for errors
-      if (studentsData.error) {
-        console.error("Error fetching students:", studentsData.error);
-        throw studentsData.error;
-      }
-      if (tutorsData.error) {
-        console.error("Error fetching tutors:", tutorsData.error);
-        throw tutorsData.error;
-      }
-      if (adminsData.error) {
-        console.error("Error fetching admins:", adminsData.error);
-        throw adminsData.error;
-      }
+      if (allUsersError) {
+        console.error("Error fetching all users:", allUsersError);
+        // Fallback to old method if function doesn't exist
+        const [studentsData, tutorsData, adminsData] = await Promise.all([
+          supabase.from("Students").select("*").order("created_at", { ascending: false }),
+          supabase.from("Tutors").select("*").order("created_at", { ascending: false }),
+          supabase.from("admins").select("*").order("created_at", { ascending: false }),
+        ]);
 
-      setUsers({
-        students: studentsData.data || [],
-        tutors: tutorsData.data || [],
-        admins: adminsData.data || [],
-      });
+        if (studentsData.error) {
+          console.error("Error fetching students:", studentsData.error);
+          throw studentsData.error;
+        }
+        if (tutorsData.error) {
+          console.error("Error fetching tutors:", tutorsData.error);
+          throw tutorsData.error;
+        }
+        if (adminsData.error) {
+          console.error("Error fetching admins:", adminsData.error);
+          throw adminsData.error;
+        }
+
+        setUsers({
+          students: studentsData.data || [],
+          tutors: tutorsData.data || [],
+          admins: adminsData.data || [],
+        });
+      } else {
+        // Transform the function result into the expected format
+        const students = [];
+        const tutors = [];
+        const admins = [];
+        
+        (allUsersData || []).forEach(user => {
+          const userObj = {
+            id: user.id,
+            user_id: user.id,
+            email: user.email,
+            name: user.name || user.email,
+            created_at: user.created_at,
+            role: user.role,
+            has_profile: user.has_profile,
+          };
+
+          if (user.role === 'student') {
+            students.push(userObj);
+          } else if (user.role === 'tutor') {
+            tutors.push(userObj);
+          } else if (user.role === 'admin' || user.role === 'superadmin') {
+            admins.push(userObj);
+          } else if (user.role === 'pending') {
+            // Add pending users to students list with a note
+            students.push({ ...userObj, role: 'pending' });
+          }
+        });
+
+        setUsers({
+          students,
+          tutors,
+          admins,
+        });
+      }
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
@@ -59,14 +100,19 @@ export default function AdminUsers() {
     let allUsers = [];
     
     if (filterRole === "all" || filterRole === "student") {
-      allUsers.push(...users.students.map((u) => ({ ...u, role: "student" })));
+      allUsers.push(...users.students.map((u) => ({ ...u, role: u.role || "student" })));
     }
     if (filterRole === "all" || filterRole === "tutor") {
-      allUsers.push(...users.tutors.map((u) => ({ ...u, role: "tutor" })));
+      allUsers.push(...users.tutors.map((u) => ({ ...u, role: u.role || "tutor" })));
     }
     if (filterRole === "all" || filterRole === "admin") {
-      allUsers.push(...users.admins.map((u) => ({ ...u, role: "admin" })));
+      allUsers.push(...users.admins.map((u) => ({ ...u, role: u.role || "admin" })));
     }
+
+    // Filter out users with "Unnamed User" as their name
+    allUsers = allUsers.filter(
+      (u) => u.name !== "Unnamed User" && u.name !== "Unnamed"
+    );
 
     if (searchTerm) {
       allUsers = allUsers.filter(
@@ -284,19 +330,27 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
-              {filteredUsers().map((user) => (
-                <tr key={user.created_at} className="hover:bg-slate-50">
+              {filteredUsers().map((user, index) => (
+                <tr key={user.id || user.user_id || `user-${index}-${user.email}`} className="hover:bg-slate-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div key={user.created_at} className="flex items-center">
+                    <div className="flex items-center">
                       <div className="flex-shrink-0">{getRoleIcon(user.role)}</div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-slate-900">
-                          {user.name || "Unnamed User"}
+                          {user.name || user.email || "Unknown"}
+                          {user.has_profile === false && (
+                            <span className="ml-2 text-xs text-amber-600">(Profile pending)</span>
+                          )}
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{getRoleBadge(user.role)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {getRoleBadge(user.role)}
+                    {user.has_profile === false && (
+                      <span className="ml-2 text-xs text-amber-600">(Incomplete)</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                     {user.email || "No email"}
                   </td>

@@ -66,23 +66,57 @@ export async function POST(request) {
     if (status === 'succeeded') {
       const credits = parseInt(metadata.credits || '0');
       const userId = metadata.userId;
+      const planId = metadata.planId;
 
       if (credits > 0 && userId) {
+        // Check if this is a family pack purchase
+        let isFamilyPack = false;
+        if (planId) {
+          const { data: planData } = await supabase
+            .from('credit_plans')
+            .select('name, slug')
+            .or(`slug.eq.${planId},id.eq.${planId}`)
+            .maybeSingle();
+          
+          if (planData) {
+            const planName = (planData.name || '').toLowerCase();
+            const planSlug = (planData.slug || '').toLowerCase();
+            isFamilyPack = planName.includes('family') || planSlug.includes('family');
+          }
+        }
+
         // Get current credits
         const { data: currentData, error: fetchError } = await supabase
           .from('Students')
-          .select('credits')
+          .select('credits, has_family_pack')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
 
-        if (!fetchError && currentData) {
-          const currentCredits = currentData?.credits || 0;
-          const newCredits = currentCredits + credits;
+        if (!fetchError) {
+          if (!currentData) {
+            // Create student record if it doesn't exist
+            await supabase
+              .from('Students')
+              .insert({
+                user_id: userId,
+                credits: credits,
+                has_family_pack: isFamilyPack,
+              });
+          } else {
+            const currentCredits = currentData?.credits || 0;
+            const newCredits = currentCredits + credits;
+            const updateData = { credits: newCredits };
+            
+            // If this is a family pack purchase, set has_family_pack to true
+            if (isFamilyPack) {
+              updateData.has_family_pack = true;
+            }
 
-          await supabase
-            .from('Students')
-            .update({ credits: newCredits })
-            .eq('user_id', userId);
+            await supabase
+              .from('Students')
+              .update(updateData)
+              .eq('user_id', userId);
+          }
         }
       }
     }

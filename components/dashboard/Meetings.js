@@ -758,7 +758,8 @@ export default function Meetings() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mb-1">
-                        {booking.student?.name ||
+                        {booking.profile_name ||
+                          booking.student?.name ||
                           booking.student?.email ||
                           "Student"}{" "}
                         • {formatDate(booking.start_time_utc)} at{" "}
@@ -842,7 +843,8 @@ export default function Meetings() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mb-1">
-                        {booking.student?.name ||
+                        {booking.profile_name ||
+                          booking.student?.name ||
                           booking.student?.email ||
                           "Student"}{" "}
                         • {formatDate(booking.start_time_utc)} at{" "}
@@ -899,7 +901,8 @@ export default function Meetings() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mb-1">
-                        {booking.student?.name ||
+                        {booking.profile_name ||
+                          booking.student?.name ||
                           booking.student?.email ||
                           "Student"}{" "}
                         • {formatDate(booking.start_time_utc)} at{" "}

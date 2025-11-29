@@ -91,12 +91,28 @@ export async function GET(request) {
     // Get Supabase client with service role (bypasses RLS)
     const supabase = getSupabaseClient();
     
+    // Check if this is a family pack purchase
+    let isFamilyPack = false;
+    if (planId) {
+      const { data: planData } = await supabase
+        .from('credit_plans')
+        .select('name, slug')
+        .or(`slug.eq.${planId},id.eq.${planId}`)
+        .maybeSingle();
+      
+      if (planData) {
+        const planName = (planData.name || '').toLowerCase();
+        const planSlug = (planData.slug || '').toLowerCase();
+        isFamilyPack = planName.includes('family') || planSlug.includes('family');
+      }
+    }
+    
     // Check if credits were already added (prevent duplicate credit additions)
     // We can check the session metadata or use a transaction log
     console.log('Fetching current credits for user:', userId);
     const { data: currentData, error: fetchError } = await supabase
       .from('Students')
-      .select('credits, id')
+      .select('credits, id, has_family_pack')
       .eq('user_id', userId)
       .maybeSingle(); // Use maybeSingle instead of single to handle missing records
 
@@ -122,6 +138,7 @@ export async function GET(request) {
         .insert({
           user_id: userId,
           credits: credits,
+          has_family_pack: isFamilyPack,
         })
         .select()
         .single();
@@ -147,20 +164,27 @@ export async function GET(request) {
       );
     }
 
-    // Student record exists, update credits
+    // Student record exists, update credits and family pack status if needed
     const currentCredits = currentData.credits || 0;
     const newCredits = currentCredits + credits;
+    const updateDataObj = { credits: newCredits };
+    
+    // If this is a family pack purchase, set has_family_pack to true
+    if (isFamilyPack) {
+      updateDataObj.has_family_pack = true;
+    }
 
     console.log('Updating credits:', {
       userId,
       currentCredits,
       creditsToAdd: credits,
       newCredits,
+      isFamilyPack,
     });
 
     const { data: updateData, error: updateError } = await supabase
       .from('Students')
-      .update({ credits: newCredits })
+      .update(updateDataObj)
       .eq('user_id', userId)
       .select();
 

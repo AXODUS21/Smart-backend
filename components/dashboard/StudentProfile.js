@@ -52,7 +52,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
       try {
         const { data, error } = await supabase
           .from("Students")
-          .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region, first_name, last_name, extra_profiles, active_profile_id")
+          .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region, first_name, last_name, extra_profiles, active_profile_id, has_family_pack")
           .eq("user_id", user.id)
           .single();
         if (error) throw error;
@@ -107,6 +107,10 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
   const handleAddProfile = async () => {
     setError("");
     setSuccess("");
+    if (!studentRecord?.has_family_pack) {
+      setError("You need to purchase a family pack to add additional profiles. Please visit the Credits page to purchase a family pack.");
+      return;
+    }
     if (!newProfile.name.trim()) {
       setError("Profile name is required");
       return;
@@ -417,10 +421,17 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
               />
             </div>
           </div>
+          {!studentRecord?.has_family_pack && (
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                You need to purchase a family pack to add additional profiles. Visit the Credits page to purchase one.
+              </p>
+            </div>
+          )}
           <button
             className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60"
             onClick={handleAddProfile}
-            disabled={profileSaving}
+            disabled={profileSaving || !studentRecord?.has_family_pack}
           >
             <Plus className="w-4 h-4" />
             Save Profile

@@ -51,7 +51,7 @@ export default function PastSessions() {
           const transformedSessions = (data || []).map((session) => ({
             id: session.id,
             student:
-              session.student?.name || session.student?.email || "Student",
+              session.profile_name || session.student?.name || session.student?.email || "Student",
             subject: session.subject || "Tutoring Session",
             date: formatDate(session.start_time_utc),
             time: formatTime(session.start_time_utc, session.end_time_utc),
