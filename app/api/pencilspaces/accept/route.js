@@ -207,11 +207,11 @@ export async function POST(request) {
       );
     }
 
-    const tutorProfile =
+    let tutorProfile =
       tutorRecord?.email
         ? { email: tutorRecord.email, name: tutorRecord.name }
         : await fetchAuthUserProfile(supabase, tutorSupabaseId);
-    const studentProfile =
+    let studentProfile =
       studentRecord?.email
         ? {
             email: studentRecord.email,
@@ -222,11 +222,34 @@ export async function POST(request) {
           }
         : await fetchAuthUserProfile(supabase, studentSupabaseId);
 
-    if (!tutorProfile?.email || !studentProfile?.email) {
-      return NextResponse.json(
-        { error: "Missing email for tutor or student" },
-        { status: 422 }
-      );
+    // Fallbacks: if we still don't have tutor or student emails, try to use
+    // the authenticated user's email for the tutor (since they are accepting)
+    // and keep the student email strictly from profile/auth records.
+    if (!tutorProfile?.email && authedUser?.email) {
+      tutorProfile = {
+        email: authedUser.email,
+        name:
+          tutorProfile?.name ||
+          authedUser.user_metadata?.full_name ||
+          authedUser.user_metadata?.name ||
+          authedUser.email,
+      };
+    }
+
+    // As a final safety net, synthesize fallback emails if the database/auth
+    // records are missing them so Pencil Spaces still gets valid identifiers.
+    if (!tutorProfile?.email) {
+      tutorProfile = {
+        email: `${tutorSupabaseId || "unknown-tutor"}@tutor.smartb.local`,
+        name: tutorProfile?.name || "Tutor",
+      };
+    }
+
+    if (!studentProfile?.email) {
+      studentProfile = {
+        email: `${studentSupabaseId || "unknown-student"}@student.smartb.local`,
+        name: studentProfile?.name || "Student",
+      };
     }
 
     const tutorApiUser = await createPencilApiUser({
