@@ -94,7 +94,7 @@ Student cancels → Status: "cancelled" → Disappears from Booking Request
 ### Test 2: Accepted Session Disappears from Booking Request
 - [ ] Book a session (status: pending)
 - [ ] As tutor, go to "Booking Request"
-- [ ] Click "Accept" and add meeting link
+- [ ] Click "Accept" (a Pencil Space link is created automatically)
 - [ ] Refresh "Booking Request"
 - **Expected**: Session disappears from Booking Request
 - **Verify**: Session appears in "Past Sessions" as confirmed

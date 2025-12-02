@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { parseMeetingLink } from "@/lib/meetingLinks";
 import {
   Video,
   Calendar,
@@ -21,16 +22,19 @@ export default function Meetings() {
   const [tutorBookings, setTutorBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState({});
-  const [meetingLinkModal, setMeetingLinkModal] = useState({
-    isOpen: false,
-    bookingId: null,
-  });
-  const [meetingLink, setMeetingLink] = useState("");
+  const [joinProcessing, setJoinProcessing] = useState({});
 
   const [view, setView] = useState("upcoming");
   const [tutorView, setTutorView] = useState("pending");
   const [sortBy, setSortBy] = useState("current"); // "current", "name", "scheduled_with"
   const [selectedTutorFilter, setSelectedTutorFilter] = useState("all"); // "all" or tutor ID
+
+  const getAccessToken = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  }, []);
 
   // Determine user role
   useEffect(() => {
@@ -176,119 +180,114 @@ export default function Meetings() {
   };
 
   // Fetch bookings for tutors
-  useEffect(() => {
-    const fetchTutorBookings = async () => {
-      if (!user || userRole !== "tutor") return;
-
-      try {
-        // Get tutor ID first
-        const { data: tutorData } = await supabase
-          .from("Tutors")
-          .select("id")
-          .eq("user_id", user.id)
-          .single();
-
-        if (!tutorData) return;
-
-        // Fetch ALL bookings (pending, confirmed, rejected, cancelled)
-        const { data, error } = await supabase
-          .from("Schedules")
-          .select(
-            `
-            *,
-            student:student_id (
-              name,
-              email
-            )
-          `
-          )
-          .eq("tutor_id", tutorData.id)
-          .in("status", ["pending", "confirmed", "rejected", "cancelled"])
-          .order("start_time_utc", { ascending: true });
-
-        if (error) {
-          console.error("Error fetching tutor bookings:", error);
-        } else {
-          // Automatically handle past pending bookings
-          const processedBookings = await handlePastPendingBookings(data || []);
-          setTutorBookings(processedBookings);
-        }
-      } catch (error) {
-        console.error("Error:", error);
-      }
-    };
-
-    fetchTutorBookings();
-  }, [user, userRole]);
-
-  // Handle opening meeting link modal
-  const handleAcceptBooking = (bookingId) => {
-    setMeetingLinkModal({ isOpen: true, bookingId });
-    setMeetingLink("");
-  };
-
-  // Handle confirming booking with meeting link
-  const handleConfirmBookingWithLink = async () => {
-    if (!meetingLink.trim()) {
-      alert("Please enter a meeting link before accepting the booking.");
-      return;
-    }
-
-    const bookingId = meetingLinkModal.bookingId;
-    setProcessing((prev) => ({ ...prev, [bookingId]: "accepting" }));
+  const fetchTutorBookings = useCallback(async () => {
+    if (!user || userRole !== "tutor") return;
 
     try {
-      const { error } = await supabase
-        .from("Schedules")
-        .update({
-          status: "confirmed",
-          meeting_link: meetingLink.trim(),
-        })
-        .eq("id", bookingId);
-
-      if (error) throw error;
-
-      // Close modal
-      setMeetingLinkModal({ isOpen: false, bookingId: null });
-      setMeetingLink("");
-
-      // Refresh bookings
       const { data: tutorData } = await supabase
         .from("Tutors")
         .select("id")
         .eq("user_id", user.id)
         .single();
 
-      if (tutorData) {
-        const { data } = await supabase
-          .from("Schedules")
-          .select(
-            `
+      if (!tutorData) return;
+
+      const { data, error } = await supabase
+        .from("Schedules")
+        .select(
+          `
             *,
             student:student_id (
               name,
               email
             )
           `
-          )
-          .eq("tutor_id", tutorData.id)
-          .in("status", ["pending", "confirmed", "rejected", "cancelled"])
-          .order("start_time_utc", { ascending: true });
+        )
+        .eq("tutor_id", tutorData.id)
+        .in("status", ["pending", "confirmed", "rejected", "cancelled"])
+        .order("start_time_utc", { ascending: true });
 
-        setTutorBookings(data || []);
+      if (error) {
+        console.error("Error fetching tutor bookings:", error);
+      } else {
+        const processedBookings = await handlePastPendingBookings(data || []);
+        setTutorBookings(processedBookings);
       }
     } catch (error) {
+      console.error("Error:", error);
+    }
+  }, [user, userRole]);
+
+  useEffect(() => {
+    fetchTutorBookings();
+  }, [fetchTutorBookings]);
+
+  const handleAcceptBooking = async (bookingId) => {
+    setProcessing((prev) => ({ ...prev, [bookingId]: "accepting" }));
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error("Authentication expired. Please sign in again.");
+      }
+
+      const response = await fetch("/api/pencilspaces/accept", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ scheduleId: bookingId }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to accept booking.");
+      }
+
+      await fetchTutorBookings();
+    } catch (error) {
       console.error("Error accepting booking:", error);
-      alert("Error accepting booking. Please try again.");
+      alert(error.message || "Error accepting booking. Please try again.");
     } finally {
       setProcessing((prev) => ({ ...prev, [bookingId]: false }));
     }
   };
 
-  // Handle closing meeting link modal
-  const handleCloseMeetingLinkModal = () => {
-    setMeetingLinkModal({ isOpen: false, bookingId: null });
-    setMeetingLink("");
+  const handleJoinMeeting = async (scheduleId) => {
+    setJoinProcessing((prev) => ({ ...prev, [scheduleId]: true }));
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error("Authentication expired. Please sign in again.");
+      }
+
+      const response = await fetch("/api/pencilspaces/authorize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ scheduleId }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Unable to generate meeting link.");
+      }
+
+      if (payload?.url) {
+        window.open(payload.url, "_blank", "noopener,noreferrer");
+      } else {
+        throw new Error("Authorization link missing from response.");
+      }
+    } catch (error) {
+      console.error("Error joining meeting:", error);
+      alert(error.message || "Unable to open meeting link. Please try again.");
+    } finally {
+      setJoinProcessing((prev) => ({ ...prev, [scheduleId]: false }));
+    }
   };
 
   // Handle rejecting a booking
@@ -374,24 +373,7 @@ export default function Meetings() {
         .eq("user_id", user.id)
         .single();
 
-      if (tutorData) {
-        const { data } = await supabase
-          .from("Schedules")
-          .select(
-            `
-            *,
-            student:student_id (
-              name,
-              email
-            )
-          `
-          )
-          .eq("tutor_id", tutorData.id)
-          .in("status", ["pending", "confirmed", "rejected", "cancelled"])
-          .order("start_time_utc", { ascending: true });
-
-        setTutorBookings(data || []);
-      }
+      await fetchTutorBookings();
     } catch (error) {
       console.error("Error rejecting booking:", error);
       const errorMessage =
@@ -597,20 +579,36 @@ export default function Meetings() {
                           Duration: {formatDuration(session.duration_min)}
                         </p>
                       </div>
-                      {session.meeting_link ? (
-                        <a
-                          href={session.meeting_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-3 px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors whitespace-nowrap"
-                        >
-                          Join
-                        </a>
-                      ) : (
-                        <span className="ml-3 px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-sm font-medium whitespace-nowrap">
-                          Pending
-                        </span>
-                      )}
+                      {(() => {
+                        const meetingInfo = parseMeetingLink(session.meeting_link);
+                        const hasJoinLink =
+                          meetingInfo.kind === "legacy-url" ||
+                          meetingInfo.kind === "pencil-space";
+                        if (!hasJoinLink) {
+                          return (
+                            <span className="ml-3 px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-sm font-medium whitespace-nowrap">
+                              Pending
+                            </span>
+                          );
+                        }
+                        return (
+                          <button
+                            onClick={() => handleJoinMeeting(session.id)}
+                            disabled={joinProcessing[session.id]}
+                            className="ml-3 px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors whitespace-nowrap flex items-center gap-2 disabled:opacity-70"
+                          >
+                            {joinProcessing[session.id] ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                            ) : (
+                              <span>
+                                {meetingInfo.kind === "pencil-space"
+                                  ? "Open Space"
+                                  : "Open Link"}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })()}
                     </div>
                   ))
                 )}
@@ -781,7 +779,7 @@ export default function Meetings() {
                         ) : (
                           <>
                             <Check className="h-3 w-3" />
-                            Accept
+                            Accept & Create Space
                           </>
                         )}
                       </button>
@@ -820,59 +818,75 @@ export default function Meetings() {
                   <p className="text-sm">No confirmed meetings yet.</p>
                 </div>
               ) : (
-                confirmedBookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
-                      booking.status === "cancelled"
-                        ? "bg-red-50 border-red-200"
-                        : "bg-green-50 border-green-200"
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-sm text-slate-900">
-                          {booking.subject}
+                confirmedBookings.map((booking) => {
+                  const meetingInfo = parseMeetingLink(booking.meeting_link);
+                  const hasJoinLink =
+                    (meetingInfo.kind === "legacy-url" ||
+                      meetingInfo.kind === "pencil-space") &&
+                    booking.status !== "cancelled";
+                  const joinLabel =
+                    meetingInfo.kind === "pencil-space"
+                      ? "Open Pencil Space"
+                      : "Open Link";
+                  return (
+                    <div
+                      key={booking.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        booking.status === "cancelled"
+                          ? "bg-red-50 border-red-200"
+                          : "bg-green-50 border-green-200"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm text-slate-900">
+                            {booking.subject}
+                          </p>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            booking.status === "cancelled"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-green-100 text-green-800"
+                          }`}>
+                            {booking.status === "cancelled" ? "Cancelled" : booking.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-1">
+                          {booking.profile_name ||
+                            booking.student?.name ||
+                            booking.student?.email ||
+                            "Student"}{" "}
+                          • {formatDate(booking.start_time_utc)} at{" "}
+                          {formatTime(booking.start_time_utc)}
                         </p>
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${
-                          booking.status === "cancelled"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-green-100 text-green-800"
-                        }`}>
-                          {booking.status === "cancelled" ? "Cancelled" : booking.status}
-                        </span>
+                        <p className="text-xs text-slate-400">
+                          {booking.duration_min} min • {booking.credits_required}{" "}
+                          credits {booking.status === "cancelled" ? "refunded" : ""}
+                        </p>
+                        {booking.cancellation_reason && (
+                          <p className="text-xs text-red-700 mt-2 bg-red-100 p-2 rounded">
+                            <span className="font-medium">Cancellation reason:</span> {booking.cancellation_reason}
+                          </p>
+                        )}
+                        {hasJoinLink && (
+                          <button
+                            onClick={() => handleJoinMeeting(booking.id)}
+                            disabled={joinProcessing[booking.id]}
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1 disabled:opacity-70"
+                          >
+                            {joinProcessing[booking.id] ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                            ) : (
+                              <>
+                                <Link className="h-3 w-3" />
+                                {joinLabel}
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
-                      <p className="text-xs text-slate-500 mb-1">
-                        {booking.profile_name ||
-                          booking.student?.name ||
-                          booking.student?.email ||
-                          "Student"}{" "}
-                        • {formatDate(booking.start_time_utc)} at{" "}
-                        {formatTime(booking.start_time_utc)}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {booking.duration_min} min • {booking.credits_required}{" "}
-                        credits {booking.status === "cancelled" ? "refunded" : ""}
-                      </p>
-                      {booking.cancellation_reason && (
-                        <p className="text-xs text-red-700 mt-2 bg-red-100 p-2 rounded">
-                          <span className="font-medium">Cancellation reason:</span> {booking.cancellation_reason}
-                        </p>
-                      )}
-                      {booking.meeting_link && booking.status !== "cancelled" && (
-                        <a
-                          href={booking.meeting_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1"
-                        >
-                          <Link className="h-3 w-3" />
-                          Join Meeting
-                        </a>
-                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
@@ -926,76 +940,6 @@ export default function Meetings() {
         </div>
       </div>
 
-      {/* Meeting Link Modal */}
-      {meetingLinkModal.isOpen && (
-        <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <Link className="h-6 w-6 text-blue-600" />
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Add Meeting Link
-                </h3>
-              </div>
-              <button
-                onClick={handleCloseMeetingLinkModal}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6">
-              <div className="mb-4">
-                <label
-                  htmlFor="meetingLink"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Meeting Link (Zoom, Google Meet, etc.)
-                </label>
-                <input
-                  type="url"
-                  id="meetingLink"
-                  value={meetingLink}
-                  onChange={(e) => setMeetingLink(e.target.value)}
-                  placeholder="https://zoom.us/j/123456789 or https://meet.google.com/abc-defg-hij"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-slate-500"
-                />
-                <p className="text-sm text-gray-500 mt-2">
-                  Please provide a valid meeting link (Zoom, Google Meet,
-                  Microsoft Teams, etc.)
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={handleCloseMeetingLinkModal}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmBookingWithLink}
-                  disabled={processing[meetingLinkModal.bookingId]}
-                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
-                >
-                  {processing[meetingLinkModal.bookingId] === "accepting" ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4" />
-                      Accept & Confirm
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

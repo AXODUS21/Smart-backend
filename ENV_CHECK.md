@@ -22,6 +22,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 # Get it from: Supabase Dashboard > Project Settings > API > service_role key
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
+# Pencil Spaces (Required for video meetings)
+# Get your API key from https://pencilspaces.com/support or your account manager
+NEXT_PUBLIC_PENCIL_SPACE_API_KEY=ps_live_...
+
 # Resend (Required for email notifications)
 # Get your API key from: https://resend.com
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
