@@ -43,6 +43,7 @@ import TutorProfile from "./dashboard/TutorProfile";
 import StudentProfile from "./dashboard/StudentProfile";
 import AdminDashboard from "./dashboard/AdminDashboard";
 import AdminAnalytics from "./dashboard/AdminAnalytics";
+import AdminServices from "./dashboard/AdminServices";
 import AdminUsers from "./dashboard/AdminUsers";
 import AdminJobs from "./dashboard/AdminJobs";
 import AdminTasks from "./dashboard/AdminTasks";
@@ -292,6 +293,7 @@ export default function Dashboard() {
     analytics: { id: "analytics", label: "Analytics", icon: BarChart3 },
     users: { id: "users", label: "Users", icon: Users },
     jobs: { id: "jobs", label: "Jobs", icon: Briefcase },
+    services: { id: "services", label: "Services", icon: BookOpen },
     tasks: { id: "tasks", label: "Tasks", icon: CheckSquare },
     subjects: { id: "subjects", label: "Subjects", icon: CheckSquare },
     "credit-plans": { id: "credit-plans", label: "Credit Plans", icon: Wallet },
@@ -324,6 +326,7 @@ export default function Dashboard() {
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "users", label: "Users", icon: Users },
     { id: "jobs", label: "Jobs", icon: Briefcase },
+    { id: "services", label: "Services", icon: BookOpen },
     { id: "subjects", label: "Subjects", icon: CheckSquare },
     { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
@@ -509,6 +512,9 @@ export default function Dashboard() {
           {activeTab === "subjects" && userRole === "superadmin" && (
             <AdminSubjects />
           )}
+          {activeTab === "services" && userRole === "superadmin" && (
+            <AdminServices />
+          )}
           {activeTab === "announcements" && userRole === "superadmin" && (
             <AdminAnnouncements />
           )}
@@ -537,6 +543,9 @@ export default function Dashboard() {
           {activeTab === "tasks" && userRole === "admin" && <AdminTasks />}
           {activeTab === "subjects" && userRole === "admin" && (
             <AdminSubjects />
+          )}
+          {activeTab === "services" && userRole === "admin" && (
+            <AdminServices />
           )}
           {activeTab === "announcements" && userRole === "admin" && (
             <AdminAnnouncements />
