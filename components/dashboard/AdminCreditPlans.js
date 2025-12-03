@@ -85,7 +85,6 @@ export default function AdminCreditPlans() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [activeRegion, setActiveRegion] = useState("US");
-  const [dirty, setDirty] = useState(false);
 
   const fetchPlans = async () => {
     try {
@@ -133,7 +132,6 @@ export default function AdminCreditPlans() {
   }, [error]);
 
   const handleFieldChange = (planId, field, value) => {
-    setDirty(true);
     setPlans((prev) =>
       prev.map((plan) =>
         plan.dbId === planId
@@ -147,7 +145,6 @@ export default function AdminCreditPlans() {
   };
 
   const handleToggleActive = (planId, value) => {
-    setDirty(true);
     setPlans((prev) =>
       prev.map((plan) =>
         plan.dbId === planId
@@ -161,16 +158,18 @@ export default function AdminCreditPlans() {
   };
 
   const hasChanges = (plan) =>
-    plan.price !== plan.original.price ||
+    plan.priceUsd !== plan.original.priceUsd ||
+    plan.pricePhp !== plan.original.pricePhp ||
     plan.credits !== plan.original.credits ||
+    plan.hours !== plan.original.hours ||
     plan.savings !== plan.original.savings ||
     plan.sortOrder !== plan.original.sortOrder ||
     plan.isActive !== plan.original.isActive ||
     plan.pricePerHour !== plan.original.pricePerHour ||
-    plan.pricePerCredit !== plan.original.pricePerCredit;
+    plan.pricePerCredit !== plan.original.pricePerCredit ||
+    plan.description !== plan.original.description;
 
   const handleReset = (planId) => {
-    setDirty(false);
     setPlans((prev) =>
       prev.map((plan) =>
         plan.dbId === planId
@@ -347,9 +346,8 @@ export default function AdminCreditPlans() {
             : item
         )
       );
-      setDirty(false);
 
-      setSuccess("Credit plan updated successfully.");
+      setSuccess(`Credit plan "${plan.name}" updated successfully.`);
     } catch (err) {
       console.error("Failed to update credit plan:", err);
       setError(
@@ -571,7 +569,7 @@ export default function AdminCreditPlans() {
                 <div className="mt-6 flex items-center justify-between gap-3">
                   <button
                     onClick={() => handleReset(plan.dbId)}
-                    disabled={!dirty || savingPlanId === plan.dbId}
+                    disabled={!hasChanges(plan) || savingPlanId === plan.dbId}
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <RotateCcw size={16} />
@@ -579,7 +577,7 @@ export default function AdminCreditPlans() {
                   </button>
                   <button
                     onClick={() => handleSave(plan)}
-                    disabled={!dirty || savingPlanId === plan.dbId}
+                    disabled={!hasChanges(plan) || savingPlanId === plan.dbId}
                     className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                   >
                     <Save size={16} />
