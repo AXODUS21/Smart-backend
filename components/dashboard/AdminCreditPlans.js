@@ -13,9 +13,13 @@ import {
 const normalizePlan = (plan) => {
   const priceUsdNumber = Number.parseFloat(plan.price_usd || 0);
   const pricePhpNumber = Number.parseFloat(plan.price_php || 0);
-  const normalizedPriceUsd = Number.isFinite(priceUsdNumber) ? priceUsdNumber : 0;
-  const normalizedPricePhp = Number.isFinite(pricePhpNumber) ? pricePhpNumber : 0;
-  const isPhPlan = plan.region === 'PH';
+  const normalizedPriceUsd = Number.isFinite(priceUsdNumber)
+    ? priceUsdNumber
+    : 0;
+  const normalizedPricePhp = Number.isFinite(pricePhpNumber)
+    ? pricePhpNumber
+    : 0;
+  const isPhPlan = plan.region === "PH";
 
   const creditsValue =
     typeof plan.credits === "number" ? plan.credits.toString() : "0";
@@ -25,21 +29,27 @@ const normalizePlan = (plan) => {
       : "0";
   const sortOrderValue =
     typeof plan.sort_order === "number" ? plan.sort_order.toString() : "0";
-  const hoursValue = 
+  const hoursValue =
     typeof plan.hours === "number" ? plan.hours.toString() : "0";
-  const pricePerHourValue = 
-    typeof plan.price_per_hour === "number" ? plan.price_per_hour.toString() : "0";
+  const pricePerHourValue =
+    typeof plan.price_per_hour === "number"
+      ? plan.price_per_hour.toString()
+      : "0";
   const pricePerCreditValue =
-    typeof plan.price_per_credit === "number" ? plan.price_per_credit.toString() : "0";
+    typeof plan.price_per_credit === "number"
+      ? plan.price_per_credit.toString()
+      : "0";
 
   return {
     dbId: plan.id,
     slug: plan.slug,
     name: plan.name || "",
-    region: plan.region || 'US',
+    region: plan.region || "US",
     credits: creditsValue,
     hours: hoursValue,
-    price: isPhPlan ? normalizedPricePhp.toFixed(2) : normalizedPriceUsd.toFixed(2),
+    price: isPhPlan
+      ? normalizedPricePhp.toFixed(2)
+      : normalizedPriceUsd.toFixed(2),
     priceUsd: normalizedPriceUsd.toFixed(2),
     pricePhp: normalizedPricePhp.toFixed(2),
     pricePerHour: pricePerHourValue,
@@ -52,7 +62,9 @@ const normalizePlan = (plan) => {
     original: {
       credits: creditsValue,
       hours: hoursValue,
-      price: isPhPlan ? normalizedPricePhp.toFixed(2) : normalizedPriceUsd.toFixed(2),
+      price: isPhPlan
+        ? normalizedPricePhp.toFixed(2)
+        : normalizedPriceUsd.toFixed(2),
       priceUsd: normalizedPriceUsd.toFixed(2),
       pricePhp: normalizedPricePhp.toFixed(2),
       pricePerHour: pricePerHourValue,
@@ -61,7 +73,7 @@ const normalizePlan = (plan) => {
       sortOrder: sortOrderValue,
       isActive: plan.is_active ?? true,
       description: plan.description || "",
-      region: plan.region || 'US',
+      region: plan.region || "US",
     },
   };
 };
@@ -72,7 +84,7 @@ export default function AdminCreditPlans() {
   const [savingPlanId, setSavingPlanId] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [activeRegion, setActiveRegion] = useState('US');
+  const [activeRegion, setActiveRegion] = useState("US");
   const [dirty, setDirty] = useState(false);
 
   const fetchPlans = async () => {
@@ -153,7 +165,9 @@ export default function AdminCreditPlans() {
     plan.credits !== plan.original.credits ||
     plan.savings !== plan.original.savings ||
     plan.sortOrder !== plan.original.sortOrder ||
-    plan.isActive !== plan.original.isActive;
+    plan.isActive !== plan.original.isActive ||
+    plan.pricePerHour !== plan.original.pricePerHour ||
+    plan.pricePerCredit !== plan.original.pricePerCredit;
 
   const handleReset = (planId) => {
     setDirty(false);
@@ -189,7 +203,7 @@ export default function AdminCreditPlans() {
 
       const parsedPriceUsd = Number.parseFloat(plan.priceUsd);
       const parsedPricePhp = Number.parseFloat(plan.pricePhp);
-      
+
       if (!Number.isFinite(parsedPriceUsd) || parsedPriceUsd < 0) {
         setError("USD Price must be a positive number.");
         return;
@@ -200,15 +214,28 @@ export default function AdminCreditPlans() {
         return;
       }
 
-      const parsedPricePerHour = plan.pricePerHour ? Number.parseFloat(plan.pricePerHour) : null;
-      const parsedPricePerCredit = plan.pricePerCredit ? Number.parseFloat(plan.pricePerCredit) : null;
+      const parsedPricePerHour = plan.pricePerHour
+        ? Number.parseFloat(plan.pricePerHour)
+        : null;
+      const parsedPricePerCredit = plan.pricePerCredit
+        ? Number.parseFloat(plan.pricePerCredit)
+        : null;
 
-      if (plan.region === 'US' && (!Number.isFinite(parsedPricePerHour) || parsedPricePerHour <= 0)) {
-        setError("Price per hour must be a positive number for US plans.");
+      if (
+        plan.region === "US" &&
+        parsedPricePerCredit !== null &&
+        (!Number.isFinite(parsedPricePerCredit) || parsedPricePerCredit <= 0)
+      ) {
+        setError(
+          "Price per credit must be a positive number if provided for US plans."
+        );
         return;
       }
 
-      if (plan.region === 'PH' && (!Number.isFinite(parsedPricePerCredit) || parsedPricePerCredit <= 0)) {
+      if (
+        plan.region === "PH" &&
+        (!Number.isFinite(parsedPricePerCredit) || parsedPricePerCredit <= 0)
+      ) {
         setError("Price per credit must be a positive number for PH plans.");
         return;
       }
@@ -224,9 +251,25 @@ export default function AdminCreditPlans() {
         parsedSortOrder = 0;
       }
 
+      if (!plan.slug) {
+        setError(
+          "Plan slug is required. Please refresh the page and try again."
+        );
+        return;
+      }
+
+      if (!plan.name) {
+        setError(
+          "Plan name is required. Please refresh the page and try again."
+        );
+        return;
+      }
+
       setSavingPlanId(plan.dbId);
 
       const updates = {
+        slug: plan.slug,
+        name: plan.name,
         credits: parsedCredits,
         hours: parsedHours,
         price_usd: parsedPriceUsd,
@@ -237,7 +280,7 @@ export default function AdminCreditPlans() {
         sort_order: parsedSortOrder,
         is_active: plan.isActive,
         region: plan.region,
-        description: plan.description || ''
+        description: plan.description || "",
       };
 
       if (Object.keys(updates).length === 0) {
@@ -249,16 +292,17 @@ export default function AdminCreditPlans() {
       const updatedAt = new Date().toISOString();
       updates.updated_at = updatedAt;
 
-      const { error: updateError } = await supabase
-        .from("credit_plans")
-        .upsert({
+      const { error: updateError } = await supabase.from("credit_plans").upsert(
+        {
           ...updates,
           id: plan.dbId || undefined, // For upsert to work with existing records
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'id',
-          returning: 'minimal'
-        });
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id",
+          returning: "minimal",
+        }
+      );
 
       if (updateError) {
         throw updateError;
@@ -271,11 +315,14 @@ export default function AdminCreditPlans() {
                 ...item,
                 credits: parsedCredits.toString(),
                 hours: parsedHours.toString(),
-                price: plan.region === 'PH' ? parsedPricePhp.toFixed(2) : parsedPriceUsd.toFixed(2),
+                price:
+                  plan.region === "PH"
+                    ? parsedPricePhp.toFixed(2)
+                    : parsedPriceUsd.toFixed(2),
                 priceUsd: parsedPriceUsd.toFixed(2),
                 pricePhp: parsedPricePhp.toFixed(2),
-                pricePerHour: parsedPricePerHour?.toString() || '0',
-                pricePerCredit: parsedPricePerCredit?.toString() || '0',
+                pricePerHour: parsedPricePerHour?.toString() || "0",
+                pricePerCredit: parsedPricePerCredit?.toString() || "0",
                 savings: parsedSavings.toString(),
                 sortOrder: parsedSortOrder.toString(),
                 isActive: plan.isActive,
@@ -284,11 +331,14 @@ export default function AdminCreditPlans() {
                   ...item.original,
                   credits: parsedCredits.toString(),
                   hours: parsedHours.toString(),
-                  price: plan.region === 'PH' ? parsedPricePhp.toFixed(2) : parsedPriceUsd.toFixed(2),
+                  price:
+                    plan.region === "PH"
+                      ? parsedPricePhp.toFixed(2)
+                      : parsedPriceUsd.toFixed(2),
                   priceUsd: parsedPriceUsd.toFixed(2),
                   pricePhp: parsedPricePhp.toFixed(2),
-                  pricePerHour: parsedPricePerHour?.toString() || '0',
-                  pricePerCredit: parsedPricePerCredit?.toString() || '0',
+                  pricePerHour: parsedPricePerHour?.toString() || "0",
+                  pricePerCredit: parsedPricePerCredit?.toString() || "0",
                   savings: parsedSavings.toString(),
                   sortOrder: parsedSortOrder.toString(),
                   isActive: plan.isActive,
@@ -302,7 +352,9 @@ export default function AdminCreditPlans() {
       setSuccess("Credit plan updated successfully.");
     } catch (err) {
       console.error("Failed to update credit plan:", err);
-      setError(err?.message || "Failed to update credit plan. Please try again.");
+      setError(
+        err?.message || "Failed to update credit plan. Please try again."
+      );
     } finally {
       setSavingPlanId(null);
     }
@@ -315,21 +367,21 @@ export default function AdminCreditPlans() {
         <div className="flex items-center gap-4">
           <div className="flex border rounded-md overflow-hidden">
             <button
-              onClick={() => setActiveRegion('US')}
+              onClick={() => setActiveRegion("US")}
               className={`px-4 py-2 text-sm font-medium ${
-                activeRegion === 'US' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                activeRegion === "US"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
               }`}
             >
               US Pricing
             </button>
             <button
-              onClick={() => setActiveRegion('PH')}
+              onClick={() => setActiveRegion("PH")}
               className={`px-4 py-2 text-sm font-medium ${
-                activeRegion === 'PH'
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                activeRegion === "PH"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
               }`}
             >
               PH Pricing
@@ -383,7 +435,7 @@ export default function AdminCreditPlans() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {plans
-            .filter(plan => plan.region === activeRegion)
+            .filter((plan) => plan.region === activeRegion)
             .map((plan) => (
               <div
                 key={plan.dbId}
@@ -418,21 +470,49 @@ export default function AdminCreditPlans() {
                       step="1"
                       value={plan.credits}
                       onChange={(event) =>
-                        handleFieldChange(plan.dbId, "credits", event.target.value)
+                        handleFieldChange(
+                          plan.dbId,
+                          "credits",
+                          event.target.value
+                        )
                       }
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </label>
 
                   <label className="block text-sm font-medium text-slate-600">
-                    {plan.region === 'US' ? 'Price (USD)' : 'Price (PHP)'}
+                    {plan.region === "US" ? "Price (USD)" : "Price (PHP)"}
                     <input
                       type="number"
                       min="0"
                       step="0.01"
-                      value={plan.region === 'US' ? plan.priceUsd : plan.pricePhp}
+                      value={
+                        plan.region === "US" ? plan.priceUsd : plan.pricePhp
+                      }
                       onChange={(event) =>
-                        handleFieldChange(plan.dbId, plan.region === 'US' ? "priceUsd" : "pricePhp", event.target.value)
+                        handleFieldChange(
+                          plan.dbId,
+                          plan.region === "US" ? "priceUsd" : "pricePhp",
+                          event.target.value
+                        )
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </label>
+
+                  <label className="block text-sm font-medium text-slate-600">
+                    Price per Credit ({plan.region === "US" ? "USD" : "PHP"})
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={plan.pricePerCredit}
+                      onChange={(event) =>
+                        handleFieldChange(
+                          plan.dbId,
+                          "pricePerCredit",
+                          event.target.value
+                        )
                       }
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -447,7 +527,11 @@ export default function AdminCreditPlans() {
                         step="1"
                         value={plan.savings}
                         onChange={(event) =>
-                          handleFieldChange(plan.dbId, "savings", event.target.value)
+                          handleFieldChange(
+                            plan.dbId,
+                            "savings",
+                            event.target.value
+                          )
                         }
                         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -460,7 +544,11 @@ export default function AdminCreditPlans() {
                         step="1"
                         value={plan.sortOrder}
                         onChange={(event) =>
-                          handleFieldChange(plan.dbId, "sortOrder", event.target.value)
+                          handleFieldChange(
+                            plan.dbId,
+                            "sortOrder",
+                            event.target.value
+                          )
                         }
                         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
