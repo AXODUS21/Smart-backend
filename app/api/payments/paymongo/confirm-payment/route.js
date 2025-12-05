@@ -69,19 +69,25 @@ export async function POST(request) {
       const planId = metadata.planId;
 
       if (credits > 0 && userId) {
-        // Check if this is a family pack purchase
+        // Check if this is a family pack purchase (prefer explicit flag on credit_plans)
         let isFamilyPack = false;
         if (planId) {
           const { data: planData } = await supabase
             .from('credit_plans')
-            .select('name, slug')
+            .select('name, slug, is_family_pack')
             .or(`slug.eq.${planId},id.eq.${planId}`)
             .maybeSingle();
           
           if (planData) {
             const planName = (planData.name || '').toLowerCase();
             const planSlug = (planData.slug || '').toLowerCase();
-            isFamilyPack = planName.includes('family') || planSlug.includes('family');
+            isFamilyPack =
+              planData.is_family_pack === true ||
+              planName.includes('family') ||
+              planSlug.includes('family');
+          } else {
+            const planIdLower = planId.toLowerCase();
+            isFamilyPack = planIdLower.includes('family');
           }
         }
 
