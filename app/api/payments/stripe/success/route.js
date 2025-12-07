@@ -91,32 +91,65 @@ export async function GET(request) {
     // Get Supabase client with service role (bypasses RLS)
     const supabase = getSupabaseClient();
     
-    // Check if this is a family pack purchase (prefer explicit flag on credit_plans)
+    // Check if this is a family pack purchase
     let isFamilyPack = false;
     if (planId) {
       const { data: planData } = await supabase
         .from('credit_plans')
-        .select('name, slug, is_family_pack')
+        .select('name, slug')
         .or(`slug.eq.${planId},id.eq.${planId}`)
         .maybeSingle();
       
       if (planData) {
         const planName = (planData.name || '').toLowerCase();
         const planSlug = (planData.slug || '').toLowerCase();
-        isFamilyPack =
-          planData.is_family_pack === true ||
-          planName.includes('family') ||
-          planSlug.includes('family');
-      } else {
-        // Fallback: infer from planId string
-        const planIdLower = planId.toLowerCase();
-        isFamilyPack = planIdLower.includes('family');
+        isFamilyPack = planName.includes('family') || planSlug.includes('family');
       }
     }
     
     // Check if credits were already added (prevent duplicate credit additions)
     // We can check the session metadata or use a transaction log
     console.log('Fetching current credits for user:', userId);
+    
+    // Check if user is a principal first
+    const { data: principalData, error: principalFetchError } = await supabase
+      .from('Principals')
+      .select('credits, id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (principalData) {
+      // User is a principal, update principal credits
+      const currentCredits = principalData.credits || 0;
+      const newCredits = currentCredits + credits;
+
+      console.log('Updating principal credits:', {
+        userId,
+        currentCredits,
+        creditsToAdd: credits,
+        newCredits,
+      });
+
+      const { data: updateData, error: updateError } = await supabase
+        .from('Principals')
+        .update({ credits: newCredits })
+        .eq('user_id', userId)
+        .select();
+
+      if (updateError) {
+        console.error('Error updating principal credits:', updateError);
+        return NextResponse.redirect(
+          `${baseUrl}/?tab=credits&error=update_error`
+        );
+      }
+
+      console.log('Principal credits updated successfully:', updateData);
+      return NextResponse.redirect(
+        `${baseUrl}/?tab=credits&success=true&credits=${credits}`
+      );
+    }
+
+    // Check if user is a student
     const { data: currentData, error: fetchError } = await supabase
       .from('Students')
       .select('credits, id, has_family_pack')

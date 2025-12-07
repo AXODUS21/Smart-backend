@@ -9,6 +9,7 @@ export default function AdminUsers() {
     students: [],
     tutors: [],
     admins: [],
+    principals: [],
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,10 +31,11 @@ export default function AdminUsers() {
       if (allUsersError) {
         console.error("Error fetching all users:", allUsersError);
         // Fallback to old method if function doesn't exist
-        const [studentsData, tutorsData, adminsData] = await Promise.all([
+        const [studentsData, tutorsData, adminsData, principalsData] = await Promise.all([
           supabase.from("Students").select("*").order("created_at", { ascending: false }),
           supabase.from("Tutors").select("*").order("created_at", { ascending: false }),
           supabase.from("admins").select("*").order("created_at", { ascending: false }),
+          supabase.from("Principals").select("*").order("created_at", { ascending: false }),
         ]);
 
         if (studentsData.error) {
@@ -48,17 +50,23 @@ export default function AdminUsers() {
           console.error("Error fetching admins:", adminsData.error);
           throw adminsData.error;
         }
+        if (principalsData.error) {
+          console.error("Error fetching principals:", principalsData.error);
+          // Don't throw, just log - principals table might not exist yet
+        }
 
         setUsers({
           students: studentsData.data || [],
           tutors: tutorsData.data || [],
           admins: adminsData.data || [],
+          principals: principalsData.data || [],
         });
       } else {
         // Transform the function result into the expected format
         const students = [];
         const tutors = [];
         const admins = [];
+        const principals = [];
         
         (allUsersData || []).forEach(user => {
           const userObj = {
@@ -77,6 +85,8 @@ export default function AdminUsers() {
             tutors.push(userObj);
           } else if (user.role === 'admin' || user.role === 'superadmin') {
             admins.push(userObj);
+          } else if (user.role === 'principal') {
+            principals.push(userObj);
           } else if (user.role === 'pending') {
             // Add pending users to students list with a note
             students.push({ ...userObj, role: 'pending' });
@@ -87,6 +97,7 @@ export default function AdminUsers() {
           students,
           tutors,
           admins,
+          principals,
         });
       }
     } catch (error) {
@@ -107,6 +118,9 @@ export default function AdminUsers() {
     }
     if (filterRole === "all" || filterRole === "admin") {
       allUsers.push(...users.admins.map((u) => ({ ...u, role: u.role || "admin" })));
+    }
+    if (filterRole === "all" || filterRole === "principal") {
+      allUsers.push(...users.principals.map((u) => ({ ...u, role: u.role || "principal" })));
     }
 
     // Filter out users with "Unnamed User" as their name
@@ -164,6 +178,8 @@ export default function AdminUsers() {
         return <BookOpen className="w-5 h-5 text-green-500" />;
       case "admin":
         return <Shield className="w-5 h-5 text-purple-500" />;
+      case "principal":
+        return <Users className="w-5 h-5 text-indigo-500" />;
       default:
         return <Users className="w-5 h-5" />;
     }
@@ -174,6 +190,7 @@ export default function AdminUsers() {
       student: "bg-blue-100 text-blue-800",
       tutor: "bg-green-100 text-green-800",
       admin: "bg-purple-100 text-purple-800",
+      principal: "bg-indigo-100 text-indigo-800",
     };
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[role] || ""}`}>
@@ -206,6 +223,12 @@ export default function AdminUsers() {
       value: users.admins.length.toString(),
       icon: Shield,
       bgColor: "bg-purple-500",
+    },
+    {
+      title: "Total Principals",
+      value: users.principals.length.toString(),
+      icon: Users,
+      bgColor: "bg-indigo-500",
     },
   ];
 
@@ -252,6 +275,7 @@ export default function AdminUsers() {
               <option value="student">Students</option>
               <option value="tutor">Tutors</option>
               <option value="admin">Admins</option>
+              <option value="principal">Principals</option>
             </select>
           </div>
           <div className="flex gap-2">
@@ -281,7 +305,7 @@ export default function AdminUsers() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {userStatsData.map((metric, index) => {
           const Icon = metric.icon;
           return (
@@ -410,11 +434,19 @@ export default function AdminUsers() {
                   {new Date(viewingUser.created_at).toLocaleString()}
                 </p>
               </div>
-              {viewingUser.role === "student" && (
+              {(viewingUser.role === "student" || viewingUser.role === "principal") && (
                 <div>
                   <p className="text-sm font-medium text-slate-500">Credits</p>
                   <p className="text-lg text-slate-900">
                     {parseFloat(viewingUser.credits || 0).toFixed(0)}
+                  </p>
+                </div>
+              )}
+              {viewingUser.role === "principal" && (
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Students</p>
+                  <p className="text-lg text-slate-900">
+                    {viewingUser.students?.length || 0} student(s)
                   </p>
                 </div>
               )}

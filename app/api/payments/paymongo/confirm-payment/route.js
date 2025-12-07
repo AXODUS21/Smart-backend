@@ -69,59 +69,71 @@ export async function POST(request) {
       const planId = metadata.planId;
 
       if (credits > 0 && userId) {
-        // Check if this is a family pack purchase (prefer explicit flag on credit_plans)
+        // Check if this is a family pack purchase
         let isFamilyPack = false;
         if (planId) {
           const { data: planData } = await supabase
             .from('credit_plans')
-            .select('name, slug, is_family_pack')
+            .select('name, slug')
             .or(`slug.eq.${planId},id.eq.${planId}`)
             .maybeSingle();
           
           if (planData) {
             const planName = (planData.name || '').toLowerCase();
             const planSlug = (planData.slug || '').toLowerCase();
-            isFamilyPack =
-              planData.is_family_pack === true ||
-              planName.includes('family') ||
-              planSlug.includes('family');
-          } else {
-            const planIdLower = planId.toLowerCase();
-            isFamilyPack = planIdLower.includes('family');
+            isFamilyPack = planName.includes('family') || planSlug.includes('family');
           }
         }
 
-        // Get current credits
-        const { data: currentData, error: fetchError } = await supabase
-          .from('Students')
-          .select('credits, has_family_pack')
+        // Check if user is a principal first
+        const { data: principalData, error: principalFetchError } = await supabase
+          .from('Principals')
+          .select('credits')
           .eq('user_id', userId)
           .maybeSingle();
 
-        if (!fetchError) {
-          if (!currentData) {
-            // Create student record if it doesn't exist
-            await supabase
-              .from('Students')
-              .insert({
-                user_id: userId,
-                credits: credits,
-                has_family_pack: isFamilyPack,
-              });
-          } else {
-            const currentCredits = currentData?.credits || 0;
-            const newCredits = currentCredits + credits;
-            const updateData = { credits: newCredits };
-            
-            // If this is a family pack purchase, set has_family_pack to true
-            if (isFamilyPack) {
-              updateData.has_family_pack = true;
-            }
+        if (!principalFetchError && principalData) {
+          // User is a principal, update principal credits
+          const currentCredits = principalData.credits || 0;
+          const newCredits = currentCredits + credits;
 
-            await supabase
-              .from('Students')
-              .update(updateData)
-              .eq('user_id', userId);
+          await supabase
+            .from('Principals')
+            .update({ credits: newCredits })
+            .eq('user_id', userId);
+        } else {
+          // Check if user is a student
+          const { data: currentData, error: fetchError } = await supabase
+            .from('Students')
+            .select('credits, has_family_pack')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (!fetchError) {
+            if (!currentData) {
+              // Create student record if it doesn't exist
+              await supabase
+                .from('Students')
+                .insert({
+                  user_id: userId,
+                  credits: credits,
+                  has_family_pack: isFamilyPack,
+                });
+            } else {
+              const currentCredits = currentData?.credits || 0;
+              const newCredits = currentCredits + credits;
+              const updateData = { credits: newCredits };
+              
+              // If this is a family pack purchase, set has_family_pack to true
+              if (isFamilyPack) {
+                updateData.has_family_pack = true;
+              }
+
+              await supabase
+                .from('Students')
+                .update(updateData)
+                .eq('user_id', userId);
+            }
           }
         }
       }
