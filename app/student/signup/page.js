@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, UserPlus, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { ensureUserProfile } from '@/lib/authHelpers';
 
-export default function TutorSignupPage() {
+export default function StudentSignupPage() {
   const router = useRouter();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -45,7 +45,7 @@ export default function TutorSignupPage() {
           data: {
             first_name: firstName,
             last_name: lastName,
-            user_type: 'tutor',
+            user_type: 'student',
           },
         },
       });
@@ -54,19 +54,19 @@ export default function TutorSignupPage() {
 
       if (authData.user) {
         try {
-          await ensureUserProfile(authData.user.id, firstName, lastName, email, 'tutor');
+          await ensureUserProfile(authData.user.id, firstName, lastName, email, 'student');
         } catch (profileError) {
           console.error('Profile creation failed:', profileError);
         }
 
         try {
           const { notifySignup } = await import('@/lib/notificationService');
-          await notifySignup(email, 'tutor', firstName, lastName);
+          await notifySignup(email, 'student', firstName, lastName);
         } catch (notifError) {
           console.error('Failed to send signup notification:', notifError);
         }
 
-        setSuccess(`A confirmation email has been sent to ${email}. Please verify to finish setting up your tutor account.`);
+        setSuccess(`A confirmation email has been sent to ${email}. Please verify to finish setting up your student account.`);
         setFirstName('');
         setLastName('');
         setEmail('');
@@ -81,7 +81,7 @@ export default function TutorSignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 p-4">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-gray-200">
         <div className="p-6 flex items-center gap-3 border-b border-gray-100">
           <button
@@ -92,8 +92,8 @@ export default function TutorSignupPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Tutor Sign Up</h1>
-            <p className="text-sm text-gray-600">Create your tutor account</p>
+            <h1 className="text-xl font-bold text-gray-900">Student Sign Up</h1>
+            <p className="text-sm text-gray-600">Create your student account</p>
           </div>
         </div>
 
@@ -221,7 +221,7 @@ export default function TutorSignupPage() {
               ) : (
                 <>
                   <UserPlus className="w-4 h-4" />
-                  Create Tutor Account
+                  Create Student Account
                 </>
               )}
             </button>
@@ -241,4 +241,3 @@ export default function TutorSignupPage() {
     </div>
   );
 }
-
