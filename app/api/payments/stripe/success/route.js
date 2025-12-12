@@ -128,6 +128,46 @@ export async function GET(request) {
     // Check if credits were already added (prevent duplicate credit additions)
     // We can check the session metadata or use a transaction log
     console.log("Fetching current credits for user:", userId);
+    
+    // Check if user is a principal first
+    const { data: principalData, error: principalFetchError } = await supabase
+      .from('Principals')
+      .select('credits, id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (principalData) {
+      // User is a principal, update principal credits
+      const currentCredits = principalData.credits || 0;
+      const newCredits = currentCredits + credits;
+
+      console.log('Updating principal credits:', {
+        userId,
+        currentCredits,
+        creditsToAdd: credits,
+        newCredits,
+      });
+
+      const { data: updateData, error: updateError } = await supabase
+        .from('Principals')
+        .update({ credits: newCredits })
+        .eq('user_id', userId)
+        .select();
+
+      if (updateError) {
+        console.error('Error updating principal credits:', updateError);
+        return NextResponse.redirect(
+          `${baseUrl}/?tab=credits&error=update_error`
+        );
+      }
+
+      console.log('Principal credits updated successfully:', updateData);
+      return NextResponse.redirect(
+        `${baseUrl}/?tab=credits&success=true&credits=${credits}`
+      );
+    }
+
+    // Check if user is a student
     const { data: currentData, error: fetchError } = await supabase
       .from("Students")
       .select("credits, id, has_family_pack")

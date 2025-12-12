@@ -59,6 +59,9 @@ import SuperadminTasks from "./dashboard/SuperadminTasks";
 import AdminTutorApplications from "./dashboard/AdminTutorApplications";
 import TutorApplication from "./dashboard/TutorApplication";
 import SessionManagement from "./dashboard/SessionManagement";
+import PrincipalHome from "./dashboard/PrincipalHome";
+import PrincipalStudents from "./dashboard/PrincipalStudents";
+import PrincipalCredits from "./dashboard/PrincipalCredits";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -144,6 +147,26 @@ export default function Dashboard() {
           setUserName(adminData.name || user.email);
           // Load admin sidebar configuration for this specific admin
           await loadAdminSidebarConfig(adminData.id);
+          setLoading(false);
+          return;
+        }
+
+        // Check if user is a principal
+        const { data: principalData, error: principalError } = await supabase
+          .from("Principals")
+          .select("id, first_name, last_name, email")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        // Ignore 406 errors (not found is expected for non-principals)
+        if (principalError && principalError.code !== 'PGRST116') {
+          console.error("Error checking principal status:", principalError);
+        }
+
+        if (principalData) {
+          setUserRole("principal");
+          const fullName = `${principalData.first_name || ''} ${principalData.last_name || ''}`.trim();
+          setUserName(fullName || user.email);
           setLoading(false);
           return;
         }
@@ -283,6 +306,12 @@ export default function Dashboard() {
     { id: "profile", label: "Profile", icon: User },
   ];
 
+  const principalTabs = [
+    { id: "home", label: "Dashboard", icon: Home },
+    { id: "students", label: "My Students", icon: Users },
+    { id: "credits", label: "Add Credits", icon: Wallet },
+  ];
+
   const tutorApplicationTabs = [
     { id: "application", label: "Application", icon: FileText },
   ];
@@ -350,6 +379,8 @@ export default function Dashboard() {
           : [...studentTabs, { id: "review", label: "Review", icon: MessageSquare }])
       : userRole === "tutor"
       ? resolvedTutorTabs
+      : userRole === "principal"
+      ? principalTabs
       : userRole === "superadmin"
       ? superadminTabs
       : userRole === "admin"
@@ -407,6 +438,8 @@ export default function Dashboard() {
               <GraduationCap className="w-8 h-8 text-blue-600" />
             ) : userRole === "tutor" ? (
               <BookOpen className="w-8 h-8 text-green-600" />
+            ) : userRole === "principal" ? (
+              <Users className="w-8 h-8 text-indigo-600" />
             ) : userRole === "superadmin" ? (
               <ShieldCheck className="w-8 h-8 text-red-600" />
             ) : (
@@ -418,6 +451,8 @@ export default function Dashboard() {
                   ? "Student"
                   : userRole === "tutor"
                   ? "Tutor"
+                  : userRole === "principal"
+                  ? "Principal"
                   : userRole === "superadmin"
                   ? "Super Admin"
                   : "Admin"}
@@ -491,6 +526,15 @@ export default function Dashboard() {
           )}
           {activeTab === "assignments" && userRole === "student" && (
             <StudentAssignments />
+          )}
+          {activeTab === "home" && userRole === "principal" && (
+            <PrincipalHome setActiveTab={setActiveTab} />
+          )}
+          {activeTab === "students" && userRole === "principal" && (
+            <PrincipalStudents />
+          )}
+          {activeTab === "credits" && userRole === "principal" && (
+            <PrincipalCredits />
           )}
           {activeTab === "home" && userRole === "tutor" && <TutorHome />}
           {activeTab === "assignments" && userRole === "tutor" && (
