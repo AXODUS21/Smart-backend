@@ -44,3 +44,10 @@ CREATE POLICY "Service role full access"
 
 COMMIT;
 
+
+
+
+
+
+
+

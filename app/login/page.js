@@ -1,34 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, LogIn, UserPlus, GraduationCap, BookOpen, X, Mail, Key } from 'lucide-react';
+import { Eye, EyeOff, LogIn, X, Mail, Key, ArrowRight } from 'lucide-react';
 import emailjs from '@emailjs/browser';
-
-const USER_ROLES = [
-  {
-    value: 'student',
-    label: 'Student - Looking for tutoring',
-    icon: GraduationCap,
-  },
-  {
-    value: 'tutor',
-    label: 'Tutor - Want to teach students',
-    icon: BookOpen,
-  },
-];
+import { supabase } from '@/lib/supabase';
+import { ensureUserProfile } from '@/lib/authHelpers';
 
 export default function LoginPage() {
-  const [activeTab, setActiveTab] = useState('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [userType, setUserType] = useState('student');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -268,67 +251,6 @@ export default function LoginPage() {
     }
   };
 
-  // Helper function to create user profile if it doesn't exist
-  const ensureUserProfile = async (userId, userFirstName, userLastName, userEmail, userType) => {
-    try {
-      if (userType === 'student') {
-        // Check if student profile exists
-        const { data: existingStudent } = await supabase
-          .from('Students')
-          .select('id')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (!existingStudent) {
-          // Create student profile
-          const { error: insertError } = await supabase
-            .from('Students')
-            .insert({
-              user_id: userId,
-              first_name: userFirstName || '',
-              last_name: userLastName || '',
-              email: userEmail,
-              credits: 0,
-            });
-
-          if (insertError) {
-            console.error('Error creating student profile:', insertError);
-            throw new Error('Database error saving new user');
-          }
-        }
-      } else if (userType === 'tutor') {
-        // Check if tutor profile exists
-        const { data: existingTutor } = await supabase
-          .from('Tutors')
-          .select('id')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (!existingTutor) {
-          // Create tutor profile
-          const { error: insertError } = await supabase
-            .from('Tutors')
-            .insert({
-              user_id: userId,
-              first_name: userFirstName || '',
-              last_name: userLastName || '',
-              email: userEmail,
-              subjects: [],
-              application_status: false,
-            });
-
-          if (insertError) {
-            console.error('Error creating tutor profile:', insertError);
-            throw new Error('Database error saving new user');
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Error ensuring user profile:', err);
-      throw err;
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -336,88 +258,32 @@ export default function LoginPage() {
     setSuccess('');
 
     try {
-      if (activeTab === 'signup') {
-        // Validate passwords match
-        if (password !== confirmPassword) {
-          setError('Passwords do not match');
-          setLoading(false);
-          return;
-        }
+      // Sign in
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) throw signInError;
+
+      if (signInData.user) {
+        // Check if profile exists, create if missing
+        const userType = signInData.user.user_metadata?.user_type;
+        const userFirstName = signInData.user.user_metadata?.first_name || '';
+        const userLastName = signInData.user.user_metadata?.last_name || '';
         
-        // Sign up
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              first_name: firstName,
-              last_name: lastName,
-              user_type: userType,
-            },
-          },
-        });
-
-        if (authError) throw authError;
-
-        if (authData.user) {
-          // Try to create profile manually as fallback (in case trigger didn't run)
+        if (userType) {
           try {
-            await ensureUserProfile(authData.user.id, firstName, lastName, email, userType);
+            await ensureUserProfile(signInData.user.id, userFirstName, userLastName, signInData.user.email, userType);
           } catch (profileError) {
-            // If profile creation fails, still show success but log the error
-            console.error('Profile creation failed:', profileError);
-            // Don't throw here - user account was created, profile can be created later
-          }
-
-          // Send signup notification
-          try {
-            const { notifySignup } = await import('@/lib/notificationService');
-            await notifySignup(email, userType, firstName, lastName);
-            console.log('Signup notification sent');
-          } catch (notifError) {
-            console.error('Failed to send signup notification:', notifError);
-            // Don't fail signup if notification fails
-          }
-
-          setSuccess(`A confirmation email has been sent to ${email}. Please check your inbox (and spam folder) and click the confirmation link to verify your account.`);
-          
-          // Clear form
-          setEmail('');
-          setPassword('');
-          setConfirmPassword('');
-          setFirstName('');
-          setLastName('');
-          setUserType('student');
-          setActiveTab('signin');
-        }
-      } else {
-        // Sign in
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) throw signInError;
-
-        if (signInData.user) {
-          // Check if profile exists, create if missing
-          const userType = signInData.user.user_metadata?.user_type;
-          const userFirstName = signInData.user.user_metadata?.first_name || '';
-          const userLastName = signInData.user.user_metadata?.last_name || '';
-          
-          if (userType) {
-            try {
-              await ensureUserProfile(signInData.user.id, userFirstName, userLastName, signInData.user.email, userType);
-            } catch (profileError) {
-              // Log but don't block login
-              console.error('Profile check/creation failed:', profileError);
-            }
+            // Log but don't block login
+            console.error('Profile check/creation failed:', profileError);
           }
         }
-
-        router.push('/');
-        router.refresh();
       }
+
+      router.push('/');
+      router.refresh();
     } catch (err) {
       setError(err.message || 'An error occurred');
     } finally {
@@ -433,49 +299,11 @@ export default function LoginPage() {
             Welcome
           </h1>
           <p className="text-center text-sm text-gray-600">
-            Sign in to your account or create a new one
+            Sign in to your account
           </p>
         </div>
 
         <div className="px-8 pb-8">
-          {/* Tabs */}
-          <div className="grid w-full grid-cols-2 mb-6 rounded-lg bg-gray-100 p-1">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('signin');
-                setError('');
-                setSuccess('');
-                setPassword('');
-                setConfirmPassword('');
-              }}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'signin'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('signup');
-                setError('');
-                setSuccess('');
-                setPassword('');
-                setConfirmPassword('');
-              }}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'signup'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Sign Up
-            </button>
-          </div>
-
           {error && (
             <div className="mb-4 rounded-lg bg-red-100 p-3 text-sm text-red-700">
               {error}
@@ -494,230 +322,90 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Sign In Form */}
-          {activeTab === 'signin' && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="signin-email" className="text-sm font-medium text-gray-700">
-                  Email
-                </label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="signin-email" className="text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                id="signin-email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                required
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="signin-password" className="text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <div className="relative">
                 <input
-                  id="signin-email"
-                  name="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
+                  id="signin-password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
                   required
                   className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="signin-password" className="text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="signin-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-0 top-0 h-full px-3 py-2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="flex justify-between items-center mt-2">
                 <button
                   type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-0 top-0 h-full px-3 py-2 text-gray-500 hover:text-gray-700"
                 >
-                  Forgot password?
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+            </div>
+            <div className="flex justify-between items-center mt-2">
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
               >
-                {loading ? (
-                  'Signing in...'
-                ) : (
-                  <>
-                    <LogIn className="w-4 h-4" />
-                    Sign In
-                  </>
-                )}
+                Forgot password?
               </button>
-            </form>
-          )}
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                'Signing in...'
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4" />
+                  Sign In
+                </>
+              )}
+            </button>
+          </form>
 
-          {/* Sign Up Form */}
-          {activeTab === 'signup' && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="signup-firstname" className="text-sm font-medium text-gray-700">
-                    First Name
-                  </label>
-                  <input
-                    id="signup-firstname"
-                    name="firstName"
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Enter your first name"
-                    required
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="signup-lastname" className="text-sm font-medium text-gray-700">
-                    Last Name
-                  </label>
-                  <input
-                    id="signup-lastname"
-                    name="lastName"
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Enter your last name"
-                    required
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="signup-email" className="text-sm font-medium text-gray-700">
-                  Email
-                </label>
-                <input
-                  id="signup-email"
-                  name="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  required
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="signup-role" className="text-sm font-medium text-gray-700">
-                  I am a...
-                </label>
-                <div className="relative">
-                  <select
-                    id="signup-role"
-                    value={userType}
-                    onChange={(e) => setUserType(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer"
-                  >
-                    {USER_ROLES.map((role) => {
-                      const Icon = role.icon;
-                      return (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg
-                      className="h-4 w-4 text-gray-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="signup-password" className="text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="signup-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Create a password"
-                    required
-                    minLength={6}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-0 top-0 h-full px-3 py-2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="signup-confirm-password" className="text-sm font-medium text-gray-700">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="signup-confirm-password"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm your password"
-                    required
-                    minLength={6}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-0 top-0 h-full px-3 py-2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-                {confirmPassword && password !== confirmPassword && (
-                  <p className="text-sm text-red-600 mt-1">Passwords do not match</p>
-                )}
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          <div className="mt-6 space-y-2">
+            <p className="text-center text-sm text-gray-600">Need an account?</p>
+            <div className="flex flex-col gap-2">
+              <Link
+                href="/tutor/signup"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors"
               >
-                {loading ? (
-                  'Creating account...'
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4" />
-                    Sign Up
-                  </>
-                )}
-              </button>
-            </form>
-          )}
+                Sign up as Tutor
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/principal/signup"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                Sign up as Principal
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
 
