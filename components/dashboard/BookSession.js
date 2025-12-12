@@ -309,7 +309,7 @@ export default function BookSession() {
 
       const { data: tutorData, error: tutorError } = await supabase
         .from("Tutors")
-        .select("id")
+        .select("id, email, first_name, last_name")
         .eq("name", selectedTutor)
         .single();
 
@@ -393,6 +393,59 @@ export default function BookSession() {
         .eq("id", studentData.id);
 
       if (updateCreditsError) throw updateCreditsError;
+
+      // Check for low credits and send notification
+      if (newCredits <= 1) {
+        try {
+          const { notifyLowCredits } = await import('@/lib/notificationService');
+          const studentEmail = studentData.email;
+          const studentName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || 'Student';
+          
+          if (studentEmail) {
+            await notifyLowCredits(studentEmail, studentName, newCredits);
+            console.log('Low credits notification sent');
+          }
+        } catch (notifError) {
+          console.error('Failed to send low credits notification:', notifError);
+          // Don't fail booking if notification fails
+        }
+      }
+
+      // Send session booking notification
+      try {
+        const { notifySessionBooking } = await import('@/lib/notificationService');
+        const { getTutorEmailById, getStudentEmailById } = await import('@/lib/notifications');
+        
+        const tutorEmail = tutorData.email || await getTutorEmailById(tutorData.id);
+        const studentEmail = studentData.email || await getStudentEmailById(studentData.id);
+        const studentName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || 'Student';
+        const tutorName = `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim() || selectedTutor;
+        
+        // Format date and time for display
+        const sessionDate = new Date(selectedDate).toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        
+        if (tutorEmail && studentEmail) {
+          await notifySessionBooking(
+            studentEmail,
+            studentName,
+            tutorEmail,
+            tutorName,
+            sessionDate,
+            selectedTime,
+            selectedSubject,
+            'booked'
+          );
+          console.log('Session booking notification sent');
+        }
+      } catch (notifError) {
+        console.error('Failed to send session booking notification:', notifError);
+        // Don't fail booking if notification fails
+      }
 
       alert(
         `Session booked!\nTutor: ${selectedTutor}\nGrade Level: ${selectedGradeLevel}\nSubject: ${selectedSubject}\nDate: ${selectedDate}\nTime: ${selectedTime}\nDuration: ${selectedDuration}\nCredits used: ${creditsRequired}`

@@ -298,7 +298,7 @@ export default function Meetings() {
       // Get the booking details first
       const { data: bookingData, error: bookingError } = await supabase
         .from("Schedules")
-        .select("student_id")
+        .select("student_id, tutor_id, subject, start_time_utc, end_time_utc")
         .eq("id", bookingId)
         .maybeSingle();
 
@@ -364,6 +364,62 @@ export default function Meetings() {
       if (updateBookingError) {
         console.error("Error updating booking status:", updateBookingError);
         throw new Error("Failed to reject booking");
+      }
+
+      // Send session response notification (declined)
+      try {
+        const { notifySessionResponse } = await import('@/lib/notificationService');
+        const { getTutorEmailById, getStudentEmailById } = await import('@/lib/notifications');
+        
+        // Get tutor and student info
+        const tutorEmail = await getTutorEmailById(bookingData.tutor_id);
+        const studentEmail = await getStudentEmailById(bookingData.student_id);
+        
+        // Get tutor and student names
+        const { data: tutorInfo } = await supabase
+          .from("Tutors")
+          .select("first_name, last_name")
+          .eq("id", bookingData.tutor_id)
+          .single();
+        
+        const { data: studentInfo } = await supabase
+          .from("Students")
+          .select("first_name, last_name")
+          .eq("id", bookingData.student_id)
+          .single();
+        
+        const tutorName = tutorInfo ? `${tutorInfo.first_name || ''} ${tutorInfo.last_name || ''}`.trim() : 'Tutor';
+        const studentName = studentInfo ? `${studentInfo.first_name || ''} ${studentInfo.last_name || ''}`.trim() : 'Student';
+        
+        // Format date and time for display
+        const sessionDate = new Date(bookingData.start_time_utc).toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        const sessionTime = new Date(bookingData.start_time_utc).toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true 
+        });
+        
+        if (tutorEmail && studentEmail) {
+          await notifySessionResponse(
+            tutorEmail,
+            tutorName,
+            studentEmail,
+            studentName,
+            sessionDate,
+            sessionTime,
+            bookingData.subject || 'General Session',
+            'declined'
+          );
+          console.log('Session decline notification sent');
+        }
+      } catch (notifError) {
+        console.error('Failed to send session decline notification:', notifError);
+        // Don't fail rejection if notification fails
       }
 
       // Refresh bookings

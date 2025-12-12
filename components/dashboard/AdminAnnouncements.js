@@ -132,6 +132,33 @@ export default function AdminAnnouncements() {
           });
 
         if (insertError) throw insertError;
+        
+        // Send announcement notification
+        try {
+          const { notifyAnnouncement } = await import('@/lib/notificationService');
+          
+          // Map target_audience to roles
+          const roles = formData.target_audience.map(audience => {
+            if (audience === 'students') return 'student';
+            if (audience === 'tutors') return 'tutor';
+            if (audience === 'admins') return 'admin';
+            return audience;
+          });
+          
+          // If no specific audience, send to all
+          const targetRoles = roles.length > 0 ? roles : ['student', 'tutor', 'admin', 'superadmin'];
+          
+          await notifyAnnouncement(
+            formData.title,
+            formData.message,
+            targetRoles
+          );
+          console.log('Announcement notification sent');
+        } catch (notifError) {
+          console.error('Failed to send announcement notification:', notifError);
+          // Don't fail announcement if notification fails
+        }
+        
         setSuccess("Announcement created successfully!");
       }
 

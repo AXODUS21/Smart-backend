@@ -56,7 +56,7 @@ export default function BookingModal({
 
       const { data: tutorData, error: tutorError } = await supabase
         .from("Tutors")
-        .select("id")
+        .select("id, email, first_name, last_name")
         .eq("user_id", tutor.user_id)
         .single();
 
@@ -103,6 +103,59 @@ export default function BookingModal({
         .eq("id", studentData.id);
 
       if (updateCreditsError) throw updateCreditsError;
+
+      // Check for low credits and send notification
+      if (newCredits <= 1) {
+        try {
+          const { notifyLowCredits } = await import('@/lib/notificationService');
+          const studentEmail = studentData.email;
+          const studentName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || 'Student';
+          
+          if (studentEmail) {
+            await notifyLowCredits(studentEmail, studentName, newCredits);
+            console.log('Low credits notification sent');
+          }
+        } catch (notifError) {
+          console.error('Failed to send low credits notification:', notifError);
+          // Don't fail booking if notification fails
+        }
+      }
+
+      // Send session booking notification
+      try {
+        const { notifySessionBooking } = await import('@/lib/notificationService');
+        const { getStudentEmailById } = await import('@/lib/notifications');
+        
+        const tutorEmail = tutorData.email;
+        const studentEmail = studentData.email || await getStudentEmailById(studentData.id);
+        const studentName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || 'Student';
+        const tutorName = `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim() || tutor.name || 'Tutor';
+        
+        // Format date and time for display
+        const sessionDate = new Date(slot.date).toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        
+        if (tutorEmail && studentEmail) {
+          await notifySessionBooking(
+            studentEmail,
+            studentName,
+            tutorEmail,
+            tutorName,
+            sessionDate,
+            slot.startTime,
+            subject || 'General Session',
+            'booked'
+          );
+          console.log('Session booking notification sent');
+        }
+      } catch (notifError) {
+        console.error('Failed to send session booking notification:', notifError);
+        // Don't fail booking if notification fails
+      }
 
       setSuccess(`Meeting request sent! ${creditsRequired} credits deducted.`);
 

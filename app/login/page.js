@@ -369,6 +369,16 @@ export default function LoginPage() {
             // Don't throw here - user account was created, profile can be created later
           }
 
+          // Send signup notification
+          try {
+            const { notifySignup } = await import('@/lib/notificationService');
+            await notifySignup(email, userType, firstName, lastName);
+            console.log('Signup notification sent');
+          } catch (notifError) {
+            console.error('Failed to send signup notification:', notifError);
+            // Don't fail signup if notification fails
+          }
+
           setSuccess(`A confirmation email has been sent to ${email}. Please check your inbox (and spam folder) and click the confirmation link to verify your account.`);
           
           // Clear form

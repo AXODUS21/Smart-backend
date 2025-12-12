@@ -116,7 +116,7 @@ export default function PastSessions() {
       // First, check if credits were already awarded (check current session status from DB)
       const { data: currentSession, error: fetchError } = await supabase
         .from("Schedules")
-        .select("session_status, credits_required")
+        .select("session_status, credits_required, student_id, subject, start_time_utc, tutor_id")
         .eq("id", id)
         .single();
 
@@ -165,6 +165,60 @@ export default function PastSessions() {
         .eq("id", id);
 
       if (error) throw error;
+
+      // Send tutor review notification
+      try {
+        const { notifyTutorReview } = await import('@/lib/notificationService');
+        const { getStudentEmailById } = await import('@/lib/notifications');
+        
+        // Get student info
+        const { data: studentInfo } = await supabase
+          .from("Students")
+          .select("email, first_name, last_name")
+          .eq("id", currentSession.student_id)
+          .single();
+        
+        // Get tutor info
+        const { data: tutorInfo } = await supabase
+          .from("Tutors")
+          .select("first_name, last_name")
+          .eq("id", currentSession.tutor_id)
+          .single();
+        
+        const studentEmail = studentInfo?.email || await getStudentEmailById(currentSession.student_id);
+        const studentName = studentInfo ? `${studentInfo.first_name || ''} ${studentInfo.last_name || ''}`.trim() : 'Student';
+        const tutorName = tutorInfo ? `${tutorInfo.first_name || ''} ${tutorInfo.last_name || ''}`.trim() : 'Tutor';
+        
+        // Format date for display
+        const sessionDate = new Date(currentSession.start_time_utc).toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        
+        // Extract rating from review if it contains a rating (e.g., "5 stars" or just a number)
+        // For now, default to 5 if not specified
+        const reviewText = reviews[id] || '';
+        const ratingMatch = reviewText.match(/\b([1-5])\b/);
+        const rating = ratingMatch ? parseInt(ratingMatch[1]) : 5;
+        
+        if (studentEmail) {
+          await notifyTutorReview(
+            tutorName,
+            studentEmail,
+            studentName,
+            sessionDate,
+            currentSession.subject || 'General Session',
+            rating,
+            reviewText
+          );
+          console.log('Tutor review notification sent');
+        }
+      } catch (notifError) {
+        console.error('Failed to send tutor review notification:', notifError);
+        // Don't fail review submission if notification fails
+      }
 
       // Update local state
       setSessions(

@@ -101,6 +101,21 @@ export default function AdminTutorApplications() {
 
       if (updateApplicationError) throw updateApplicationError;
 
+      // Send tutor application approval notification
+      try {
+        const { notifyTutorApplicationApproval } = await import('@/lib/notificationService');
+        await notifyTutorApplicationApproval(
+          application.email,
+          application.full_name,
+          application.id,
+          status
+        );
+        console.log('Tutor application approval notification sent');
+      } catch (notifError) {
+        console.error('Failed to send tutor application approval notification:', notifError);
+        // Don't fail approval if notification fails
+      }
+
       await loadApplications();
       setDecisionNotes((prev) => ({
         ...prev,

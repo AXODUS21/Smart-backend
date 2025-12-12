@@ -246,11 +246,27 @@ export default function TutorApplication({ onApplicationStatusChange, tutorId: i
         status: "pending",
       };
 
-      const { error: insertError } = await supabase
+      const { data: insertedData, error: insertError } = await supabase
         .from("TutorApplications")
-        .insert(insertPayload);
+        .insert(insertPayload)
+        .select('id')
+        .single();
 
       if (insertError) throw insertError;
+
+      // Send tutor application notification
+      try {
+        const { notifyTutorApplication } = await import('@/lib/notificationService');
+        await notifyTutorApplication(
+          formValues.fullName.trim(),
+          formValues.email.trim(),
+          insertedData.id
+        );
+        console.log('Tutor application notification sent');
+      } catch (notifError) {
+        console.error('Failed to send tutor application notification:', notifError);
+        // Don't fail application if notification fails
+      }
 
       setSuccess("Application submitted successfully. We'll notify you once it's reviewed.");
       setFormValues((prev) => ({ ...prev, resumeFile: null }));

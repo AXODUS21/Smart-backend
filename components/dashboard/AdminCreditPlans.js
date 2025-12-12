@@ -64,7 +64,7 @@ const normalizePlan = (plan) => {
       hours: hoursValue,
       price: isPhPlan
         ? normalizedPricePhp.toFixed(2)
-        : normalizedPriceUsd.toFixed(2)p
+        : normalizedPriceUsd.toFixed(2),
       priceUsd: normalizedPriceUsd.toFixed(2),
       pricePhp: normalizedPricePhp.toFixed(2),
       pricePerHour: pricePerHourValue,

@@ -162,7 +162,7 @@ export async function POST(request) {
     const { data: schedule, error: scheduleError } = await supabase
       .from("Schedules")
       .select(
-        "id, tutor_id, student_id, subject, status, meeting_link"
+        "id, tutor_id, student_id, subject, status, meeting_link, start_time_utc, end_time_utc"
       )
       .eq("id", scheduleId)
       .single();
@@ -314,6 +314,40 @@ export async function POST(request) {
         { error: "Failed to update booking with Pencil Space link" },
         { status: 500 }
       );
+    }
+
+    // Send session response notification (accepted)
+    try {
+      const { notifySessionResponse } = await import('@/lib/notificationService');
+      
+      const sessionDate = new Date(schedule.start_time_utc).toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      const sessionTime = new Date(schedule.start_time_utc).toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      
+      if (tutorProfile?.email && studentProfile?.email) {
+        await notifySessionResponse(
+          tutorProfile.email,
+          tutorProfile.name || 'Tutor',
+          studentProfile.email,
+          studentProfile.name || 'Student',
+          sessionDate,
+          sessionTime,
+          schedule.subject || 'General Session',
+          'accepted'
+        );
+        console.log('Session acceptance notification sent');
+      }
+    } catch (notifError) {
+      console.error('Failed to send session acceptance notification:', notifError);
+      // Don't fail the accept if notification fails
     }
 
     return NextResponse.json({

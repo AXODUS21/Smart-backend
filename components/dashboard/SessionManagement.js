@@ -259,10 +259,55 @@ export default function SessionManagement() {
         console.log("Credits refunded. New balance:", newCredits);
       }
 
-      // Create notification for tutor about cancellation
-      const studentName = studentData?.name || "A student";
-      const notificationMessage = `${studentName} cancelled a session scheduled for ${new Date(selectedSession.start_time_utc).toLocaleDateString()} at ${new Date(selectedSession.start_time_utc).toLocaleTimeString()}. Reason: ${cancellationReason}`;
-      console.log("Tutor Notification:", notificationMessage);
+      // Send session cancellation notification
+      try {
+        const { notifySessionBooking } = await import('@/lib/notificationService');
+        const { getTutorEmailById, getStudentEmailById } = await import('@/lib/notifications');
+        
+        // Get tutor and student info
+        const tutorEmail = await getTutorEmailById(selectedSession.tutor_id);
+        const studentEmail = await getStudentEmailById(selectedSession.student_id);
+        
+        // Get tutor and student names
+        const { data: tutorInfo } = await supabase
+          .from("Tutors")
+          .select("first_name, last_name")
+          .eq("id", selectedSession.tutor_id)
+          .single();
+        
+        const studentName = studentData?.name || `${studentData?.first_name || ''} ${studentData?.last_name || ''}`.trim() || 'Student';
+        const tutorName = tutorInfo ? `${tutorInfo.first_name || ''} ${tutorInfo.last_name || ''}`.trim() : 'Tutor';
+        
+        // Format date and time for display
+        const sessionDate = new Date(selectedSession.start_time_utc).toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        const sessionTime = new Date(selectedSession.start_time_utc).toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true 
+        });
+        
+        if (tutorEmail && studentEmail) {
+          await notifySessionBooking(
+            studentEmail,
+            studentName,
+            tutorEmail,
+            tutorName,
+            sessionDate,
+            sessionTime,
+            selectedSession.subject || 'General Session',
+            'cancelled'
+          );
+          console.log('Session cancellation notification sent');
+        }
+      } catch (notifError) {
+        console.error('Failed to send session cancellation notification:', notifError);
+        // Don't fail cancellation if notification fails
+      }
 
       alert("Session cancelled successfully. Credits have been refunded.");
       
