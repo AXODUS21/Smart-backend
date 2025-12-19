@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  createPencilApiUser,
-  createPencilSpace,
-} from "@/lib/pencilSpaces";
+import { createPencilSpace } from "@/lib/pencilSpaces";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey =
@@ -197,111 +194,25 @@ export async function POST(request) {
       schedule.student_id
     );
 
-    const studentSupabaseId =
-      studentRecord?.user_id || schedule.student_id;
-
-    if (!studentSupabaseId) {
-      return NextResponse.json(
-        { error: "Student information is incomplete" },
-        { status: 422 }
-      );
-    }
-
-    let tutorProfile =
-      tutorRecord?.email
-        ? { email: tutorRecord.email, name: tutorRecord.name }
-        : await fetchAuthUserProfile(supabase, tutorSupabaseId);
-    let studentProfile =
-      studentRecord?.email
-        ? {
-            email: studentRecord.email,
-            name:
-              studentRecord.name ||
-              studentRecord.profile_name ||
-              buildDisplayName(studentRecord, "Student"),
-          }
-        : await fetchAuthUserProfile(supabase, studentSupabaseId);
-
-    // Fallbacks: if we still don't have tutor or student emails, try to use
-    // the authenticated user's email for the tutor (since they are accepting)
-    // and keep the student email strictly from profile/auth records.
-    if (!tutorProfile?.email && authedUser?.email) {
-      tutorProfile = {
-        email: authedUser.email,
-        name:
-          tutorProfile?.name ||
-          authedUser.user_metadata?.full_name ||
-          authedUser.user_metadata?.name ||
-          authedUser.email,
-      };
-    }
-
-    // As a final safety net, synthesize fallback emails if the database/auth
-    // records are missing them so Pencil Spaces still gets valid identifiers.
-    if (!tutorProfile?.email) {
-      tutorProfile = {
-        email: `${tutorSupabaseId || "unknown-tutor"}@tutor.smartb.local`,
-        name: tutorProfile?.name || "Tutor",
-      };
-    }
-
-    if (!studentProfile?.email) {
-      studentProfile = {
-        email: `${studentSupabaseId || "unknown-student"}@student.smartb.local`,
-        name: studentProfile?.name || "Student",
-      };
-    }
-
-    const tutorApiUser = await createPencilApiUser({
-      name: buildDisplayName(
-        tutorRecord,
-        tutorProfile?.name || tutorProfile.email
-      ),
-      email: tutorProfile.email,
-      role: "Teacher",
-      externalId: tutorSupabaseId,
-    });
-
-    const studentApiUser = await createPencilApiUser({
-      name:
-        buildDisplayName(
-          studentRecord,
-          studentProfile?.name || studentProfile.email
-        ) || studentProfile.email,
-      email: studentProfile.email,
-      role: "Student",
-      externalId: studentSupabaseId,
-    });
-
-    if (!tutorApiUser?.userId || !studentApiUser?.userId) {
-      throw new Error("Failed to provision Pencil Spaces users");
-    }
-
     const spaceTitle =
       schedule.subject ||
-      `Tutoring Session with ${studentProfile?.name || "Student"}`;
+      `Tutoring Session`;
 
     const pencilSpace = await createPencilSpace({
       title: spaceTitle,
-      hostUserId: tutorApiUser?.userId,
-      participantUserId: studentApiUser?.userId,
+      visibility: "public",
     });
 
-    if (!pencilSpace?.spaceId) {
-      throw new Error("Pencil Spaces did not return a spaceId");
+    if (!pencilSpace?.link) {
+      throw new Error("Pencil Spaces did not return a Space link");
     }
-
-    const metadataString = serializePencilMetadata({
-      space: pencilSpace,
-      hostUserId: tutorApiUser?.userId,
-      participantUserId: studentApiUser?.userId,
-    });
 
     const { data: updatedSchedule, error: updateError } = await supabase
       .from("Schedules")
       .update({
         status: "confirmed",
-        meeting_link: metadataString,
+        // Store plain Space URL so both parties can join via link
+        meeting_link: pencilSpace.link,
       })
       .eq("id", scheduleId)
       .select(
@@ -332,12 +243,26 @@ export async function POST(request) {
         hour12: true 
       });
       
-      if (tutorProfile?.email && studentProfile?.email) {
+      const tutorEmail =
+        tutorRecord?.email || authedUser?.email || null;
+      const tutorName =
+        tutorRecord?.name ||
+        authedUser?.user_metadata?.full_name ||
+        authedUser?.user_metadata?.name ||
+        "Tutor";
+      const studentEmail =
+        studentRecord?.email || null;
+      const studentName =
+        studentRecord?.name ||
+        studentRecord?.profile_name ||
+        "Student";
+
+      if (tutorEmail && studentEmail) {
         await notifySessionResponse(
-          tutorProfile.email,
-          tutorProfile.name || 'Tutor',
-          studentProfile.email,
-          studentProfile.name || 'Student',
+          tutorEmail,
+          tutorName,
+          studentEmail,
+          studentName,
           sessionDate,
           sessionTime,
           schedule.subject || 'General Session',
@@ -353,7 +278,6 @@ export async function POST(request) {
     return NextResponse.json({
       schedule: updatedSchedule,
       pencilSpace: {
-        id: pencilSpace?.spaceId,
         link: pencilSpace?.link,
       },
     });
