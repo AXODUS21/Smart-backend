@@ -67,11 +67,12 @@ export async function GET(request) {
           .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
 
         // Get total withdrawals (convert PHP to credits)
+        // Only count withdrawals that are approved, processing, or completed (not pending or rejected)
         const { data: withdrawals } = await supabase
           .from('TutorWithdrawals')
           .select('amount')
           .eq('tutor_id', tutorData.id)
-          .in('status', ['pending', 'approved', 'completed']);
+          .in('status', ['approved', 'processing', 'completed']);
 
         const totalWithdrawnCredits = withdrawals
           ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 140, 0)
