@@ -143,11 +143,12 @@ export default function TutorProfile() {
                 .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
 
               // Get total amount withdrawn (convert PHP to credits)
+              // Only count approved, processing, or completed withdrawals (not pending or rejected)
               const { data: withdrawals } = await supabase
                 .from("TutorWithdrawals")
                 .select("amount")
                 .eq("tutor_id", tutorData.id)
-                .in("status", ["pending", "approved", "completed"]);
+                .in("status", ["approved", "processing", "completed"]);
 
               const totalWithdrawnCredits = withdrawals
                 ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 140, 0) // Convert PHP to credits (1 credit = 140 PHP)
@@ -260,11 +261,12 @@ export default function TutorProfile() {
             .filter((s) => s.status === "confirmed")
             .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
 
+          // Only count approved, processing, or completed withdrawals (not pending or rejected)
           const { data: withdrawals } = await supabase
             .from("TutorWithdrawals")
             .select("amount")
             .eq("tutor_id", updatedTutorData.id)
-            .in("status", ["pending", "approved", "completed"]);
+            .in("status", ["approved", "processing", "completed"]);
 
           const totalWithdrawnCredits = withdrawals
             ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 140, 0)

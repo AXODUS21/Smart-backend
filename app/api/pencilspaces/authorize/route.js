@@ -24,6 +24,23 @@ function getSupabaseClient() {
   });
 }
 
+// Create a client with anon key for user token verification
+function getSupabaseAuthClient() {
+  if (!supabaseUrl) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured");
+  }
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anonKey) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is required for authentication");
+  }
+  return createClient(supabaseUrl, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
 function extractBearerToken(request) {
   const header =
     request.headers.get("authorization") ||
@@ -34,13 +51,16 @@ function extractBearerToken(request) {
   return token?.trim() || null;
 }
 
-async function getAuthenticatedUser(request, supabase) {
+async function getAuthenticatedUser(request) {
   const token = extractBearerToken(request);
   if (!token) {
     return null;
   }
-  const { data, error } = await supabase.auth.getUser(token);
+  // Use anon key client for token verification (service role can't verify user tokens)
+  const authClient = getSupabaseAuthClient();
+  const { data, error } = await authClient.auth.getUser(token);
   if (error || !data?.user) {
+    console.error("Auth error:", error?.message);
     return null;
   }
   return data.user;
@@ -102,7 +122,7 @@ export async function POST(request) {
     }
 
     const supabase = getSupabaseClient();
-    const authedUser = await getAuthenticatedUser(request, supabase);
+    const authedUser = await getAuthenticatedUser(request);
 
     if (!authedUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

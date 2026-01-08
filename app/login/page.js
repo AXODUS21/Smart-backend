@@ -292,7 +292,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-200">
         <div className="p-8 space-y-1">
           <h1 className="text-2xl font-bold text-center text-gray-900">
@@ -390,6 +390,13 @@ export default function LoginPage() {
           <div className="mt-6 space-y-2">
             <p className="text-center text-sm text-gray-600">Need an account?</p>
             <div className="flex flex-col gap-2">
+              <Link
+                href="/student/signup"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                Sign up as Student
+                <ArrowRight className="w-4 h-4" />
+              </Link>
               <Link
                 href="/tutor/signup"
                 className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors"

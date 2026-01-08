@@ -30,6 +30,7 @@ import {
   FileText,
   ClipboardList,
   Layout,
+  DollarSign,
 } from "lucide-react";
 
 // Dashboard components
@@ -58,6 +59,7 @@ import StudentAssignments from "./dashboard/StudentAssignments";
 import AdminAnnouncements from "./dashboard/AdminAnnouncements";
 import SuperadminSidebarConfig from "./dashboard/SuperadminSidebarConfig";
 import SuperadminTasks from "./dashboard/SuperadminTasks";
+import SuperadminWithdrawals from "./dashboard/SuperadminWithdrawals";
 import AdminTutorApplications from "./dashboard/AdminTutorApplications";
 import TutorApplication from "./dashboard/TutorApplication";
 import SessionManagement from "./dashboard/SessionManagement";
@@ -425,6 +427,7 @@ export default function Dashboard() {
     { id: "subjects", label: "Subjects", icon: CheckSquare },
     { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
+    { id: "withdraw-requests", label: "Withdrawal Requests", icon: DollarSign },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
     {
@@ -716,6 +719,9 @@ export default function Dashboard() {
           )}
           {activeTab === "tutor-applications" && userRole === "superadmin" && (
             <AdminTutorApplications />
+          )}
+          {activeTab === "withdraw-requests" && userRole === "superadmin" && (
+            <SuperadminWithdrawals />
           )}
           {/* Admin tabs */}
           {activeTab === "home" && userRole === "admin" && <AdminDashboard />}
