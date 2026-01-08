@@ -12,7 +12,11 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { getActiveProfile, buildPrimaryProfileName, DEFAULT_PROFILE_ID } from "@/lib/studentProfiles";
+import {
+  getActiveProfile,
+  buildPrimaryProfileName,
+  DEFAULT_PROFILE_ID,
+} from "@/lib/studentProfiles";
 
 export default function StudentHome({ setActiveTab }) {
   const { user } = useAuth();
@@ -43,20 +47,25 @@ export default function StudentHome({ setActiveTab }) {
         // Get student data
         const { data: studentData } = await supabase
           .from("Students")
-          .select("id, first_name, last_name, credits, extra_profiles, active_profile_id")
+          .select(
+            "id, first_name, last_name, credits, extra_profiles, active_profile_id"
+          )
           .eq("user_id", user.id)
           .single();
 
         if (studentData) {
           setStudentRecord(studentData);
-          const fullName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim();
+          const fullName = `${studentData.first_name || ""} ${
+            studentData.last_name || ""
+          }`.trim();
           setStudentName(fullName || user.email);
           setMetrics((prev) => ({
             ...prev,
             creditsAvailable: studentData.credits || 0,
           }));
 
-          const profileIdFilter = studentData.active_profile_id || DEFAULT_PROFILE_ID;
+          const profileIdFilter =
+            studentData.active_profile_id || DEFAULT_PROFILE_ID;
 
           // Get sessions
           const { data: sessions } = await supabase
@@ -110,11 +119,15 @@ export default function StudentHome({ setActiveTab }) {
               )
               .slice(0, 3)
               .map((session) => {
-                const tutorFullName = session.tutor 
-                  ? `${session.tutor.first_name || ''} ${session.tutor.last_name || ''}`.trim() 
-                  : '';
+                const tutorFullName = session.tutor
+                  ? `${session.tutor.first_name || ""} ${
+                      session.tutor.last_name || ""
+                    }`.trim()
+                  : "";
                 return {
-                  description: `Session completed with ${tutorFullName || "tutor"}`,
+                  description: `Session completed with ${
+                    tutorFullName || "tutor"
+                  }`,
                   time: getTimeAgo(new Date(session.end_time_utc)),
                 };
               });
@@ -261,7 +274,7 @@ export default function StudentHome({ setActiveTab }) {
           </div>
           <button
             onClick={() => setActiveTab && setActiveTab("credits")}
-            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-2 rounded-lg shadow transition-colors"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-5 py-2 rounded-lg shadow transition-colors"
           >
             Buy Credits
           </button>
@@ -274,7 +287,9 @@ export default function StudentHome({ setActiveTab }) {
         <p className="text-slate-500">{getCurrentDate()}</p>
         {activeProfileName && (
           <p className="text-xs text-slate-500 mt-1">
-            Viewing dashboard for <span className="font-medium">{activeProfileName}</span>. Switch profiles in Student Settings.
+            Viewing dashboard for{" "}
+            <span className="font-medium">{activeProfileName}</span>. Switch
+            profiles in Student Settings.
           </p>
         )}
       </div>
@@ -328,13 +343,18 @@ export default function StudentHome({ setActiveTab }) {
                     </p>
                     {session.profile_name && (
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Profile: <span className="font-medium">{session.profile_name}</span>
+                        Profile:{" "}
+                        <span className="font-medium">
+                          {session.profile_name}
+                        </span>
                       </p>
                     )}
                   </div>
                   <span className="text-sm font-medium text-blue-600">
-                    {session.tutor 
-                      ? `${session.tutor.first_name || ''} ${session.tutor.last_name || ''}`.trim() || "Tutor"
+                    {session.tutor
+                      ? `${session.tutor.first_name || ""} ${
+                          session.tutor.last_name || ""
+                        }`.trim() || "Tutor"
                       : "Tutor"}
                   </span>
                 </div>

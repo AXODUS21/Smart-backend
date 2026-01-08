@@ -20,10 +20,10 @@ export default function Header({ userName, onProfileClick }) {
       </div>
 
       <div className="flex items-center gap-4 ml-8">
-        <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+        <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors hidden">
           <MessageCircle size={20} className="text-slate-600" />
         </button>
-        <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors relative">
+        <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors relative hidden">
           <Bell size={20} className="text-slate-600" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>

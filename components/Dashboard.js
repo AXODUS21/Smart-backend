@@ -11,6 +11,7 @@ import {
   GraduationCap,
   BookOpen,
   ChevronRight,
+  ChevronDown,
   X,
   LogOut,
   Video,
@@ -28,6 +29,7 @@ import {
   ListTodo,
   FileText,
   ClipboardList,
+  Layout,
 } from "lucide-react";
 
 // Dashboard components
@@ -73,8 +75,10 @@ export default function Dashboard() {
   const [userName, setUserName] = useState("");
   const [studentModeEnabled, setStudentModeEnabled] = useState(false);
   const [adminSidebarConfig, setAdminSidebarConfig] = useState([]);
-  const [tutorApplicationApproved, setTutorApplicationApproved] = useState(null);
+  const [tutorApplicationApproved, setTutorApplicationApproved] =
+    useState(null);
   const [tutorId, setTutorId] = useState(null);
+  const [openDropdowns, setOpenDropdowns] = useState({});
 
   // Handle URL parameters for tab selection
   useEffect(() => {
@@ -117,9 +121,9 @@ export default function Dashboard() {
           .select("id, name, email")
           .eq("user_id", user.id)
           .maybeSingle();
-        
+
         // Ignore 406 errors (not found is expected for non-superadmins)
-        if (superadminError && superadminError.code !== 'PGRST116') {
+        if (superadminError && superadminError.code !== "PGRST116") {
           console.error("Error checking superadmin status:", superadminError);
         }
 
@@ -136,9 +140,9 @@ export default function Dashboard() {
           .select("id, name, email")
           .eq("user_id", user.id)
           .maybeSingle();
-        
+
         // Ignore 406 errors (not found is expected for non-admins)
-        if (adminError && adminError.code !== 'PGRST116') {
+        if (adminError && adminError.code !== "PGRST116") {
           console.error("Error checking admin status:", adminError);
         }
 
@@ -157,15 +161,17 @@ export default function Dashboard() {
           .select("id, first_name, last_name, email")
           .eq("user_id", user.id)
           .maybeSingle();
-        
+
         // Ignore 406 errors (not found is expected for non-principals)
-        if (principalError && principalError.code !== 'PGRST116') {
+        if (principalError && principalError.code !== "PGRST116") {
           console.error("Error checking principal status:", principalError);
         }
 
         if (principalData) {
           setUserRole("principal");
-          const fullName = `${principalData.first_name || ''} ${principalData.last_name || ''}`.trim();
+          const fullName = `${principalData.first_name || ""} ${
+            principalData.last_name || ""
+          }`.trim();
           setUserName(fullName || user.email);
           setLoading(false);
           return;
@@ -180,19 +186,25 @@ export default function Dashboard() {
 
         if (studentData) {
           setUserRole("student");
-          const fullName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim();
+          const fullName = `${studentData.first_name || ""} ${
+            studentData.last_name || ""
+          }`.trim();
           setUserName(fullName || user.email);
         } else {
           // Check if user is in Tutors table
           const { data: tutorData, error: tutorError } = await supabase
             .from("Tutors")
-            .select("id, first_name, last_name, email, subjects, application_status")
+            .select(
+              "id, first_name, last_name, email, subjects, application_status"
+            )
             .eq("user_id", user.id)
             .maybeSingle();
 
           if (tutorData) {
             setUserRole("tutor");
-            const fullName = `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim();
+            const fullName = `${tutorData.first_name || ""} ${
+              tutorData.last_name || ""
+            }`.trim();
             setUserName(fullName || user.email);
             setTutorId(tutorData.id);
             const isApproved = Boolean(tutorData.application_status);
@@ -203,10 +215,10 @@ export default function Dashboard() {
           } else {
             // Profile doesn't exist - try to create it from user metadata
             const userType = user.user_metadata?.user_type;
-            const userFirstName = user.user_metadata?.first_name || '';
-            const userLastName = user.user_metadata?.last_name || '';
+            const userFirstName = user.user_metadata?.first_name || "";
+            const userLastName = user.user_metadata?.last_name || "";
 
-            if (userType === 'student') {
+            if (userType === "student") {
               // Create student profile
               const { data: newStudent, error: createError } = await supabase
                 .from("Students")
@@ -222,12 +234,14 @@ export default function Dashboard() {
 
               if (!createError && newStudent) {
                 setUserRole("student");
-                const fullName = `${newStudent.first_name || ''} ${newStudent.last_name || ''}`.trim();
+                const fullName = `${newStudent.first_name || ""} ${
+                  newStudent.last_name || ""
+                }`.trim();
                 setUserName(fullName || user.email);
               } else {
                 console.error("Error creating student profile:", createError);
               }
-            } else if (userType === 'tutor') {
+            } else if (userType === "tutor") {
               // Create tutor profile
               const { data: newTutor, error: createError } = await supabase
                 .from("Tutors")
@@ -239,12 +253,16 @@ export default function Dashboard() {
                   subjects: [],
                   application_status: false,
                 })
-                .select("id, first_name, last_name, email, subjects, application_status")
+                .select(
+                  "id, first_name, last_name, email, subjects, application_status"
+                )
                 .single();
 
               if (!createError && newTutor) {
                 setUserRole("tutor");
-                const fullName = `${newTutor.first_name || ''} ${newTutor.last_name || ''}`.trim();
+                const fullName = `${newTutor.first_name || ""} ${
+                  newTutor.last_name || ""
+                }`.trim();
                 setUserName(fullName || user.email);
                 setTutorId(newTutor.id);
                 setTutorApplicationApproved(false);
@@ -279,7 +297,10 @@ export default function Dashboard() {
     setStudentModeEnabled(enabled);
     if (user) {
       try {
-        localStorage.setItem(`student_mode_${user.id}`, enabled ? "true" : "false");
+        localStorage.setItem(
+          `student_mode_${user.id}`,
+          enabled ? "true" : "false"
+        );
       } catch {}
     }
   };
@@ -295,7 +316,10 @@ export default function Dashboard() {
   ];
   const studentTabs = studentModeEnabled
     ? studentTabsBase // hide Buy Credits
-    : [...studentTabsBase, { id: "credits", label: "Buy Credits", icon: Wallet }];
+    : [
+        ...studentTabsBase,
+        { id: "credits", label: "Buy Credits", icon: Wallet },
+      ];
 
   const tutorTabs = [
     { id: "home", label: "Dashboard", icon: Home },
@@ -326,8 +350,16 @@ export default function Dashboard() {
     tasks: { id: "tasks", label: "Tasks", icon: CheckSquare },
     subjects: { id: "subjects", label: "Subjects", icon: CheckSquare },
     "credit-plans": { id: "credit-plans", label: "Credit Plans", icon: Wallet },
-    announcements: { id: "announcements", label: "Announcements", icon: Megaphone },
-    "parents-review": { id: "parents-review", label: "Parents Review", icon: MessageSquare },
+    announcements: {
+      id: "announcements",
+      label: "Announcements",
+      icon: Megaphone,
+    },
+    "parents-review": {
+      id: "parents-review",
+      label: "Parents Review",
+      icon: MessageSquare,
+    },
     "tutor-applications": {
       id: "tutor-applications",
       label: "Tutor Applications",
@@ -335,34 +367,71 @@ export default function Dashboard() {
     },
   };
 
+  // CMS dropdown structure
+  const cmsDropdown = {
+    id: "cms",
+    label: "CMS",
+    icon: Layout,
+    children: [
+      { id: "services", label: "Services", icon: BookOpen },
+      { id: "credit-plans", label: "Credit Plans", icon: Wallet },
+    ],
+  };
+
   // Build admin tabs from configuration or use defaults
   const getAdminTabs = () => {
     if (userRole === "admin" && adminSidebarConfig.length > 0) {
-      // Use configured tabs
-      return adminSidebarConfig
-        .map((config) => adminTabsMap[config.tab_id])
+      // Use configured tabs - check if services or credit-plans are in config
+      const configuredTabs = adminSidebarConfig
+        .map((config) => {
+          const tab = adminTabsMap[config.tab_id];
+          if (tab) return tab;
+          return null;
+        })
         .filter(Boolean);
+
+      // Check if both services and credit-plans are in the config
+      const hasServices = configuredTabs.some((t) => t.id === "services");
+      const hasCreditPlans = configuredTabs.some(
+        (t) => t.id === "credit-plans"
+      );
+
+      // If both are present, replace them with CMS dropdown
+      if (hasServices && hasCreditPlans) {
+        const filtered = configuredTabs.filter(
+          (t) => t.id !== "services" && t.id !== "credit-plans"
+        );
+        return [...filtered, cmsDropdown];
+      }
+
+      return configuredTabs;
     }
-    // Default tabs if no config or superadmin
-    return Object.values(adminTabsMap);
+    // Default tabs - use CMS dropdown
+    const defaultTabs = Object.values(adminTabsMap).filter(
+      (t) => t.id !== "services" && t.id !== "credit-plans"
+    );
+    return [...defaultTabs, cmsDropdown];
   };
 
   const adminTabs = getAdminTabs();
 
-  // Superadmin tabs - all admin tabs except tasks, plus management tabs
+  // Superadmin tabs - all admin tabs except tasks, plus management tabs, with CMS dropdown
   const superadminTabs = [
     { id: "home", label: "Dashboard", icon: Home },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "users", label: "Users", icon: Users },
     { id: "jobs", label: "Jobs", icon: Briefcase },
-    { id: "services", label: "Services", icon: BookOpen },
+    cmsDropdown,
     { id: "subjects", label: "Subjects", icon: CheckSquare },
     { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
-    { id: "credit-plans", label: "Credit Plans", icon: Wallet },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
-    { id: "tutor-applications", label: "Tutor Applications", icon: ClipboardList },
+    {
+      id: "tutor-applications",
+      label: "Tutor Applications",
+      icon: ClipboardList,
+    },
   ];
 
   const resolvedTutorTabs =
@@ -374,9 +443,12 @@ export default function Dashboard() {
 
   const tabs =
     userRole === "student"
-      ? (studentModeEnabled
-          ? studentTabs
-          : [...studentTabs, { id: "review", label: "Review", icon: MessageSquare }])
+      ? studentModeEnabled
+        ? studentTabs
+        : [
+            ...studentTabs,
+            { id: "review", label: "Review", icon: MessageSquare },
+          ]
       : userRole === "tutor"
       ? resolvedTutorTabs
       : userRole === "principal"
@@ -386,6 +458,13 @@ export default function Dashboard() {
       : userRole === "admin"
       ? adminTabs
       : [];
+
+  // Auto-open CMS dropdown when services or credit-plans is active
+  useEffect(() => {
+    if (activeTab === "services" || activeTab === "credit-plans") {
+      setOpenDropdowns((prev) => ({ ...prev, cms: true }));
+    }
+  }, [activeTab]);
 
   // Set initial tab for tutors based on application status (only once)
   useEffect(() => {
@@ -471,9 +550,68 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <nav className="flex-1 p-2">
+        <nav className="flex-1 p-2 overflow-y-auto min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {tabs.map((tab) => {
             const Icon = tab.icon;
+            const isDropdown = tab.children && tab.children.length > 0;
+            const isOpen = openDropdowns[tab.id] || false;
+            const hasActiveChild = tab.children?.some(
+              (child) => activeTab === child.id
+            );
+
+            if (isDropdown) {
+              return (
+                <div key={tab.id} className="mb-1">
+                  <button
+                    onClick={() =>
+                      setOpenDropdowns((prev) => ({
+                        ...prev,
+                        [tab.id]: !prev[tab.id],
+                      }))
+                    }
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      hasActiveChild
+                        ? "bg-blue-50 text-blue-700 font-semibold"
+                        : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className="w-5 h-5" />
+                      {sidebarOpen && <span>{tab.label}</span>}
+                    </div>
+                    {sidebarOpen && (
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform ${
+                          isOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    )}
+                  </button>
+                  {isOpen && sidebarOpen && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {tab.children.map((child) => {
+                        const ChildIcon = child.icon;
+                        return (
+                          <button
+                            key={child.id}
+                            onClick={() => setActiveTab(child.id)}
+                            className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
+                              activeTab === child.id
+                                ? "bg-blue-50 text-blue-700 font-semibold"
+                                : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                          >
+                            <ChildIcon className="w-4 h-4" />
+                            <span>{child.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <button
                 key={tab.id}
@@ -547,7 +685,9 @@ export default function Dashboard() {
             />
           )}
           {/* Superadmin tabs */}
-          {activeTab === "home" && userRole === "superadmin" && <AdminDashboard />}
+          {activeTab === "home" && userRole === "superadmin" && (
+            <AdminDashboard />
+          )}
           {activeTab === "analytics" && userRole === "superadmin" && (
             <AdminAnalytics />
           )}
