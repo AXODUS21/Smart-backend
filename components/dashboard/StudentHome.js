@@ -18,7 +18,7 @@ import {
   DEFAULT_PROFILE_ID,
 } from "@/lib/studentProfiles";
 
-export default function StudentHome({ setActiveTab }) {
+export default function StudentHome({ setActiveTab, overrideStudentId }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
@@ -40,28 +40,37 @@ export default function StudentHome({ setActiveTab }) {
     : null;
 
   useEffect(() => {
-    if (!user) return;
+    if (!user && !overrideStudentId) return;
 
     const fetchData = async () => {
       try {
-        // Get student data
-        const { data: studentData } = await supabase
-          .from("Students")
-          .select(
-            "id, first_name, last_name, credits, extra_profiles, active_profile_id"
-          )
-          .eq("user_id", user.id)
-          .single();
+        let studentData = null;
+        let principalCredits = null;
+        if (overrideStudentId) {
+          const { data } = await supabase
+            .from("Students")
+            .select("id, first_name, last_name, extra_profiles, active_profile_id")
+            .eq("id", overrideStudentId)
+            .single();
+          studentData = data;
+          const { data: pri } = await supabase.from("Principals").select("credits").eq("user_id", user.id).single();
+          principalCredits = pri?.credits ?? 0;
+        } else {
+          const { data } = await supabase
+            .from("Students")
+            .select("id, first_name, last_name, credits, extra_profiles, active_profile_id")
+            .eq("user_id", user.id)
+            .single();
+          studentData = data;
+        }
 
         if (studentData) {
           setStudentRecord(studentData);
-          const fullName = `${studentData.first_name || ""} ${
-            studentData.last_name || ""
-          }`.trim();
-          setStudentName(fullName || user.email);
+          const fullName = `${studentData.first_name || ""} ${studentData.last_name || ""}`.trim();
+          setStudentName(fullName || studentData.email || (user?.email) || "");
           setMetrics((prev) => ({
             ...prev,
-            creditsAvailable: studentData.credits || 0,
+            creditsAvailable: overrideStudentId ? principalCredits : (studentData.credits || 0),
           }));
 
           const profileIdFilter =
@@ -142,7 +151,7 @@ export default function StudentHome({ setActiveTab }) {
     };
 
     fetchData();
-  }, [user]);
+  }, [user, overrideStudentId]);
 
   // Fetch announcements for students
   useEffect(() => {
@@ -261,8 +270,8 @@ export default function StudentHome({ setActiveTab }) {
 
   return (
     <div className="space-y-8">
-      {/* Low credit warning notification */}
-      {metrics.creditsAvailable < 4 && (
+      {/* Low credit warning: only for real students; principal's students use shared credits, principal adds in Principal view */}
+      {!overrideStudentId && metrics.creditsAvailable < 4 && (
         <div className="flex items-center gap-4 bg-orange-100 border-l-4 border-orange-500 text-orange-800 px-4 py-3 rounded mb-2">
           <Zap className="text-orange-500" size={28} />
           <div className="flex-1">

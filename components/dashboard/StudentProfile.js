@@ -13,7 +13,7 @@ import {
   getExtraProfiles,
 } from "@/lib/studentProfiles";
 
-export default function StudentProfile({ studentModeEnabled, onChangeStudentMode, onCancel }) {
+export default function StudentProfile({ studentModeEnabled, onChangeStudentMode, onCancel, overrideStudentId }) {
   const { user } = useAuth();
   const STATIC_QUESTION = "What is the name of your favorite book from childhood?";
   const [loading, setLoading] = useState(true);
@@ -47,15 +47,27 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
   const hasPin = useMemo(() => Boolean(studentRecord?.student_pin), [studentRecord]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user && !overrideStudentId) return;
     const fetchStudent = async () => {
       try {
-        const { data, error } = await supabase
-          .from("Students")
-          .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region, first_name, last_name, extra_profiles, active_profile_id, has_family_pack")
-          .eq("user_id", user.id)
-          .single();
-        if (error) throw error;
+        let data = null;
+        if (overrideStudentId) {
+          const res = await supabase
+            .from("Students")
+            .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region, first_name, last_name, extra_profiles, active_profile_id, has_family_pack")
+            .eq("id", overrideStudentId)
+            .single();
+          if (res.error) throw res.error;
+          data = res.data;
+        } else {
+          const res = await supabase
+            .from("Students")
+            .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region, first_name, last_name, extra_profiles, active_profile_id, has_family_pack")
+            .eq("user_id", user.id)
+            .single();
+          if (res.error) throw res.error;
+          data = res.data;
+        }
         setStudentRecord(data || null);
       } catch (e) {
         console.error("Error loading student profile:", e);
@@ -65,7 +77,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
       }
     };
     fetchStudent();
-  }, [user]);
+  }, [user, overrideStudentId]);
 
   // Initialize form fields from record
   useEffect(() => {
@@ -129,7 +141,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
         .update({
           extra_profiles: updatedProfiles,
         })
-        .eq("user_id", user.id);
+        .eq("id", studentRecord.id);
       if (error) throw error;
       setStudentRecord((prev) => ({
         ...(prev || {}),
@@ -162,7 +174,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
       const { error } = await supabase
         .from("Students")
         .update(updatePayload)
-        .eq("user_id", user.id);
+        .eq("id", studentRecord.id);
       if (error) throw error;
       setStudentRecord((prev) => ({
         ...(prev || {}),
@@ -189,7 +201,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
         .update({
           active_profile_id: nextValue,
         })
-        .eq("user_id", user.id);
+        .eq("id", studentRecord.id);
       if (error) throw error;
       setStudentRecord((prev) => ({
         ...(prev || {}),
@@ -213,6 +225,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
   const saveSetup = async () => {
     setError("");
     setSuccess("");
+    if (!studentRecord) return;
     if (!pin || pin.length < 4) {
       setError("PIN must be at least 4 digits");
       return;
@@ -230,7 +243,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
           student_security_question: STATIC_QUESTION,
           student_security_answer: securityAnswer,
         })
-        .eq("user_id", user.id);
+        .eq("id", studentRecord.id);
       if (error) throw error;
       setStudentRecord((prev) => ({
         ...(prev || {}),
@@ -273,7 +286,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
   };
 
   const handleSavePricingRegion = async () => {
-    if (!user || !studentRecord) return;
+    if (!studentRecord) return;
     const regionToSave = pricingRegion === "PH" ? "PH" : "US";
     setRegionStatus({ type: null, message: "" });
     try {
@@ -281,7 +294,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
       const { error } = await supabase
         .from("Students")
         .update({ pricing_region: regionToSave })
-        .eq("user_id", user.id);
+        .eq("id", studentRecord.id);
       if (error) throw error;
       setStudentRecord((prev) => (prev ? { ...prev, pricing_region: regionToSave } : prev));
       setRegionStatus({

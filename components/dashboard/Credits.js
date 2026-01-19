@@ -18,7 +18,7 @@ const normalizePlan = (plan) => ({
   region: plan.region,
 });
 
-export default function Credits() {
+export default function Credits({ overrideStudentId }) {
   const { user } = useAuth();
   const [credits, setCredits] = useState(0);
   const [plans, setPlans] = useState([]);
@@ -54,16 +54,19 @@ export default function Credits() {
   };
 
   useEffect(() => {
-    fetchPlans();
-  }, []);
+    if (!usePrincipalCredits) fetchPlans();
+  }, [usePrincipalCredits]);
 
   // Filter plans based on user's country
   const filteredPlans = plans.filter((plan) => plan.region === userCountry);
 
+  // When overrideStudentId: principal acting as student — use principal's shared credits only (no buying)
+  const usePrincipalCredits = Boolean(overrideStudentId);
+
   // Fetch user credits and pricing region
   useEffect(() => {
     const fetchCreditsAndRegion = async () => {
-      if (!user) {
+      if (!user && !overrideStudentId) {
         setLoadingCredits(false);
         setUserCountry("US");
         return;
@@ -71,14 +74,24 @@ export default function Credits() {
 
       setLoadingCredits(true);
       try {
-        const { data, error } = await supabase
-          .from("Students")
-          .select("credits, pricing_region")
-          .eq("user_id", user.id)
-          .single();
-
-        if (error) {
-          throw error;
+        let data = null;
+        if (overrideStudentId) {
+          // Principal's shared pool: fetch from Principals
+          const res = await supabase
+            .from("Principals")
+            .select("credits, pricing_region")
+            .eq("user_id", user.id)
+            .single();
+          data = res.data;
+          if (res.error) throw res.error;
+        } else {
+          const res = await supabase
+            .from("Students")
+            .select("credits, pricing_region")
+            .eq("user_id", user.id)
+            .single();
+          data = res.data;
+          if (res.error) throw res.error;
         }
 
         setCredits(data?.credits || 0);
@@ -92,11 +105,11 @@ export default function Credits() {
     };
 
     fetchCreditsAndRegion();
-  }, [user]);
+  }, [user, overrideStudentId]);
 
-  // Handle URL parameters for payment success/error
+  // Handle URL parameters for payment success/error (only for student; principal buys in Principal view)
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !usePrincipalCredits) {
       const params = new URLSearchParams(window.location.search);
       const successParam = params.get("success");
       const errorParam = params.get("error");
@@ -220,9 +233,18 @@ export default function Credits() {
             </p>
           </div>
         </div>
+        {usePrincipalCredits && (
+          <p className="mt-4 text-sm text-slate-500">
+            Credits are shared from your principal. To add credits, switch to Principal view and go to Add Credits.
+          </p>
+        )}
       </div>
 
-      {loadingPlans ? (
+      {usePrincipalCredits ? (
+        <div className="text-center py-8 text-slate-500">
+          <p>Only the principal can buy credits. Student profiles use the principal&apos;s shared balance.</p>
+        </div>
+      ) : loadingPlans ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
             <div
@@ -312,8 +334,8 @@ export default function Credits() {
         </div>
       )}
 
-      {/* Payment Modal */}
-      {showPaymentModal && selectedPlan && (
+      {/* Payment Modal — only students can buy; principal buys in Principal → Add Credits */}
+      {!usePrincipalCredits && showPaymentModal && selectedPlan && (
         <PaymentModal
           isOpen={showPaymentModal}
           onClose={handleCloseModal}

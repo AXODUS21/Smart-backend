@@ -17,7 +17,7 @@ import {
   Send,
 } from "lucide-react";
 
-export default function StudentAssignments() {
+export default function StudentAssignments({ overrideStudentId }) {
   const { user } = useAuth();
   const [studentId, setStudentId] = useState(null);
   const [studentRecord, setStudentRecord] = useState(null);
@@ -40,13 +40,24 @@ export default function StudentAssignments() {
   // Get student's bigint ID
   useEffect(() => {
     const fetchStudentId = async () => {
-      if (!user) return;
+      if (!user && !overrideStudentId) return;
 
-      const { data: studentData } = await supabase
-        .from("Students")
-        .select("id, first_name, last_name, extra_profiles, active_profile_id")
-        .eq("user_id", user.id)
-        .single();
+      let studentData = null;
+      if (overrideStudentId) {
+        const { data } = await supabase
+          .from("Students")
+          .select("id, first_name, last_name, extra_profiles, active_profile_id")
+          .eq("id", overrideStudentId)
+          .single();
+        studentData = data;
+      } else {
+        const { data } = await supabase
+          .from("Students")
+          .select("id, first_name, last_name, extra_profiles, active_profile_id")
+          .eq("user_id", user.id)
+          .single();
+        studentData = data;
+      }
 
       if (studentData) {
         setStudentId(studentData.id);
@@ -55,7 +66,7 @@ export default function StudentAssignments() {
     };
 
     fetchStudentId();
-  }, [user]);
+  }, [user, overrideStudentId]);
 
   // Fetch assignments
   useEffect(() => {

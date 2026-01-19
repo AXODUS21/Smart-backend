@@ -5,7 +5,7 @@ import { X, Calendar, Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 
-export default function SessionManagement() {
+export default function SessionManagement({ overrideStudentId }) {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,29 +30,38 @@ export default function SessionManagement() {
 
   // Fetch sessions and platform settings
   const fetchSessions = async () => {
-    if (!user) return;
+    if (!user && !overrideStudentId) return;
 
     try {
-      console.log("Fetching sessions for user:", user.id);
-      
-      // Fetch student ID
-      const { data: studentData, error: studentError } = await supabase
-        .from("Students")
-        .select("id")
-        .eq("user_id", user.id)
-        .single();
-
-      if (studentError) {
-        console.error("Error fetching student:", studentError);
-        return;
+      let studentData = null;
+      if (overrideStudentId) {
+        const { data, error } = await supabase
+          .from("Students")
+          .select("id")
+          .eq("id", overrideStudentId)
+          .single();
+        studentData = data;
+        if (error) {
+          console.error("Error fetching student:", error);
+          return;
+        }
+      } else {
+        const { data, error } = await supabase
+          .from("Students")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
+        studentData = data;
+        if (error) {
+          console.error("Error fetching student:", error);
+          return;
+        }
       }
 
       if (!studentData) {
         console.log("No student data found");
         return;
       }
-
-      console.log("Student ID:", studentData.id);
 
       // Fetch upcoming sessions (confirmed and pending that can be managed)
       const { data: sessionsData, error: sessionsError } = await supabase
@@ -105,7 +114,7 @@ export default function SessionManagement() {
   useEffect(() => {
     setLoading(true);
     fetchSessions();
-  }, [user]);
+  }, [user, overrideStudentId]);
 
   // Check if cancellation is allowed
   const canCancelSession = (session) => {
@@ -231,32 +240,46 @@ export default function SessionManagement() {
       
       console.log("Session cancelled in database:", updateData);
 
-      // Refund credits to student
-      const { data: studentData, error: studentError } = await supabase
-        .from("Students")
-        .select("credits, id")
-        .eq("id", selectedSession.student_id)
-        .single();
-
-      if (studentError) {
-        console.error("Error fetching student:", studentError);
-        throw studentError;
-      }
-
-      if (studentData) {
-        const newCredits = (studentData.credits || 0) + selectedSession.credits_required;
-        const { error: creditError } = await supabase
-          .from("Students")
-          .update({ credits: newCredits })
-          .eq("id", studentData.id)
-          .select();
-        
-        if (creditError) {
-          console.error("Error updating credits:", creditError);
-          throw creditError;
+      // Refund credits to Principal or Student
+      const amount = selectedSession.credits_required || 0;
+      if (selectedSession.principal_user_id) {
+        const { data: principalData, error: principalError } = await supabase
+          .from("Principals")
+          .select("credits")
+          .eq("user_id", selectedSession.principal_user_id)
+          .single();
+        if (principalError) {
+          console.error("Error fetching principal:", principalError);
+          throw principalError;
         }
-        
-        console.log("Credits refunded. New balance:", newCredits);
+        if (principalData) {
+          const newCredits = (principalData.credits || 0) + amount;
+          const { error: creditError } = await supabase
+            .from("Principals")
+            .update({ credits: newCredits })
+            .eq("user_id", selectedSession.principal_user_id);
+          if (creditError) throw creditError;
+          console.log("Credits refunded to principal. New balance:", newCredits);
+        }
+      } else {
+        const { data: studentData, error: studentError } = await supabase
+          .from("Students")
+          .select("credits, id")
+          .eq("id", selectedSession.student_id)
+          .single();
+        if (studentError) {
+          console.error("Error fetching student:", studentError);
+          throw studentError;
+        }
+        if (studentData) {
+          const newCredits = (studentData.credits || 0) + amount;
+          const { error: creditError } = await supabase
+            .from("Students")
+            .update({ credits: newCredits })
+            .eq("id", studentData.id);
+          if (creditError) throw creditError;
+          console.log("Credits refunded. New balance:", newCredits);
+        }
       }
 
       // Send session cancellation notification
@@ -381,19 +404,22 @@ export default function SessionManagement() {
       newEndTime.setMinutes(newEndTime.getMinutes() + selectedSession.duration_min);
 
       // Create new session with correct UTC times - status should be pending so tutor can accept
+      const insertPayload = {
+        student_id: selectedSession.student_id,
+        tutor_id: selectedSession.tutor_id,
+        subject: selectedSession.subject,
+        start_time_utc: newStartTimeUTC.toISOString(),
+        end_time_utc: newEndTime.toISOString(),
+        duration_min: selectedSession.duration_min,
+        credits_required: selectedSession.credits_required,
+        status: "pending",
+        rescheduled_from_id: selectedSession.id,
+      };
+      if (selectedSession.principal_user_id) insertPayload.principal_user_id = selectedSession.principal_user_id;
+
       const { data: newSession, error: insertError } = await supabase
         .from("Schedules")
-        .insert({
-          student_id: selectedSession.student_id,
-          tutor_id: selectedSession.tutor_id,
-          subject: selectedSession.subject,
-          start_time_utc: newStartTimeUTC.toISOString(),
-          end_time_utc: newEndTime.toISOString(),
-          duration_min: selectedSession.duration_min,
-          credits_required: selectedSession.credits_required,
-          status: "pending",
-          rescheduled_from_id: selectedSession.id,
-        })
+        .insert(insertPayload)
         .select();
 
       if (insertError) throw insertError;

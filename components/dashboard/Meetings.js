@@ -15,7 +15,7 @@ import {
   Link,
 } from "lucide-react";
 
-export default function Meetings() {
+export default function Meetings({ overrideStudentId }) {
   const { user } = useAuth();
   const [userRole, setUserRole] = useState(null);
   const [scheduledMeetings, setScheduledMeetings] = useState([]);
@@ -41,13 +41,17 @@ export default function Meetings() {
     return session?.access_token || null;
   }, []);
 
-  // Determine user role
+  // Determine user role (overrideStudentId => principal acting as student => treat as student)
   useEffect(() => {
     const determineRole = async () => {
+      if (overrideStudentId) {
+        setUserRole("student");
+        setLoading(false);
+        return;
+      }
       if (!user) return;
 
       try {
-        // Check if user is a student
         const { data: studentData } = await supabase
           .from("Students")
           .select("user_id")
@@ -67,22 +71,27 @@ export default function Meetings() {
     };
 
     determineRole();
-  }, [user]);
+  }, [user, overrideStudentId]);
 
   // Fetch scheduled meetings for students
   useEffect(() => {
     const fetchMeetings = async () => {
-      if (!user || userRole !== "student") return;
+      if ((!user && !overrideStudentId) || (userRole !== "student" && !overrideStudentId)) return;
 
       try {
-        // Get student ID first
-        const { data: studentData } = await supabase
-          .from("Students")
-          .select("id")
-          .eq("user_id", user.id)
-          .single();
+        let studentId = null;
+        if (overrideStudentId) {
+          studentId = overrideStudentId;
+        } else {
+          const { data: studentData } = await supabase
+            .from("Students")
+            .select("id")
+            .eq("user_id", user.id)
+            .single();
+          studentId = studentData?.id;
+        }
 
-        if (!studentData) return;
+        if (!studentId) return;
 
         const { data, error } = await supabase
           .from("Schedules")
@@ -95,7 +104,7 @@ export default function Meetings() {
             )
           `
           )
-          .eq("student_id", studentData.id)
+          .eq("student_id", studentId)
           .order("start_time_utc", { ascending: true });
 
         if (error) {
@@ -109,7 +118,7 @@ export default function Meetings() {
     };
 
     fetchMeetings();
-  }, [user, userRole]);
+  }, [user, userRole, overrideStudentId]);
 
   // Helper function to check if a booking's start time is in the past
   const isPastBooking = (startTimeUtc) => {
@@ -135,27 +144,39 @@ export default function Meetings() {
         // Get the booking details first
         const { data: bookingData } = await supabase
           .from("Schedules")
-          .select("student_id, credits_required")
+          .select("student_id, credits_required, principal_user_id")
           .eq("id", booking.id)
           .single();
 
-        if (bookingData && bookingData.student_id) {
-          // Try to refund credits to student
+        if (bookingData && (bookingData.student_id || bookingData.principal_user_id)) {
+          const amount = bookingData.credits_required || 0;
           try {
-            const { data: studentData } = await supabase
-              .from("Students")
-              .select("credits")
-              .eq("id", bookingData.student_id)
-              .single();
-
-            if (studentData) {
-              const newCredits =
-                (studentData.credits || 0) + (bookingData.credits_required || 0);
-
-              await supabase
+            if (bookingData.principal_user_id) {
+              const { data: principalData } = await supabase
+                .from("Principals")
+                .select("credits")
+                .eq("user_id", bookingData.principal_user_id)
+                .single();
+              if (principalData) {
+                const newCredits = (principalData.credits || 0) + amount;
+                await supabase
+                  .from("Principals")
+                  .update({ credits: newCredits })
+                  .eq("user_id", bookingData.principal_user_id);
+              }
+            } else if (bookingData.student_id) {
+              const { data: studentData } = await supabase
                 .from("Students")
-                .update({ credits: newCredits })
-                .eq("id", bookingData.student_id);
+                .select("credits")
+                .eq("id", bookingData.student_id)
+                .single();
+              if (studentData) {
+                const newCredits = (studentData.credits || 0) + amount;
+                await supabase
+                  .from("Students")
+                  .update({ credits: newCredits })
+                  .eq("id", bookingData.student_id);
+              }
             }
           } catch (creditError) {
             console.warn("Error refunding credits for past booking:", creditError);
@@ -350,7 +371,7 @@ export default function Meetings() {
       // Get the booking details first
       const { data: bookingData, error: bookingError } = await supabase
         .from("Schedules")
-        .select("student_id, tutor_id, subject, start_time_utc, end_time_utc")
+        .select("student_id, tutor_id, subject, start_time_utc, end_time_utc, principal_user_id")
         .eq("id", bookingId)
         .maybeSingle();
 
@@ -363,48 +384,43 @@ export default function Meetings() {
         throw new Error("Booking not found");
       }
 
-      if (!bookingData.student_id) {
-        throw new Error("Invalid booking data - no student ID");
+      if (!bookingData.student_id && !bookingData.principal_user_id) {
+        throw new Error("Invalid booking data - no student or principal ID");
       }
 
-      // Try to refund credits to student (optional - don't fail if student not found)
+      // Try to refund credits (to Principal or Student)
       try {
-        const { data: studentData, error: studentError } = await supabase
-          .from("Students")
-          .select("credits")
-          .eq("id", bookingData.student_id)
-          .maybeSingle();
-
-        if (studentError) {
-          console.warn(
-            "Error fetching student for credit refund:",
-            studentError
-          );
-        } else if (studentData) {
-          const newCredits = (studentData.credits || 0) + creditsRequired;
-
-          const { error: updateCreditsError } = await supabase
-            .from("Students")
-            .update({ credits: newCredits })
-            .eq("id", bookingData.student_id);
-
-          if (updateCreditsError) {
-            console.warn("Error updating credits:", updateCreditsError);
-          } else {
-            console.log(
-              `Successfully refunded ${creditsRequired} credits to student`
-            );
+        if (bookingData.principal_user_id) {
+          const { data: principalData, error: principalError } = await supabase
+            .from("Principals")
+            .select("credits")
+            .eq("user_id", bookingData.principal_user_id)
+            .maybeSingle();
+          if (!principalError && principalData) {
+            const newCredits = (principalData.credits || 0) + creditsRequired;
+            const { error: updateError } = await supabase
+              .from("Principals")
+              .update({ credits: newCredits })
+              .eq("user_id", bookingData.principal_user_id);
+            if (!updateError) console.log(`Refunded ${creditsRequired} credits to principal`);
           }
-        } else {
-          console.warn(
-            `Student with ID ${bookingData.student_id} not found - skipping credit refund`
-          );
+        } else if (bookingData.student_id) {
+          const { data: studentData, error: studentError } = await supabase
+            .from("Students")
+            .select("credits")
+            .eq("id", bookingData.student_id)
+            .maybeSingle();
+          if (!studentError && studentData) {
+            const newCredits = (studentData.credits || 0) + creditsRequired;
+            const { error: updateError } = await supabase
+              .from("Students")
+              .update({ credits: newCredits })
+              .eq("id", bookingData.student_id);
+            if (!updateError) console.log(`Refunded ${creditsRequired} credits to student`);
+          }
         }
       } catch (creditError) {
-        console.warn(
-          "Credit refund failed, but continuing with rejection:",
-          creditError
-        );
+        console.warn("Credit refund failed, but continuing with rejection:", creditError);
       }
 
       // Update booking status to rejected

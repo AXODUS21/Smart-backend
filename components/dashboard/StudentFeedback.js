@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { MessageSquare } from "lucide-react";
 import { DEFAULT_PROFILE_ID, getActiveProfile } from "@/lib/studentProfiles";
 
-export default function StudentFeedback() {
+export default function StudentFeedback({ overrideStudentId }) {
   const { user } = useAuth();
   const [feedbackList, setFeedbackList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,15 +15,25 @@ export default function StudentFeedback() {
   // Fetch feedback for the student
   useEffect(() => {
     const fetchFeedback = async () => {
-      if (!user) return;
+      if (!user && !overrideStudentId) return;
 
       try {
-        // Get student ID first
-        const { data: studentData } = await supabase
-          .from("Students")
-          .select("id, first_name, last_name, extra_profiles, active_profile_id")
-          .eq("user_id", user.id)
-          .single();
+        let studentData = null;
+        if (overrideStudentId) {
+          const { data } = await supabase
+            .from("Students")
+            .select("id, first_name, last_name, extra_profiles, active_profile_id")
+            .eq("id", overrideStudentId)
+            .single();
+          studentData = data;
+        } else {
+          const { data } = await supabase
+            .from("Students")
+            .select("id, first_name, last_name, extra_profiles, active_profile_id")
+            .eq("user_id", user.id)
+            .single();
+          studentData = data;
+        }
 
         if (!studentData) return;
         setStudentRecord(studentData);
@@ -73,7 +83,7 @@ export default function StudentFeedback() {
     };
 
     fetchFeedback();
-  }, [user]);
+  }, [user, overrideStudentId]);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);

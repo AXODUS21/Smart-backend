@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Users, Mail, Plus, X, Trash2, Search } from "lucide-react";
 
-export default function PrincipalStudents() {
+export default function PrincipalStudents({ onStudentsChange }) {
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,8 +14,9 @@ export default function PrincipalStudents() {
   const [error, setError] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [newStudentFirstName, setNewStudentFirstName] = useState("");
+  const [newStudentLastName, setNewStudentLastName] = useState("");
   const [newStudentEmail, setNewStudentEmail] = useState("");
-  const [newStudentName, setNewStudentName] = useState("");
   const [adding, setAdding] = useState(false);
 
   // Fetch students
@@ -79,10 +80,12 @@ export default function PrincipalStudents() {
     fetchStudents();
   }, [user]);
 
-  // Add a student
+  // Add a student: create a new student profile (no existing account required)
   const handleAddStudent = async () => {
-    if (!newStudentEmail.trim()) {
-      setError("Email is required");
+    const f = (newStudentFirstName || "").trim();
+    const l = (newStudentLastName || "").trim();
+    if (!f && !l) {
+      setError("At least first name or last name is required");
       return;
     }
 
@@ -91,57 +94,34 @@ export default function PrincipalStudents() {
     setSuccess("");
 
     try {
-      // First, find the student by email
-      const { data: studentData, error: studentError } = await supabase
-        .from("Students")
-        .select("id, user_id, first_name, last_name, email")
-        .eq("email", newStudentEmail.trim().toLowerCase())
-        .maybeSingle();
+      const res = await fetch("/api/create-principal-student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          firstName: f || undefined,
+          lastName: l || undefined,
+          email: (newStudentEmail || "").trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create student profile");
 
-      if (studentError) {
-        throw studentError;
-      }
+      const { id, first_name, last_name, email: em } = data;
+      const name = [first_name, last_name].filter(Boolean).join(" ").trim() || em || "Student";
 
-      if (!studentData) {
-        setError("Student with this email not found. The student must have an account first.");
-        setAdding(false);
-        return;
-      }
-
-      // Get current principal data
       const { data: principalData, error: principalError } = await supabase
         .from("Principals")
         .select("students")
         .eq("user_id", user.id)
         .single();
 
-      if (principalError) {
-        throw principalError;
-      }
+      if (principalError) throw principalError;
 
       const currentStudents = principalData?.students || [];
-      
-      // Check if student is already added
-      const alreadyAdded = currentStudents.some(
-        (s) => (s.student_id || s.id) === studentData.id
-      );
-
-      if (alreadyAdded) {
-        setError("This student is already added");
-        setAdding(false);
-        return;
-      }
-
-      // Add student to principal's list
       const updatedStudents = [
         ...currentStudents,
-        {
-          student_id: studentData.id,
-          id: studentData.id,
-          name: `${studentData.first_name || ""} ${studentData.last_name || ""}`.trim() || studentData.email,
-          email: studentData.email,
-          added_at: new Date().toISOString(),
-        },
+        { student_id: id, id, name, email: em || "", added_at: new Date().toISOString() },
       ];
 
       const { error: updateError } = await supabase
@@ -149,18 +129,18 @@ export default function PrincipalStudents() {
         .update({ students: updatedStudents })
         .eq("user_id", user.id);
 
-      if (updateError) {
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       setStudents(updatedStudents);
-      setSuccess(`Added ${studentData.email} successfully`);
+      setSuccess(`Added ${name} successfully`);
+      setNewStudentFirstName("");
+      setNewStudentLastName("");
       setNewStudentEmail("");
-      setNewStudentName("");
       setShowAddModal(false);
-    } catch (error) {
-      console.error("Error adding student:", error);
-      setError(error.message || "Failed to add student");
+      onStudentsChange?.();
+    } catch (err) {
+      console.error("Error adding student:", err);
+      setError(err.message || "Failed to add student");
     } finally {
       setAdding(false);
     }
@@ -198,6 +178,7 @@ export default function PrincipalStudents() {
 
       setStudents(updatedStudents);
       setSuccess(`Removed ${studentName} successfully`);
+      onStudentsChange?.();
     } catch (error) {
       console.error("Error removing student:", error);
       setError("Failed to remove student");
@@ -301,7 +282,7 @@ export default function PrincipalStudents() {
                     </h4>
                     <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
                       <Mail className="h-4 w-4" />
-                      {student.email}
+                      {student.email || "—"}
                     </div>
                     {student.credits !== undefined && (
                       <div className="text-sm text-slate-500">
@@ -338,8 +319,9 @@ export default function PrincipalStudents() {
                 <button
                   onClick={() => {
                     setShowAddModal(false);
+                    setNewStudentFirstName("");
+                    setNewStudentLastName("");
                     setNewStudentEmail("");
-                    setNewStudentName("");
                     setError("");
                   }}
                   className="text-slate-400 hover:text-slate-600"
@@ -351,26 +333,50 @@ export default function PrincipalStudents() {
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Student Email *
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  value={newStudentFirstName}
+                  onChange={(e) => setNewStudentFirstName(e.target.value)}
+                  placeholder="e.g. Maria"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={newStudentLastName}
+                  onChange={(e) => setNewStudentLastName(e.target.value)}
+                  placeholder="e.g. Santos"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Email <span className="text-slate-500 font-normal">(optional)</span>
                 </label>
                 <input
                   type="email"
                   value={newStudentEmail}
                   onChange={(e) => setNewStudentEmail(e.target.value)}
-                  placeholder="student@example.com"
+                  placeholder="student@school.edu"
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  The student must have an existing account with this email
+                  Add a student profile to manage. No account is required—you can view as this student and manage sessions, assignments, and credits.
                 </p>
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => {
                     setShowAddModal(false);
+                    setNewStudentFirstName("");
+                    setNewStudentLastName("");
                     setNewStudentEmail("");
-                    setNewStudentName("");
                     setError("");
                   }}
                   className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
@@ -379,7 +385,7 @@ export default function PrincipalStudents() {
                 </button>
                 <button
                   onClick={handleAddStudent}
-                  disabled={adding || !newStudentEmail.trim()}
+                  disabled={adding || (!(newStudentFirstName || "").trim() && !(newStudentLastName || "").trim())}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {adding ? "Adding..." : "Add Student"}

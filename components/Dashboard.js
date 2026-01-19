@@ -81,6 +81,10 @@ export default function Dashboard() {
     useState(null);
   const [tutorId, setTutorId] = useState(null);
   const [openDropdowns, setOpenDropdowns] = useState({});
+  const [actingAsStudentId, setActingAsStudentId] = useState(null);
+  const [actingAsStudentName, setActingAsStudentName] = useState("");
+  const [principalLinkedStudents, setPrincipalLinkedStudents] = useState([]);
+  const [principalViewAsOpen, setPrincipalViewAsOpen] = useState(false);
 
   // Handle URL parameters for tab selection
   useEffect(() => {
@@ -160,7 +164,7 @@ export default function Dashboard() {
         // Check if user is a principal
         const { data: principalData, error: principalError } = await supabase
           .from("Principals")
-          .select("id, first_name, last_name, email")
+          .select("id, first_name, last_name, email, students")
           .eq("user_id", user.id)
           .maybeSingle();
 
@@ -175,6 +179,15 @@ export default function Dashboard() {
             principalData.last_name || ""
           }`.trim();
           setUserName(fullName || user.email);
+          const raw = principalData.students || [];
+          setPrincipalLinkedStudents(
+            raw
+              .map((s) => ({
+                id: s.student_id ?? s.id,
+                name: s.name || s.email || "Student",
+              }))
+              .filter((s) => s.id != null)
+          );
           setLoading(false);
           return;
         }
@@ -454,6 +467,8 @@ export default function Dashboard() {
           ]
       : userRole === "tutor"
       ? resolvedTutorTabs
+      : userRole === "principal" && actingAsStudentId
+      ? studentTabsBase
       : userRole === "principal"
       ? principalTabs
       : userRole === "superadmin"
@@ -554,6 +569,58 @@ export default function Dashboard() {
         </div>
 
         <nav className="flex-1 p-2 overflow-y-auto min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {/* Principal: Back to Principal view when acting as student */}
+          {userRole === "principal" && actingAsStudentId && (
+            <button
+              onClick={() => {
+                setActingAsStudentId(null);
+                setActingAsStudentName("");
+                setActiveTab("home");
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 mb-2 rounded-lg bg-indigo-100 text-indigo-800 font-medium hover:bg-indigo-200 transition-colors"
+            >
+              <ChevronRight className="w-5 h-5 rotate-180" />
+              {sidebarOpen && <span>Back to Principal</span>}
+            </button>
+          )}
+
+          {/* Principal: View as student dropdown when not acting */}
+          {userRole === "principal" && !actingAsStudentId && principalLinkedStudents.length > 0 && (
+            <div className="mb-2">
+              <button
+                onClick={() => setPrincipalViewAsOpen((o) => !o)}
+                className="w-full flex items-center justify-between gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                {sidebarOpen && <span>View as student</span>}
+                <ChevronDown className={`w-4 h-4 shrink-0 ${principalViewAsOpen ? "rotate-180" : ""}`} />
+              </button>
+              {principalViewAsOpen && sidebarOpen && (
+                <div className="mt-1 ml-2 pl-2 border-l border-slate-200 space-y-0.5">
+                  <button
+                    onClick={() => { setPrincipalViewAsOpen(false); }}
+                    className="w-full text-left px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded"
+                  >
+                    Principal view
+                  </button>
+                  {principalLinkedStudents.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setActingAsStudentId(s.id);
+                        setActingAsStudentName(s.name);
+                        setActiveTab("home");
+                        setPrincipalViewAsOpen(false);
+                      }}
+                      className="w-full text-left px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded"
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isDropdown = tab.children && tab.children.length > 0;
@@ -662,17 +729,23 @@ export default function Dashboard() {
         />
 
         <main className="flex-1 p-6">
-          {activeTab === "home" && userRole === "student" && (
-            <StudentHome setActiveTab={setActiveTab} />
+          {activeTab === "home" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
+            <StudentHome setActiveTab={setActiveTab} overrideStudentId={actingAsStudentId} />
           )}
-          {activeTab === "assignments" && userRole === "student" && (
-            <StudentAssignments />
+          {activeTab === "assignments" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
+            <StudentAssignments overrideStudentId={actingAsStudentId} />
           )}
-          {activeTab === "home" && userRole === "principal" && (
+          {activeTab === "home" && userRole === "principal" && !actingAsStudentId && (
             <PrincipalHome setActiveTab={setActiveTab} />
           )}
-          {activeTab === "students" && userRole === "principal" && (
-            <PrincipalStudents />
+          {activeTab === "students" && userRole === "principal" && !actingAsStudentId && (
+            <PrincipalStudents
+              onStudentsChange={async () => {
+                const { data } = await supabase.from("Principals").select("students").eq("user_id", user.id).single();
+                const raw = data?.students || [];
+                setPrincipalLinkedStudents(raw.map((s) => ({ id: s.student_id ?? s.id, name: s.name || s.email || "Student" })).filter((s) => s.id != null));
+              }}
+            />
           )}
           {activeTab === "credits" && userRole === "principal" && (
             <PrincipalCredits />
@@ -746,16 +819,20 @@ export default function Dashboard() {
           {activeTab === "tutor-applications" && userRole === "admin" && (
             <AdminTutorApplications />
           )}
-          {activeTab === "credits" && userRole === "student" && <Credits />}
-          {activeTab === "meetings" && userRole === "student" && <Meetings />}
-          {activeTab === "find-tutors" && userRole === "student" && (
-            <BookSession />
+          {activeTab === "credits" && userRole === "student" && (
+            <Credits />
           )}
-          {activeTab === "manage-sessions" && userRole === "student" && (
-            <SessionManagement />
+          {activeTab === "meetings" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
+            <Meetings overrideStudentId={actingAsStudentId} />
           )}
-          {activeTab === "feedback" && userRole === "student" && (
-            <StudentFeedback />
+          {activeTab === "find-tutors" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
+            <BookSession overrideStudentId={actingAsStudentId} />
+          )}
+          {activeTab === "manage-sessions" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
+            <SessionManagement overrideStudentId={actingAsStudentId} />
+          )}
+          {activeTab === "feedback" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
+            <StudentFeedback overrideStudentId={actingAsStudentId} />
           )}
           {activeTab === "review" && userRole === "student" && (
             <StudentReview />
@@ -766,11 +843,12 @@ export default function Dashboard() {
             <PastSessions />
           )}
           {activeTab === "profile" && userRole === "tutor" && <TutorProfile />}
-          {activeTab === "profile" && userRole === "student" && (
+          {activeTab === "profile" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
             <StudentProfile
               studentModeEnabled={studentModeEnabled}
               onChangeStudentMode={handleChangeStudentMode}
               onCancel={() => setActiveTab("home")}
+              overrideStudentId={actingAsStudentId}
             />
           )}
           {activeTab === "parents-review" && userRole === "admin" && (

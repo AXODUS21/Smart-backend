@@ -58,20 +58,35 @@ export async function GET(request) {
 
     // If payment succeeded and we haven't updated credits yet, update them
     if (status === 'succeeded' && credits > 0 && userId) {
-      const { data: currentData, error: fetchError } = await supabase
-        .from('Students')
-        .select('credits')
+      // Credit Principals first (principal buys in Add Credits); else Students
+      const { data: principalData } = await supabase
+        .from('Principals')
+        .select('credits, id')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (!fetchError && currentData) {
-        const currentCredits = currentData?.credits || 0;
+      if (principalData) {
+        const currentCredits = principalData.credits || 0;
         const newCredits = currentCredits + credits;
-
         await supabase
-          .from('Students')
+          .from('Principals')
           .update({ credits: newCredits })
           .eq('user_id', userId);
+      } else {
+        const { data: currentData, error: fetchError } = await supabase
+          .from('Students')
+          .select('credits')
+          .eq('user_id', userId)
+          .single();
+
+        if (!fetchError && currentData) {
+          const currentCredits = currentData?.credits || 0;
+          const newCredits = currentCredits + credits;
+          await supabase
+            .from('Students')
+            .update({ credits: newCredits })
+            .eq('user_id', userId);
+        }
       }
     }
 

@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { getActiveProfile, buildPrimaryProfileName, DEFAULT_PROFILE_ID } from "@/lib/studentProfiles";
 
-export default function BookSession() {
+export default function BookSession({ overrideStudentId }) {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [selectedGradeLevel, setSelectedGradeLevel] = useState("");
@@ -44,14 +44,14 @@ export default function BookSession() {
   // Fetch tutors and student data
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
+      if (!user && !overrideStudentId) return;
 
       try {
         // Fetch tutors
         const { data: tutorsData, error: tutorsError } = await supabase
           .from("Tutors")
           .select("*")
-          .not("user_id", "eq", user?.id); // Exclude current user
+          .not("user_id", "eq", user?.id); // Exclude current user when not override
 
         if (tutorsError) {
           console.error("Error fetching tutors:", tutorsError);
@@ -59,19 +59,30 @@ export default function BookSession() {
           setTutors(tutorsData || []);
         }
 
-        // Fetch student credits
-        const { data: studentData, error: studentError } = await supabase
-          .from("Students")
-          .select("id, credits, first_name, last_name, extra_profiles, active_profile_id")
-          .eq("user_id", user?.id)
-          .single();
-
-        if (studentError) {
-          console.error("Error fetching student credits:", studentError);
+        // Fetch student record and credits
+        let studentData = null;
+        if (overrideStudentId) {
+          const { data, error } = await supabase
+            .from("Students")
+            .select("id, first_name, last_name, extra_profiles, active_profile_id")
+            .eq("id", overrideStudentId)
+            .single();
+          studentData = data;
+          if (error) console.error("Error fetching student:", error);
+          // Principal's shared credits when acting as student
+          const { data: pri } = await supabase.from("Principals").select("credits").eq("user_id", user?.id).single();
+          setStudentCredits(pri?.credits ?? 0);
         } else {
-          setStudentCredits(studentData?.credits || 0);
-          setStudentRecord(studentData || null);
+          const { data, error } = await supabase
+            .from("Students")
+            .select("id, credits, first_name, last_name, extra_profiles, active_profile_id")
+            .eq("user_id", user?.id)
+            .single();
+          studentData = data;
+          if (error) console.error("Error fetching student credits:", error);
+          if (studentData) setStudentCredits(studentData.credits || 0);
         }
+        if (studentData) setStudentRecord(studentData);
 
         // Fetch platform settings
         const { data: settingsData, error: settingsError } = await supabase
@@ -96,7 +107,7 @@ export default function BookSession() {
     };
 
     fetchData();
-  }, [user]);
+  }, [user, overrideStudentId]);
 
   // Get unique grade levels from tutors (from subject objects)
   const gradeLevels = [
@@ -298,14 +309,26 @@ export default function BookSession() {
     }
 
     try {
+      const usePrincipalCredits = Boolean(overrideStudentId);
       // Get student and tutor IDs
-      const { data: studentData, error: studentError } = await supabase
-        .from("Students")
-        .select("id, credits, first_name, last_name, extra_profiles, active_profile_id")
-        .eq("user_id", user.id)
-        .single();
-
-      if (studentError) throw studentError;
+      let studentData = null;
+      if (overrideStudentId) {
+        const { data, error } = await supabase
+          .from("Students")
+          .select("id, first_name, last_name, extra_profiles, active_profile_id")
+          .eq("id", overrideStudentId)
+          .single();
+        if (error) throw error;
+        studentData = data;
+      } else {
+        const { data, error } = await supabase
+          .from("Students")
+          .select("id, credits, first_name, last_name, extra_profiles, active_profile_id")
+          .eq("user_id", user.id)
+          .single();
+        if (error) throw error;
+        studentData = data;
+      }
 
       const { data: tutorData, error: tutorError } = await supabase
         .from("Tutors")
@@ -370,7 +393,7 @@ export default function BookSession() {
       }
 
       // Create booking request with correct UTC times
-      const { error: scheduleError } = await supabase.from("Schedules").insert({
+      const insertPayload = {
         student_id: studentData.id,
         tutor_id: tutorData.id,
         subject: selectedSubject,
@@ -381,33 +404,41 @@ export default function BookSession() {
         profile_id: profileIdForInsert,
         profile_name: profileNameForInsert,
         status: "pending",
-      });
+      };
+      if (usePrincipalCredits) insertPayload.principal_user_id = user.id;
+
+      const { error: scheduleError } = await supabase.from("Schedules").insert(insertPayload);
 
       if (scheduleError) throw scheduleError;
 
-      // Deduct credits
+      // Deduct credits: from Principals when acting as student, else Students
       const newCredits = studentCredits - creditsRequired;
-      const { error: updateCreditsError } = await supabase
-        .from("Students")
-        .update({ credits: newCredits })
-        .eq("id", studentData.id);
-
-      if (updateCreditsError) throw updateCreditsError;
+      if (usePrincipalCredits) {
+        const { error: updateCreditsError } = await supabase
+          .from("Principals")
+          .update({ credits: newCredits })
+          .eq("user_id", user.id);
+        if (updateCreditsError) throw updateCreditsError;
+      } else {
+        const { error: updateCreditsError } = await supabase
+          .from("Students")
+          .update({ credits: newCredits })
+          .eq("id", studentData.id);
+        if (updateCreditsError) throw updateCreditsError;
+      }
 
       // Check for low credits and send notification
       if (newCredits <= 1) {
         try {
           const { notifyLowCredits } = await import('@/lib/notificationService');
-          const studentEmail = studentData.email;
-          const studentName = `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || 'Student';
-          
-          if (studentEmail) {
-            await notifyLowCredits(studentEmail, studentName, newCredits);
+          const recipientEmail = usePrincipalCredits ? (user?.email) : (studentData.email);
+          const recipientName = usePrincipalCredits ? "Principal" : (`${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || 'Student');
+          if (recipientEmail) {
+            await notifyLowCredits(recipientEmail, recipientName, newCredits);
             console.log('Low credits notification sent');
           }
         } catch (notifError) {
           console.error('Failed to send low credits notification:', notifError);
-          // Don't fail booking if notification fails
         }
       }
 
@@ -460,9 +491,9 @@ export default function BookSession() {
       setSelectedTime("");
       setSelectedDuration("");
       setStudentCredits(newCredits);
-      setStudentRecord((prev) =>
-        prev ? { ...prev, credits: newCredits } : prev
-      );
+      if (!usePrincipalCredits) {
+        setStudentRecord((prev) => (prev ? { ...prev, credits: newCredits } : prev));
+      }
     } catch (error) {
       console.error("Error booking session:", error);
       alert("Error booking session. Please try again.");
