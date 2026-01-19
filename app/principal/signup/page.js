@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, UserPlus, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { ensureUserProfile } from '@/lib/authHelpers';
 
 export default function PrincipalSignupPage() {
   const router = useRouter();
@@ -104,21 +103,24 @@ export default function PrincipalSignupPage() {
 
       if (authData.user) {
         try {
-          await ensureUserProfile(
-            authData.user.id,
-            firstName,
-            lastName,
-            email,
-            'principal',
-            {
-              middle_name: middleName,
-              contact_number: contactNumber,
+          const res = await fetch('/api/create-principal-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: authData.user.id,
+              firstName,
+              lastName,
+              email,
+              middleName,
+              contactNumber,
               address,
-              district_school_name: districtSchoolName,
-              type_of_school: typeOfSchool,
-              type_of_students: studentsToSave,
-            }
-          );
+              districtSchoolName,
+              typeOfSchool,
+              typeOfStudents: studentsToSave,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to create profile');
         } catch (profileError) {
           console.error('Profile creation failed:', profileError);
         }
