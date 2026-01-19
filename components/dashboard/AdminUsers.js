@@ -18,6 +18,7 @@ export default function AdminUsers() {
   const [sortDirection, setSortDirection] = useState("desc");
   const [viewingUser, setViewingUser] = useState(null);
 
+  
   useEffect(() => {
     fetchUsers();
   }, []);

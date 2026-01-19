@@ -23,6 +23,11 @@ export default function Meetings() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState({});
   const [joinProcessing, setJoinProcessing] = useState({});
+  const [meetingLinkModal, setMeetingLinkModal] = useState({
+    isOpen: false,
+    bookingId: null,
+  });
+  const [meetingLink, setMeetingLink] = useState("");
 
   const [view, setView] = useState("upcoming");
   const [tutorView, setTutorView] = useState("pending");
@@ -242,16 +247,63 @@ export default function Meetings() {
 
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload?.error || "Failed to accept booking.");
+        // If Pencil Spaces fails, fall back to manual meeting link input
+        console.warn("Pencil Spaces integration failed, falling back to manual link:", payload?.error);
+        setProcessing((prev) => ({ ...prev, [bookingId]: false }));
+        setMeetingLinkModal({ isOpen: true, bookingId });
+        setMeetingLink("");
+        return;
       }
 
       await fetchTutorBookings();
     } catch (error) {
       console.error("Error accepting booking:", error);
-      alert(error.message || "Error accepting booking. Please try again.");
+      // Fall back to manual meeting link input on any error
+      setProcessing((prev) => ({ ...prev, [bookingId]: false }));
+      setMeetingLinkModal({ isOpen: true, bookingId });
+      setMeetingLink("");
+    }
+  };
+
+  // Handle confirming booking with manual meeting link
+  const handleConfirmBookingWithLink = async () => {
+    if (!meetingLink.trim()) {
+      alert("Please enter a meeting link before accepting the booking.");
+      return;
+    }
+
+    const bookingId = meetingLinkModal.bookingId;
+    setProcessing((prev) => ({ ...prev, [bookingId]: "accepting" }));
+
+    try {
+      const { error } = await supabase
+        .from("Schedules")
+        .update({
+          status: "confirmed",
+          meeting_link: meetingLink.trim(),
+        })
+        .eq("id", bookingId);
+
+      if (error) throw error;
+
+      // Close modal
+      setMeetingLinkModal({ isOpen: false, bookingId: null });
+      setMeetingLink("");
+
+      // Refresh bookings
+      await fetchTutorBookings();
+    } catch (error) {
+      console.error("Error accepting booking:", error);
+      alert("Error accepting booking. Please try again.");
     } finally {
       setProcessing((prev) => ({ ...prev, [bookingId]: false }));
     }
+  };
+
+  // Handle closing meeting link modal
+  const handleCloseMeetingLinkModal = () => {
+    setMeetingLinkModal({ isOpen: false, bookingId: null });
+    setMeetingLink("");
   };
 
   const handleJoinMeeting = async (scheduleId) => {
@@ -996,6 +1048,78 @@ export default function Meetings() {
         </div>
       </div>
 
+      {/* Meeting Link Modal - Fallback when Pencil Spaces fails */}
+      {meetingLinkModal.isOpen && (
+        <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <Link className="h-6 w-6 text-blue-600" />
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Add Meeting Link
+                </h3>
+              </div>
+              <button
+                onClick={handleCloseMeetingLinkModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg mb-4">
+                  Pencil Spaces integration is currently unavailable. Please provide a meeting link manually (Google Meet, Zoom, Microsoft Teams, or Pencil Space URL).
+                </p>
+                <label
+                  htmlFor="meetingLink"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Meeting Link
+                </label>
+                <input
+                  type="url"
+                  id="meetingLink"
+                  value={meetingLink}
+                  onChange={(e) => setMeetingLink(e.target.value)}
+                  placeholder="https://meet.google.com/abc-defg-hij or https://zoom.us/j/123456789"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-slate-500"
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  Please provide a valid meeting link (Google Meet, Zoom, Microsoft Teams, Pencil Space, etc.)
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleCloseMeetingLinkModal}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmBookingWithLink}
+                  disabled={processing[meetingLinkModal.bookingId]}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                >
+                  {processing[meetingLinkModal.bookingId] === "accepting" ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Accept & Confirm
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
