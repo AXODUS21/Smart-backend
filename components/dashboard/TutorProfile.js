@@ -111,6 +111,17 @@ export default function TutorProfile() {
           console.error("Error fetching tutor profile:", tutorError);
         } else {
           setTutorData(tutorData);
+          // Initialize payment info state from DB so the UI reflects saved values
+          setPaymentInfo({
+            payment_method: tutorData?.payment_method || "bank",
+            bank_account_name: tutorData?.bank_account_name || "",
+            bank_account_number: tutorData?.bank_account_number || "",
+            bank_name: tutorData?.bank_name || "",
+            bank_branch: tutorData?.bank_branch || "",
+            paypal_email: tutorData?.paypal_email || "",
+            gcash_number: tutorData?.gcash_number || "",
+            gcash_name: tutorData?.gcash_name || "",
+          });
           setBio(tutorData?.bio || "");
           setExperiences(tutorData?.experience || []);
           setSkills(tutorData?.skills || []);
@@ -892,7 +903,19 @@ export default function TutorProfile() {
                           .select("*")
                           .eq("user_id", user.id)
                           .single();
-                        if (updated) setTutorData(updated);
+                        if (updated) {
+                          setTutorData(updated);
+                          setPaymentInfo({
+                            payment_method: updated?.payment_method || "bank",
+                            bank_account_name: updated?.bank_account_name || "",
+                            bank_account_number: updated?.bank_account_number || "",
+                            bank_name: updated?.bank_name || "",
+                            bank_branch: updated?.bank_branch || "",
+                            paypal_email: updated?.paypal_email || "",
+                            gcash_number: updated?.gcash_number || "",
+                            gcash_name: updated?.gcash_name || "",
+                          });
+                        }
                       } catch (error) {
                         setError(error.message || "Failed to save payment information");
                         setTimeout(() => setError(""), 3000);
