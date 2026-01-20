@@ -36,26 +36,40 @@ function extractBearerToken(request) {
 async function requireAuthedUser(request) {
   const token = extractBearerToken(request);
   if (!token) return null;
-  // In Supabase JS v2, the most reliable server-side pattern is to set the
-  // Authorization header on the client and call getUser() without args.
-  const authClient = createClient(
-    supabaseUrl,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      auth: { autoRefreshToken: false, persistSession: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    }
-  );
-  const { data, error } = await authClient.auth.getUser();
-  if (error || !data?.user) return null;
-  return data.user;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anonKey) {
+    // Misconfigured deployment; surface as 500 in caller
+    throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured on server");
+  }
+
+  // Try both Supabase JS patterns for maximum compatibility across runtimes.
+  // 1) Header-based getUser() (recommended for v2 in server routes)
+  const headerClient = createClient(supabaseUrl, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const headerRes = await headerClient.auth.getUser();
+  if (headerRes?.data?.user) return headerRes.data.user;
+
+  // 2) Token-argument getUser(token) fallback (some bundles still support it)
+  const tokenClient = createClient(supabaseUrl, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  // @ts-ignore - support older signature
+  const tokenRes = await tokenClient.auth.getUser(token);
+  if (tokenRes?.data?.user) return tokenRes.data.user;
+
+  return null;
 }
 
 export async function GET(request) {
   try {
     const authedUser = await requireAuthedUser(request);
     if (!authedUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: invalid or expired session token" },
+        { status: 401 }
+      );
     }
 
     const supabase = getServiceClient();
