@@ -330,13 +330,17 @@ export default function BookSession({ overrideStudentId }) {
         studentData = data;
       }
 
-      const { data: tutorData, error: tutorError } = await supabase
-        .from("Tutors")
-        .select("id, email, first_name, last_name")
-        .eq("name", selectedTutor)
-        .single();
+      // Use selectedTutorData directly since we already have it from the tutors array
+      if (!selectedTutorData) {
+        throw new Error("Tutor data not found");
+      }
 
-      if (tutorError) throw tutorError;
+      const tutorData = {
+        id: selectedTutorData.id,
+        email: selectedTutorData.email,
+        first_name: selectedTutorData.first_name,
+        last_name: selectedTutorData.last_name,
+      };
 
       // Calculate start and end times with proper UTC conversion
       const [time, period] = selectedTime.split(" ");

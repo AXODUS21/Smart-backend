@@ -119,7 +119,10 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
   const handleAddProfile = async () => {
     setError("");
     setSuccess("");
-    if (!studentRecord?.has_family_pack) {
+    // Principals can always add profiles (when overrideStudentId is present)
+    // Regular students need family pack
+    const canAddProfiles = overrideStudentId || studentRecord?.has_family_pack;
+    if (!canAddProfiles) {
       setError("You need to purchase a family pack to add additional profiles. Please visit the Credits page to purchase a family pack.");
       return;
     }
@@ -434,7 +437,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
               />
             </div>
           </div>
-          {!studentRecord?.has_family_pack && (
+          {!overrideStudentId && !studentRecord?.has_family_pack && (
             <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-sm text-amber-800">
                 You need to purchase a family pack to add additional profiles. Visit the Credits page to purchase one.
@@ -444,7 +447,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
           <button
             className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60"
             onClick={handleAddProfile}
-            disabled={profileSaving || !studentRecord?.has_family_pack}
+            disabled={profileSaving || (!overrideStudentId && !studentRecord?.has_family_pack)}
           >
             <Plus className="w-4 h-4" />
             Save Profile

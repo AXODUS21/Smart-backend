@@ -146,6 +146,7 @@ export async function GET(request) {
         currentCredits,
         creditsToAdd: credits,
         newCredits,
+        isFamilyPack,
       });
 
       const { data: updateData, error: updateError } = await supabase
@@ -159,6 +160,42 @@ export async function GET(request) {
         return NextResponse.redirect(
           `${baseUrl}/?tab=credits&error=update_error`
         );
+      }
+
+      // If this is a family pack purchase, set has_family_pack for all students under this principal
+      if (isFamilyPack) {
+        try {
+          // Get all students linked to this principal
+          const { data: principalWithStudents, error: fetchStudentsError } = await supabase
+            .from("Principals")
+            .select("students")
+            .eq("user_id", userId)
+            .single();
+
+          if (!fetchStudentsError && principalWithStudents?.students) {
+            const studentIds = principalWithStudents.students
+              .map((s) => s.student_id || s.id)
+              .filter(Boolean);
+
+            if (studentIds.length > 0) {
+              // Update all students to have has_family_pack = true
+              const { error: updateStudentsError } = await supabase
+                .from("Students")
+                .update({ has_family_pack: true })
+                .in("id", studentIds);
+
+              if (updateStudentsError) {
+                console.error("Error updating student family pack status:", updateStudentsError);
+                // Don't fail the payment, just log the error
+              } else {
+                console.log(`Updated ${studentIds.length} students with family pack status`);
+              }
+            }
+          }
+        } catch (familyPackError) {
+          console.error("Error setting family pack for principal students:", familyPackError);
+          // Don't fail the payment if this fails
+        }
       }
 
       console.log("Principal credits updated successfully:", updateData);

@@ -41,13 +41,17 @@ export async function POST(request) {
     // Ensure the user is a principal
     const { data: principal, error: principalErr } = await supabase
       .from('Principals')
-      .select('id')
+      .select('id, students')
       .eq('user_id', userId)
       .maybeSingle();
 
     if (principalErr || !principal) {
       return Response.json({ error: 'Only principals can create student profiles' }, { status: 403 });
     }
+
+    // Principals can always add multiple profiles by default, so set has_family_pack = true
+    // This allows principals to manage multiple student profiles without purchasing a family pack
+    const hasFamilyPack = true;
 
     const { data: row, error } = await supabase
       .from('Students')
@@ -58,6 +62,7 @@ export async function POST(request) {
         email: (email && typeof email === 'string' && email.trim()) ? email.trim() : null,
         credits: 0,
         extra_profiles: [],
+        has_family_pack: hasFamilyPack,
       })
       .select('id, first_name, last_name, email')
       .single();
