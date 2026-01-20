@@ -31,7 +31,7 @@ export default function Meetings({ overrideStudentId }) {
 
   const [view, setView] = useState("upcoming");
   const [tutorView, setTutorView] = useState("pending");
-  const [sortBy, setSortBy] = useState("current"); // "current", "name", "scheduled_with"
+  const [sortBy, setSortBy] = useState("current"); // "current", "name", "scheduled_with", "latest"
   const [selectedTutorFilter, setSelectedTutorFilter] = useState("all"); // "all" or tutor ID
 
   const getAccessToken = useCallback(async () => {
@@ -538,6 +538,11 @@ export default function Meetings({ overrideStudentId }) {
           const tutorB = b.tutor?.name || b.tutor?.email || "Unknown";
           return tutorA.localeCompare(tutorB);
         });
+      } else if (sortBy === "latest") {
+        // Sort by latest (newest first) - descending order by start_time_utc
+        sorted.sort((a, b) => {
+          return new Date(b.start_time_utc) - new Date(a.start_time_utc);
+        });
       } else {
         // Default: current status - pending first, then confirmed, sorted by time
         sorted.sort((a, b) => {
@@ -669,6 +674,7 @@ export default function Meetings({ overrideStudentId }) {
                     className="w-full md:w-64 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="current">Current Status (Default)</option>
+                    <option value="latest">Latest First</option>
                     <option value="name">By Tutor Name</option>
                     <option value="scheduled_with">By Scheduled With</option>
                   </select>
