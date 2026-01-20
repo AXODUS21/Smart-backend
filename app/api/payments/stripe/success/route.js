@@ -109,13 +109,16 @@ export async function GET(request) {
     const supabase = getSupabaseClient();
 
     // Check if this is a family pack purchase
+    // Use planId from URL params, or fallback to session metadata
+    const effectivePlanId = planId || session.metadata?.planId;
     let isFamilyPack = false;
-    if (planId) {
-      console.log("Checking family pack status for planId:", planId);
+    
+    if (effectivePlanId) {
+      console.log("Checking family pack status for planId:", effectivePlanId);
       const { data: planData, error: planError } = await supabase
         .from("credit_plans")
         .select("is_family_pack, name, slug")
-        .or(`slug.eq.${planId},id.eq.${planId}`)
+        .or(`slug.eq.${effectivePlanId},id.eq.${effectivePlanId}`)
         .maybeSingle();
 
       if (planError) {
@@ -123,7 +126,11 @@ export async function GET(request) {
       }
 
       if (planData) {
-        console.log("Plan data found:", { is_family_pack: planData.is_family_pack, name: planData.name, slug: planData.slug });
+        console.log("Plan data found:", { 
+          is_family_pack: planData.is_family_pack, 
+          name: planData.name, 
+          slug: planData.slug 
+        });
         // Use the is_family_pack field first, fallback to checking name/slug
         isFamilyPack = planData.is_family_pack === true;
         if (!isFamilyPack) {
@@ -133,10 +140,10 @@ export async function GET(request) {
         }
         console.log("isFamilyPack determined as:", isFamilyPack);
       } else {
-        console.warn("Plan data not found for planId:", planId);
+        console.warn("Plan data not found for planId:", effectivePlanId);
       }
     } else {
-      console.warn("No planId provided, cannot determine family pack status");
+      console.warn("No planId provided in URL or session metadata, cannot determine family pack status");
     }
 
     // Check if credits were already added (prevent duplicate credit additions)

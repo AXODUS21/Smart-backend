@@ -73,13 +73,23 @@ export async function POST(request) {
         // Check if this is a family pack purchase
         let isFamilyPack = false;
         if (planId) {
-          const { data: planData } = await supabase
+          console.log("PayMongo: Checking family pack status for planId:", planId);
+          const { data: planData, error: planError } = await supabase
             .from('credit_plans')
             .select('is_family_pack, name, slug')
             .or(`slug.eq.${planId},id.eq.${planId}`)
             .maybeSingle();
           
+          if (planError) {
+            console.error("PayMongo: Error fetching plan data:", planError);
+          }
+
           if (planData) {
+            console.log("PayMongo: Plan data found:", { 
+              is_family_pack: planData.is_family_pack, 
+              name: planData.name, 
+              slug: planData.slug 
+            });
             // Use the is_family_pack field first, fallback to checking name/slug
             isFamilyPack = planData.is_family_pack === true;
             if (!isFamilyPack) {
@@ -87,7 +97,12 @@ export async function POST(request) {
               const planSlug = (planData.slug || '').toLowerCase();
               isFamilyPack = planName.includes('family') || planSlug.includes('family');
             }
+            console.log("PayMongo: isFamilyPack determined as:", isFamilyPack);
+          } else {
+            console.warn("PayMongo: Plan data not found for planId:", planId);
           }
+        } else {
+          console.warn("PayMongo: No planId provided in metadata");
         }
 
         // Check if user is a principal first
@@ -204,12 +219,39 @@ export async function POST(request) {
               // If this is a family pack purchase, set has_family_pack to true
               if (isFamilyPack) {
                 updateData.has_family_pack = true;
+                console.log("PayMongo: ✅ Family pack purchase detected - setting has_family_pack = true");
+              } else {
+                console.log("PayMongo: ℹ️ Not a family pack purchase - has_family_pack will not be updated");
               }
 
-              await supabase
+              console.log("PayMongo: Updating student credits and family pack:", {
+                userId,
+                currentCredits,
+                creditsToAdd: credits,
+                newCredits,
+                isFamilyPack,
+                updateData,
+                currentHasFamilyPack: currentData.has_family_pack,
+              });
+
+              const { data: updateResult, error: updateError } = await supabase
                 .from('Students')
                 .update(updateData)
-                .eq('user_id', userId);
+                .eq('user_id', userId)
+                .select();
+
+              if (updateError) {
+                console.error("PayMongo: Error updating student:", updateError);
+              } else {
+                console.log("PayMongo: ✅ Student updated successfully:", updateResult);
+                if (updateResult && updateResult.length > 0) {
+                  console.log("PayMongo: Student record after update:", {
+                    id: updateResult[0].id,
+                    credits: updateResult[0].credits,
+                    has_family_pack: updateResult[0].has_family_pack,
+                  });
+                }
+              }
               
               // Send credit purchase notification
               try {
