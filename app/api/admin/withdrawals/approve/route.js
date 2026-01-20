@@ -42,6 +42,19 @@ export async function POST(request) {
 
     const supabase = getSupabaseClient();
 
+    // Ensure caller is a superadmin
+    const { data: superadmin, error: superadminErr } = await supabase
+      .from('superadmins')
+      .select('id')
+      .eq('user_id', superadminId)
+      .maybeSingle();
+    if (superadminErr || !superadmin) {
+      return NextResponse.json(
+        { error: 'Forbidden: superadmin access required' },
+        { status: 403 }
+      );
+    }
+
     // Get current withdrawal status
     const { data: withdrawal, error: fetchError } = await supabase
       .from('TutorWithdrawals')

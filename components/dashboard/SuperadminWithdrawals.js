@@ -36,35 +36,32 @@ export default function SuperadminWithdrawals() {
   const [rejectionReason, setRejectionReason] = useState({});
   const [expandedId, setExpandedId] = useState(null);
 
+  const getAccessToken = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  };
+
   const loadWithdrawals = async () => {
     if (!user) return;
     setError("");
     setLoading(true);
     try {
-      const { data, error: fetchError } = await supabase
-        .from("TutorWithdrawals")
-        .select(`
-          *,
-          tutor:Tutors(
-            id,
-            first_name,
-            last_name,
-            email,
-            payment_method,
-            bank_account_name,
-            bank_account_number,
-            bank_name,
-            bank_branch,
-            paypal_email,
-            gcash_number,
-            gcash_name
-          )
-        `)
-        .order("requested_at", { ascending: false });
+      const token = await getAccessToken();
+      if (!token) throw new Error("Authentication expired. Please sign in again.");
 
-      if (fetchError) throw fetchError;
+      const res = await fetch("/api/superadmin/withdrawals/list", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      setWithdrawals(data || []);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to retrieve withdrawal requests.");
+
+      setWithdrawals(json.withdrawals || []);
     } catch (fetchErr) {
       console.error("Failed to load withdrawals:", fetchErr);
       setError(fetchErr.message || "Failed to retrieve withdrawal requests.");
@@ -84,18 +81,6 @@ export default function SuperadminWithdrawals() {
     setActioningId(withdrawal.id);
 
     try {
-      // Update withdrawal status to approved
-      const { error: updateError } = await supabase
-        .from("TutorWithdrawals")
-        .update({
-          status: "approved",
-          approved_by: user.id,
-          approved_at: new Date().toISOString(),
-        })
-        .eq("id", withdrawal.id);
-
-      if (updateError) throw updateError;
-
       // First approve the withdrawal
       const approveResponse = await fetch("/api/admin/withdrawals/approve", {
         method: "POST",
