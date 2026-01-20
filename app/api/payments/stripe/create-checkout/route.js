@@ -52,7 +52,7 @@ export async function POST(request) {
     const fetchPlan = async () => {
       let planQuery = supabase
         .from('credit_plans')
-        .select('id, slug, name, credits, price_usd, savings_percent')
+        .select('id, slug, name, credits, price_usd, savings_percent, is_family_pack')
         .eq('slug', planId)
         .eq('is_active', true)
         .maybeSingle();
@@ -66,7 +66,7 @@ export async function POST(request) {
       if (!planData) {
         const { data: byIdData, error: byIdError } = await supabase
           .from('credit_plans')
-          .select('id, slug, name, credits, price_usd, savings_percent, is_active')
+          .select('id, slug, name, credits, price_usd, savings_percent, is_active, is_family_pack')
           .eq('id', planId)
           .eq('is_active', true)
           .maybeSingle();
@@ -124,6 +124,7 @@ export async function POST(request) {
         credits: credits.toString(),
         userId,
         priceUsd: price.toFixed(2),
+        isFamilyPack: (planData.is_family_pack === true).toString(), // Store directly in metadata
       },
     });
 

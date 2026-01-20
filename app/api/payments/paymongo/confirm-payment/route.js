@@ -71,8 +71,14 @@ export async function POST(request) {
 
       if (credits > 0 && userId) {
         // Check if this is a family pack purchase
+        // METHOD 1: Use metadata from PayMongo payment intent (most reliable - set at payment creation)
         let isFamilyPack = false;
-        if (planId) {
+        
+        if (metadata.isFamilyPack) {
+          isFamilyPack = metadata.isFamilyPack === "true";
+          console.log("PayMongo: ✅ Using isFamilyPack from payment intent metadata:", isFamilyPack);
+        } else if (planId) {
+          // METHOD 2: Fallback to database query
           console.log("PayMongo: Checking family pack status for planId:", planId);
           const { data: planData, error: planError } = await supabase
             .from('credit_plans')
@@ -97,13 +103,15 @@ export async function POST(request) {
               const planSlug = (planData.slug || '').toLowerCase();
               isFamilyPack = planName.includes('family') || planSlug.includes('family');
             }
-            console.log("PayMongo: isFamilyPack determined as:", isFamilyPack);
+            console.log("PayMongo: isFamilyPack determined from database:", isFamilyPack);
           } else {
             console.warn("PayMongo: Plan data not found for planId:", planId);
           }
         } else {
           console.warn("PayMongo: No planId provided in metadata");
         }
+        
+        console.log("PayMongo: 🎯 FINAL isFamilyPack value:", isFamilyPack);
 
         // Check if user is a principal first
         const { data: principalData, error: principalFetchError } = await supabase
@@ -168,15 +176,54 @@ export async function POST(request) {
           if (!fetchError) {
             if (!currentData) {
               // Create student record if it doesn't exist
-              const { data: newStudentData } = await supabase
+              const { data: newStudentData, error: createError } = await supabase
                 .from('Students')
                 .insert({
                   user_id: userId,
                   credits: credits,
                   has_family_pack: isFamilyPack,
                 })
-                .select('email, first_name, last_name')
+                .select('email, first_name, last_name, has_family_pack')
                 .single();
+              
+              if (createError) {
+                console.error("PayMongo: Error creating student record:", createError);
+              } else {
+                console.log("PayMongo: Student record created:", {
+                  has_family_pack: newStudentData?.has_family_pack,
+                  isFamilyPack,
+                });
+                
+                // VERIFICATION: Double-check the database
+                if (isFamilyPack && newStudentData) {
+                  const { data: verifyData, error: verifyError } = await supabase
+                    .from('Students')
+                    .select('has_family_pack')
+                    .eq('user_id', userId)
+                    .single();
+                  
+                  if (verifyError) {
+                    console.error("PayMongo: ❌ Verification query failed:", verifyError);
+                  } else {
+                    if (verifyData?.has_family_pack === true) {
+                      console.log("PayMongo: ✅ VERIFICATION SUCCESS: has_family_pack is correctly set to true");
+                    } else {
+                      console.error("PayMongo: ❌ VERIFICATION FAILED: has_family_pack is NOT set! Current value:", verifyData?.has_family_pack);
+                      // Try to fix it directly
+                      const { error: fixError } = await supabase
+                        .from('Students')
+                        .update({ has_family_pack: true })
+                        .eq('user_id', userId);
+                      
+                      if (fixError) {
+                        console.error("PayMongo: ❌ Failed to fix has_family_pack:", fixError);
+                      } else {
+                        console.log("PayMongo: ✅ Fixed has_family_pack by direct update");
+                      }
+                    }
+                  }
+                }
+              }
               
               // Send credit purchase notification
               if (newStudentData?.email) {
@@ -250,6 +297,36 @@ export async function POST(request) {
                     credits: updateResult[0].credits,
                     has_family_pack: updateResult[0].has_family_pack,
                   });
+                  
+                  // VERIFICATION: Double-check the database to ensure has_family_pack was set correctly
+                  if (isFamilyPack) {
+                    const { data: verifyData, error: verifyError } = await supabase
+                      .from('Students')
+                      .select('has_family_pack')
+                      .eq('user_id', userId)
+                      .single();
+                    
+                    if (verifyError) {
+                      console.error("PayMongo: ❌ Verification query failed:", verifyError);
+                    } else {
+                      if (verifyData?.has_family_pack === true) {
+                        console.log("PayMongo: ✅ VERIFICATION SUCCESS: has_family_pack is correctly set to true in database");
+                      } else {
+                        console.error("PayMongo: ❌ VERIFICATION FAILED: has_family_pack is NOT set to true! Current value:", verifyData?.has_family_pack);
+                        // Try to fix it directly
+                        const { error: fixError } = await supabase
+                          .from('Students')
+                          .update({ has_family_pack: true })
+                          .eq('user_id', userId);
+                        
+                        if (fixError) {
+                          console.error("PayMongo: ❌ Failed to fix has_family_pack:", fixError);
+                        } else {
+                          console.log("PayMongo: ✅ Fixed has_family_pack by direct update");
+                        }
+                      }
+                    }
+                  }
                 }
               }
               

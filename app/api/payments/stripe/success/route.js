@@ -109,16 +109,20 @@ export async function GET(request) {
     const supabase = getSupabaseClient();
 
     // Check if this is a family pack purchase
-    // Use planId from URL params, or fallback to session metadata
-    const effectivePlanId = planId || session.metadata?.planId;
+    // METHOD 1: Use metadata from Stripe session (most reliable - set at checkout creation)
     let isFamilyPack = false;
+    const metadataPlanId = session.metadata?.planId || planId;
     
-    if (effectivePlanId) {
-      console.log("Checking family pack status for planId:", effectivePlanId);
+    if (session.metadata?.isFamilyPack) {
+      isFamilyPack = session.metadata.isFamilyPack === "true";
+      console.log("✅ Using isFamilyPack from Stripe session metadata:", isFamilyPack);
+    } else if (metadataPlanId) {
+      // METHOD 2: Fallback to database query
+      console.log("Checking family pack status for planId:", metadataPlanId);
       const { data: planData, error: planError } = await supabase
         .from("credit_plans")
         .select("is_family_pack, name, slug")
-        .or(`slug.eq.${effectivePlanId},id.eq.${effectivePlanId}`)
+        .or(`slug.eq.${metadataPlanId},id.eq.${metadataPlanId}`)
         .maybeSingle();
 
       if (planError) {
@@ -138,13 +142,15 @@ export async function GET(request) {
           const planSlug = (planData.slug || "").toLowerCase();
           isFamilyPack = planName.includes("family") || planSlug.includes("family");
         }
-        console.log("isFamilyPack determined as:", isFamilyPack);
+        console.log("isFamilyPack determined from database:", isFamilyPack);
       } else {
-        console.warn("Plan data not found for planId:", effectivePlanId);
+        console.warn("Plan data not found for planId:", metadataPlanId);
       }
     } else {
       console.warn("No planId provided in URL or session metadata, cannot determine family pack status");
     }
+    
+    console.log("🎯 FINAL isFamilyPack value:", isFamilyPack);
 
     // Check if credits were already added (prevent duplicate credit additions)
     // We can check the session metadata or use a transaction log
@@ -277,6 +283,36 @@ export async function GET(request) {
         "Student record created successfully with credits:",
         newStudentData
       );
+      
+      // VERIFICATION: Double-check the database to ensure has_family_pack was set correctly
+      if (isFamilyPack) {
+        const { data: verifyData, error: verifyError } = await supabase
+          .from("Students")
+          .select("has_family_pack")
+          .eq("user_id", userId)
+          .single();
+        
+        if (verifyError) {
+          console.error("❌ Verification query failed:", verifyError);
+        } else {
+          if (verifyData?.has_family_pack === true) {
+            console.log("✅ VERIFICATION SUCCESS: has_family_pack is correctly set to true in database");
+          } else {
+            console.error("❌ VERIFICATION FAILED: has_family_pack is NOT set to true! Current value:", verifyData?.has_family_pack);
+            // Try to fix it directly
+            const { error: fixError } = await supabase
+              .from("Students")
+              .update({ has_family_pack: true })
+              .eq("user_id", userId);
+            
+            if (fixError) {
+              console.error("❌ Failed to fix has_family_pack:", fixError);
+            } else {
+              console.log("✅ Fixed has_family_pack by direct update");
+            }
+          }
+        }
+      }
 
       // Send credit purchase notification
       console.log(
@@ -406,6 +442,36 @@ export async function GET(request) {
         credits: updateData[0].credits,
         has_family_pack: updateData[0].has_family_pack,
       });
+      
+      // VERIFICATION: Double-check the database to ensure has_family_pack was set correctly
+      if (isFamilyPack) {
+        const { data: verifyData, error: verifyError } = await supabase
+          .from("Students")
+          .select("has_family_pack")
+          .eq("user_id", userId)
+          .single();
+        
+        if (verifyError) {
+          console.error("❌ Verification query failed:", verifyError);
+        } else {
+          if (verifyData?.has_family_pack === true) {
+            console.log("✅ VERIFICATION SUCCESS: has_family_pack is correctly set to true in database");
+          } else {
+            console.error("❌ VERIFICATION FAILED: has_family_pack is NOT set to true! Current value:", verifyData?.has_family_pack);
+            // Try to fix it directly
+            const { error: fixError } = await supabase
+              .from("Students")
+              .update({ has_family_pack: true })
+              .eq("user_id", userId);
+            
+            if (fixError) {
+              console.error("❌ Failed to fix has_family_pack:", fixError);
+            } else {
+              console.log("✅ Fixed has_family_pack by direct update");
+            }
+          }
+        }
+      }
     }
 
     // Send credit purchase notification
