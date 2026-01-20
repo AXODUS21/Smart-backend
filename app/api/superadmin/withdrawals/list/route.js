@@ -36,8 +36,17 @@ function extractBearerToken(request) {
 async function requireAuthedUser(request) {
   const token = extractBearerToken(request);
   if (!token) return null;
-  const authClient = getAnonAuthClient();
-  const { data, error } = await authClient.auth.getUser(token);
+  // In Supabase JS v2, the most reliable server-side pattern is to set the
+  // Authorization header on the client and call getUser() without args.
+  const authClient = createClient(
+    supabaseUrl,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    }
+  );
+  const { data, error } = await authClient.auth.getUser();
   if (error || !data?.user) return null;
   return data.user;
 }
