@@ -30,6 +30,9 @@ export default function Credits({ overrideStudentId }) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [success, setSuccess] = useState("");
 
+  // When overrideStudentId: principal acting as student — use principal's shared credits only (no buying)
+  const usePrincipalCredits = Boolean(overrideStudentId);
+
   // Fetch plans from the database
   const fetchPlans = async () => {
     try {
@@ -59,9 +62,6 @@ export default function Credits({ overrideStudentId }) {
 
   // Filter plans based on user's country
   const filteredPlans = plans.filter((plan) => plan.region === userCountry);
-
-  // When overrideStudentId: principal acting as student — use principal's shared credits only (no buying)
-  const usePrincipalCredits = Boolean(overrideStudentId);
 
   // Fetch user credits and pricing region
   useEffect(() => {
@@ -109,7 +109,7 @@ export default function Credits({ overrideStudentId }) {
 
   // Handle URL parameters for payment success/error (only for student; principal buys in Principal view)
   useEffect(() => {
-    if (typeof window !== "undefined" && !usePrincipalCredits) {
+    if (typeof window !== "undefined" && !usePrincipalCredits && !overrideStudentId) {
       const params = new URLSearchParams(window.location.search);
       const successParam = params.get("success");
       const errorParam = params.get("error");
@@ -177,7 +177,7 @@ export default function Credits({ overrideStudentId }) {
         window.history.replaceState({}, "", window.location.pathname);
       }
     }
-  }, [user]);
+  }, [user, overrideStudentId]);
 
   // Handle plan selection and open payment modal
   const handlePlanSelect = (planId) => {
