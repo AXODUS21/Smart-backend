@@ -140,21 +140,24 @@ export default function TutorHome() {
           console.error("Error fetching sessions:", sessionsError);
         } else if (sessions) {
           // Calculate metrics
-          const confirmedSessions = sessions.filter(
-            (s) => s.status === "confirmed"
+          // Count earnings only after tutor review is submitted (completed sessions)
+          const completedSessions = sessions.filter(
+            (s) =>
+              s.status === "confirmed" &&
+              (s.session_status === "successful" || s.session_action === "review-submitted")
           );
 
           // Total unique students
           const uniqueStudents = new Set(sessions.map((s) => s.student_id));
 
           // Hours taught
-          const hoursTaught = confirmedSessions.reduce(
+          const hoursTaught = completedSessions.reduce(
             (total, session) => total + (session.duration_min || 0) / 60,
             0
           );
 
           // Credits earned
-          const creditsEarned = confirmedSessions.reduce(
+          const creditsEarned = completedSessions.reduce(
             (total, session) => total + (session.credits_required || 0),
             0
           );

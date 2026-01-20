@@ -53,17 +53,21 @@ export async function GET(request) {
       );
     }
 
-    // Calculate credits dynamically from confirmed sessions (same as dashboard)
+    // Calculate credits dynamically from completed sessions (review submitted)
     let credits = 0;
     if (tutorData.id) {
       const { data: sessions } = await supabase
         .from('Schedules')
-        .select('credits_required, status')
+        .select('credits_required, status, session_status, session_action')
         .eq('tutor_id', tutorData.id);
 
       if (sessions) {
         const totalCreditsEarned = sessions
-          .filter((s) => s.status === 'confirmed')
+          .filter(
+            (s) =>
+              s.status === 'confirmed' &&
+              (s.session_status === 'successful' || s.session_action === 'review-submitted')
+          )
           .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
 
         // Get total withdrawals (convert PHP to credits)

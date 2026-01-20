@@ -129,17 +129,22 @@ export default function TutorProfile() {
           setSubjects(normalizedSubjects);
           setCertifications(tutorData?.certifications || []);
 
-          // Calculate credits from confirmed sessions (same logic as dashboard)
+          // Calculate credits from completed sessions (review submitted)
           if (tutorData?.id) {
             const { data: sessions, error: sessionsError } = await supabase
               .from("Schedules")
-              .select("credits_required, status")
+              .select("credits_required, status, session_status, session_action")
               .eq("tutor_id", tutorData.id);
 
             if (!sessionsError && sessions) {
-              // Calculate total credits from confirmed sessions (same as dashboard)
+              // Calculate total credits from completed sessions (review submitted)
               const totalCreditsEarned = sessions
-                .filter((s) => s.status === "confirmed")
+                .filter(
+                  (s) =>
+                    s.status === "confirmed" &&
+                    (s.session_status === "successful" ||
+                      s.session_action === "review-submitted")
+                )
                 .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
 
               // Get total amount withdrawn (convert PHP to credits)
@@ -253,12 +258,16 @@ export default function TutorProfile() {
       if (updatedTutorData?.id) {
         const { data: sessions } = await supabase
           .from("Schedules")
-          .select("credits_required, status")
+          .select("credits_required, status, session_status, session_action")
           .eq("tutor_id", updatedTutorData.id);
 
         if (sessions) {
           const totalCreditsEarned = sessions
-            .filter((s) => s.status === "confirmed")
+            .filter(
+              (s) =>
+                s.status === "confirmed" &&
+                (s.session_status === "successful" || s.session_action === "review-submitted")
+            )
             .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
 
           // Only count approved, processing, or completed withdrawals (not pending or rejected)
