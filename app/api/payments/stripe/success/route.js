@@ -111,18 +111,32 @@ export async function GET(request) {
     // Check if this is a family pack purchase
     let isFamilyPack = false;
     if (planId) {
-      const { data: planData } = await supabase
+      console.log("Checking family pack status for planId:", planId);
+      const { data: planData, error: planError } = await supabase
         .from("credit_plans")
-        .select("name, slug")
+        .select("is_family_pack, name, slug")
         .or(`slug.eq.${planId},id.eq.${planId}`)
         .maybeSingle();
 
-      if (planData) {
-        const planName = (planData.name || "").toLowerCase();
-        const planSlug = (planData.slug || "").toLowerCase();
-        isFamilyPack =
-          planName.includes("family") || planSlug.includes("family");
+      if (planError) {
+        console.error("Error fetching plan data:", planError);
       }
+
+      if (planData) {
+        console.log("Plan data found:", { is_family_pack: planData.is_family_pack, name: planData.name, slug: planData.slug });
+        // Use the is_family_pack field first, fallback to checking name/slug
+        isFamilyPack = planData.is_family_pack === true;
+        if (!isFamilyPack) {
+          const planName = (planData.name || "").toLowerCase();
+          const planSlug = (planData.slug || "").toLowerCase();
+          isFamilyPack = planName.includes("family") || planSlug.includes("family");
+        }
+        console.log("isFamilyPack determined as:", isFamilyPack);
+      } else {
+        console.warn("Plan data not found for planId:", planId);
+      }
+    } else {
+      console.warn("No planId provided, cannot determine family pack status");
     }
 
     // Check if credits were already added (prevent duplicate credit additions)
@@ -344,14 +358,19 @@ export async function GET(request) {
     // If this is a family pack purchase, set has_family_pack to true
     if (isFamilyPack) {
       updateDataObj.has_family_pack = true;
+      console.log("✅ Family pack purchase detected - setting has_family_pack = true");
+    } else {
+      console.log("ℹ️ Not a family pack purchase - has_family_pack will not be updated");
     }
 
-    console.log("Updating credits:", {
+    console.log("Updating student credits and family pack:", {
       userId,
       currentCredits,
       creditsToAdd: credits,
       newCredits,
       isFamilyPack,
+      updateDataObj,
+      currentHasFamilyPack: currentData.has_family_pack,
     });
 
     const { data: updateData, error: updateError } = await supabase
@@ -374,6 +393,13 @@ export async function GET(request) {
     }
 
     console.log("Credits updated successfully:", updateData);
+    if (updateData && updateData.length > 0) {
+      console.log("✅ Student record after update:", {
+        id: updateData[0].id,
+        credits: updateData[0].credits,
+        has_family_pack: updateData[0].has_family_pack,
+      });
+    }
 
     // Send credit purchase notification
     console.log(

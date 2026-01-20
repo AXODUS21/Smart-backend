@@ -75,14 +75,18 @@ export async function POST(request) {
         if (planId) {
           const { data: planData } = await supabase
             .from('credit_plans')
-            .select('name, slug')
+            .select('is_family_pack, name, slug')
             .or(`slug.eq.${planId},id.eq.${planId}`)
             .maybeSingle();
           
           if (planData) {
-            const planName = (planData.name || '').toLowerCase();
-            const planSlug = (planData.slug || '').toLowerCase();
-            isFamilyPack = planName.includes('family') || planSlug.includes('family');
+            // Use the is_family_pack field first, fallback to checking name/slug
+            isFamilyPack = planData.is_family_pack === true;
+            if (!isFamilyPack) {
+              const planName = (planData.name || '').toLowerCase();
+              const planSlug = (planData.slug || '').toLowerCase();
+              isFamilyPack = planName.includes('family') || planSlug.includes('family');
+            }
           }
         }
 
