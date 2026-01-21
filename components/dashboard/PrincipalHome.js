@@ -86,13 +86,6 @@ export default function PrincipalHome({ setActiveTab }) {
       onClick: () => setActiveTab("students"),
     },
     {
-      title: "Available Credits",
-      value: metrics.creditsAvailable,
-      icon: Zap,
-      color: "bg-orange-500",
-      onClick: () => setActiveTab("credits"),
-    },
-    {
       title: "Total Sessions",
       value: metrics.totalSessions,
       icon: Clock,
@@ -151,16 +144,6 @@ export default function PrincipalHome({ setActiveTab }) {
             <div>
               <p className="font-medium text-slate-900">Manage Students</p>
               <p className="text-sm text-slate-500">Add or remove students</p>
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab("credits")}
-            className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-left"
-          >
-            <Zap className="w-5 h-5 text-orange-600" />
-            <div>
-              <p className="font-medium text-slate-900">Add Credits</p>
-              <p className="text-sm text-slate-500">Purchase credits for your students</p>
             </div>
           </button>
         </div>

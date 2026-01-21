@@ -31,6 +31,7 @@ import {
   ClipboardList,
   Layout,
   DollarSign,
+  Ticket,
 } from "lucide-react";
 
 // Dashboard components
@@ -62,11 +63,12 @@ import SuperadminSidebarConfig from "./dashboard/SuperadminSidebarConfig";
 import SuperadminTasks from "./dashboard/SuperadminTasks";
 import SuperadminWithdrawals from "./dashboard/SuperadminWithdrawals";
 import AdminTutorApplications from "./dashboard/AdminTutorApplications";
+import AdminVoucherRequests from "./dashboard/AdminVoucherRequests";
 import TutorApplication from "./dashboard/TutorApplication";
 import SessionManagement from "./dashboard/SessionManagement";
 import PrincipalHome from "./dashboard/PrincipalHome";
 import PrincipalStudents from "./dashboard/PrincipalStudents";
-import PrincipalCredits from "./dashboard/PrincipalCredits";
+import PrincipalVouchers from "./dashboard/PrincipalVouchers";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -350,7 +352,7 @@ export default function Dashboard() {
   const principalTabs = [
     { id: "home", label: "Dashboard", icon: Home },
     { id: "students", label: "My Students", icon: Users },
-    { id: "credits", label: "Add Credits", icon: Wallet },
+    { id: "vouchers", label: "Vouchers", icon: Ticket },
   ];
 
   const tutorApplicationTabs = [
@@ -367,6 +369,7 @@ export default function Dashboard() {
     tasks: { id: "tasks", label: "Tasks", icon: CheckSquare },
     subjects: { id: "subjects", label: "Subjects", icon: CheckSquare },
     "credit-plans": { id: "credit-plans", label: "Credit Plans", icon: Wallet },
+    "voucher-requests": { id: "voucher-requests", label: "Voucher Requests", icon: Ticket },
     announcements: {
       id: "announcements",
       label: "Announcements",
@@ -442,6 +445,7 @@ export default function Dashboard() {
     { id: "subjects", label: "Subjects", icon: CheckSquare },
     { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
+    { id: "voucher-requests", label: "Voucher Requests", icon: Ticket },
     { id: "withdraw-requests", label: "Withdrawal Requests", icon: DollarSign },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
@@ -752,8 +756,8 @@ export default function Dashboard() {
               }}
             />
           )}
-          {activeTab === "credits" && userRole === "principal" && (
-            <PrincipalCredits />
+          {activeTab === "vouchers" && userRole === "principal" && (
+            <PrincipalVouchers />
           )}
           {activeTab === "home" && userRole === "tutor" && <TutorHome />}
           {activeTab === "assignments" && userRole === "tutor" && (
@@ -798,6 +802,9 @@ export default function Dashboard() {
           {activeTab === "tutor-applications" && userRole === "superadmin" && (
             <AdminTutorApplications />
           )}
+          {activeTab === "voucher-requests" && userRole === "superadmin" && (
+            <AdminVoucherRequests />
+          )}
           {activeTab === "withdraw-requests" && userRole === "superadmin" && (
             <SuperadminWithdrawals />
           )}
@@ -823,6 +830,9 @@ export default function Dashboard() {
           )}
           {activeTab === "tutor-applications" && userRole === "admin" && (
             <AdminTutorApplications />
+          )}
+          {activeTab === "voucher-requests" && userRole === "admin" && (
+            <AdminVoucherRequests />
           )}
           {activeTab === "credits" && userRole === "student" && (
             <Credits />

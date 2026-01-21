@@ -33,6 +33,7 @@ export async function POST(request) {
       districtSchoolName = '',
       typeOfSchool = '',
       typeOfStudents = [],
+      pricingRegion = 'US',
     } = body;
 
     if (!userId || !firstName || !lastName || !email) {
@@ -78,7 +79,7 @@ export async function POST(request) {
         district_school_name: districtSchoolName || '',
         type_of_school: typeOfSchool || '',
         type_of_students: Array.isArray(typeOfStudents) ? typeOfStudents : [],
-        pricing_region: 'US',
+        pricing_region: pricingRegion === 'PH' ? 'PH' : 'US',
         students: [],
       })
       .select('id')

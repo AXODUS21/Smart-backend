@@ -17,6 +17,7 @@ export default function PrincipalSignupPage() {
   const [typeOfSchool, setTypeOfSchool] = useState('');
   const [typeOfStudents, setTypeOfStudents] = useState([]);
   const [otherStudentText, setOtherStudentText] = useState('');
+  const [location, setLocation] = useState('US');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -60,7 +61,7 @@ export default function PrincipalSignupPage() {
     setError('');
     setSuccess('');
 
-    if (!districtSchoolName || !typeOfSchool || typeOfStudents.length === 0) {
+    if (!districtSchoolName || !typeOfSchool || typeOfStudents.length === 0 || !location) {
       setError('Please complete all required fields.');
       return;
     }
@@ -90,6 +91,7 @@ export default function PrincipalSignupPage() {
             last_name: lastName,
             middle_name: middleName,
             user_type: 'principal',
+            pricing_region: location === 'PH' ? 'PH' : 'US',
             contact_number: contactNumber,
             address,
             district_school_name: districtSchoolName,
@@ -117,6 +119,7 @@ export default function PrincipalSignupPage() {
               districtSchoolName,
               typeOfSchool,
               typeOfStudents: studentsToSave,
+              pricingRegion: location === 'PH' ? 'PH' : 'US',
             }),
           });
           const data = await res.json();
@@ -145,6 +148,7 @@ export default function PrincipalSignupPage() {
         setOtherStudentText('');
         setPassword('');
         setConfirmPassword('');
+        setLocation('US');
       }
     } catch (err) {
       setError(err.message || 'Unable to create account. Please try again.');
@@ -274,6 +278,25 @@ export default function PrincipalSignupPage() {
                 required
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="location" className="text-sm font-medium text-gray-700">
+                Location <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="US">International</option>
+                <option value="PH">Philippines</option>
+              </select>
+              <p className="text-xs text-gray-500">
+                This determines your credit pricing and cannot be changed later.
+              </p>
             </div>
 
             <div className="space-y-2">
