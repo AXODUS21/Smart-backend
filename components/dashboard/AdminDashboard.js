@@ -13,6 +13,7 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  Filter,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -31,10 +32,19 @@ export default function AdminDashboard() {
   const [expiringCredits, setExpiringCredits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAllStudents, setShowAllStudents] = useState(false);
+  const [userTypeFilter, setUserTypeFilter] = useState("all"); // "all", "student", "principal"
+  const [allBookings, setAllBookings] = useState([]); // Store all bookings for filtering
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    // When filter changes, recalculate stats from allBookings
+    if (allBookings.length > 0) {
+      calculateFilteredStats();
+    }
+  }, [userTypeFilter, allBookings]);
 
   const fetchDashboardData = async () => {
     try {
@@ -53,10 +63,10 @@ export default function AdminDashboard() {
         supabase.from("admins").select("id", { count: "exact" }),
         supabase
           .from("Schedules")
-          .select("id, status, credits_required", { count: "exact" }),
+          .select("id, status, credits_required, principal_user_id", { count: "exact" }),
         supabase
           .from("Schedules")
-          .select("id, status, credits_required, start_time_utc"),
+          .select("id, status, credits_required, start_time_utc, principal_user_id"),
       ]);
 
       // Check for errors
@@ -86,25 +96,16 @@ export default function AdminDashboard() {
       const admins = adminsData.data || [];
       const bookings = schedulesData.data || [];
 
-      // Calculate stats
+      // Store all bookings for filtering
+      setAllBookings(bookings);
+
+      // Calculate base stats (not filtered)
       const totalStudents = studentsData.count || 0;
       const totalTutors = tutorsData.count || 0;
       const totalAdmins = adminsData.count || 0;
-      const totalBookings = bookingsData.count || 0;
-      const pendingBookings = bookings.filter(
-        (b) => b.status === "pending"
-      ).length;
-      const confirmedBookings = bookings.filter(
-        (b) => b.status === "confirmed"
-      ).length;
 
-      // Calculate revenue (assuming 1 credit = $10, 70% to tutor, 30% to company)
-      const totalCreditsUsed = bookings
-        .filter((b) => b.status === "confirmed")
-        .reduce((sum, b) => sum + (parseFloat(b.credits_required) || 0), 0);
-      const totalRevenue = totalCreditsUsed * 10;
-      const tutorEarnings = totalRevenue * 0.7;
-      const companyShare = totalRevenue * 0.3;
+      // Calculate filtered stats based on current filter
+      calculateFilteredStats(bookings);
 
       // Get newly enrolled students (last 7 days)
       const sevenDaysAgo = new Date();
@@ -152,17 +153,12 @@ export default function AdminDashboard() {
         name: `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.email || "Unnamed Student"
       }));
 
-      setStats({
+      setStats((prev) => ({
+        ...prev,
         totalStudents,
         totalTutors,
         totalAdmins,
-        totalBookings,
-        pendingBookings,
-        confirmedBookings,
-        totalRevenue,
-        tutorEarnings,
-        companyShare,
-      });
+      }));
       setNewStudents(newStudentsList);
       setExpiringCredits(expiringStudents);
     } catch (error) {
@@ -170,6 +166,45 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateFilteredStats = (bookingsToFilter = allBookings) => {
+    // Filter bookings based on userTypeFilter
+    let filteredBookings = bookingsToFilter;
+    if (userTypeFilter === "student") {
+      // Only show bookings from regular students (no principal_user_id)
+      filteredBookings = bookingsToFilter.filter((b) => !b.principal_user_id);
+    } else if (userTypeFilter === "principal") {
+      // Only show bookings from principals (has principal_user_id)
+      filteredBookings = bookingsToFilter.filter((b) => b.principal_user_id);
+    }
+
+    // Calculate stats from filtered bookings
+    const totalBookings = filteredBookings.length;
+    const pendingBookings = filteredBookings.filter(
+      (b) => b.status === "pending"
+    ).length;
+    const confirmedBookings = filteredBookings.filter(
+      (b) => b.status === "confirmed"
+    ).length;
+
+    // Calculate revenue (assuming 1 credit = $10, 70% to tutor, 30% to company)
+    const totalCreditsUsed = filteredBookings
+      .filter((b) => b.status === "confirmed")
+      .reduce((sum, b) => sum + (parseFloat(b.credits_required) || 0), 0);
+    const totalRevenue = totalCreditsUsed * 10;
+    const tutorEarnings = totalRevenue * 0.7;
+    const companyShare = totalRevenue * 0.3;
+
+    setStats((prev) => ({
+      ...prev,
+      totalBookings,
+      pendingBookings,
+      confirmedBookings,
+      totalRevenue,
+      tutorEarnings,
+      companyShare,
+    }));
   };
 
   const metricData = [
@@ -233,13 +268,27 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
-          Admin Dashboard
-        </h2>
-        <p className="text-slate-500">
-          Overview of platform statistics and recent activity
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+            Admin Dashboard
+          </h2>
+          <p className="text-slate-500">
+            Overview of platform statistics and recent activity
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Filter className="w-5 h-5 text-slate-500" />
+          <select
+            value={userTypeFilter}
+            onChange={(e) => setUserTypeFilter(e.target.value)}
+            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700 bg-white shadow-sm"
+          >
+            <option value="all">All Users</option>
+            <option value="student">Students Only</option>
+            <option value="principal">Principals Only</option>
+          </select>
+        </div>
       </div>
 
       {/* Stats Grid */}

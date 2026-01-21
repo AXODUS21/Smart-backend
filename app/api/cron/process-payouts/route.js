@@ -62,7 +62,24 @@ export async function POST(request) {
       failed: 0,
       totalAmount: 0,
       errors: [],
+      withdrawals: [], // Store withdrawal details for report
     };
+    
+    // Determine payout period dates (15th or 30th)
+    const now = new Date();
+    const currentDay = now.getDate();
+    const periodStart = new Date(now);
+    const periodEnd = new Date(now);
+    
+    if (currentDay === 15) {
+      // Period: 1st to 15th
+      periodStart.setDate(1);
+      periodEnd.setDate(15);
+    } else if (currentDay === 30 || currentDay === 31) {
+      // Period: 16th to 30th (or last day of month)
+      periodStart.setDate(16);
+      periodEnd.setDate(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate());
+    }
 
     // Get all tutors with their sessions
     const { data: tutors, error: tutorsError } = await supabase
@@ -130,10 +147,20 @@ export async function POST(request) {
           if (withdrawalError) {
             results.errors.push({
               tutor_id: tutor.id,
+              tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim() || tutor.email,
               error: withdrawalError.message,
             });
             results.failed++;
           } else {
+            // Get the created withdrawal record with tutor details
+            const { data: createdWithdrawal } = await supabase
+              .from('TutorWithdrawals')
+              .select('id, tutor_id, amount, status, requested_at, note')
+              .eq('tutor_id', tutor.id)
+              .order('requested_at', { ascending: false })
+              .limit(1)
+              .single();
+
             // Update last_payout_date
             await supabase
               .from('Tutors')
@@ -142,6 +169,22 @@ export async function POST(request) {
 
             results.processed++;
             results.totalAmount += amountPhp;
+            
+            // Store withdrawal details for report
+            if (createdWithdrawal) {
+              results.withdrawals.push({
+                withdrawal_id: createdWithdrawal.id,
+                tutor_id: tutor.id,
+                tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim() || tutor.email,
+                tutor_email: tutor.email,
+                amount: amountPhp,
+                credits: availableCredits,
+                status: createdWithdrawal.status,
+                payment_method: tutor.payment_method,
+                requested_at: createdWithdrawal.requested_at,
+                note: createdWithdrawal.note,
+              });
+            }
           }
         }
       } catch (tutorError) {
@@ -154,11 +197,59 @@ export async function POST(request) {
       }
     }
 
+    // Generate and save payout report
+    let reportId = null;
+    try {
+      const reportData = {
+        withdrawals: results.withdrawals,
+        errors: results.errors,
+        summary: {
+          total_payouts: results.processed + results.failed,
+          successful_payouts: results.processed,
+          failed_payouts: results.failed,
+          pending_payouts: results.processed, // All created withdrawals start as pending
+          total_amount: results.totalAmount,
+          credit_rate: CREDIT_TO_PHP_RATE,
+          period_start: periodStart.toISOString().split('T')[0],
+          period_end: periodEnd.toISOString().split('T')[0],
+        },
+      };
+
+      const { data: report, error: reportError } = await supabase
+        .from('PayoutReports')
+        .insert({
+          report_period_start: periodStart.toISOString().split('T')[0],
+          report_period_end: periodEnd.toISOString().split('T')[0],
+          report_type: 'automatic_payout',
+          total_payouts: results.processed + results.failed,
+          total_amount: results.totalAmount,
+          successful_payouts: results.processed,
+          failed_payouts: results.failed,
+          pending_payouts: results.processed,
+          report_data: reportData,
+          notes: `Automatic payout processing completed on ${new Date().toISOString()}`,
+        })
+        .select('id')
+        .single();
+
+      if (!reportError && report) {
+        reportId = report.id;
+        console.log(`Payout report generated with ID: ${reportId}`);
+      } else {
+        console.error('Error creating payout report:', reportError);
+      // Continue even if report creation fails
+      }
+    } catch (reportErr) {
+      console.error('Error generating payout report:', reportErr);
+      // Continue even if report creation fails
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${results.processed} payouts, ${results.failed} failed`,
       results,
       timestamp: new Date().toISOString(),
+      report_id: reportId,
     });
   } catch (error) {
     console.error('Cron payout processing error:', error);
