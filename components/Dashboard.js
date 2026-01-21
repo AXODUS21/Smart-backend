@@ -41,6 +41,7 @@ import Calendar from "./dashboard/Calendar";
 import TutorHome from "./dashboard/TutorHome";
 import StudentHome from "./dashboard/StudentHome";
 import PastSessions from "./dashboard/PastSessions";
+import StudentPastSessions from "./dashboard/StudentPastSessions";
 import StudentFeedback from "./dashboard/StudentFeedback";
 import TutorProfile from "./dashboard/TutorProfile";
 import StudentProfile from "./dashboard/StudentProfile";
@@ -326,6 +327,7 @@ export default function Dashboard() {
     { id: "find-tutors", label: "Book Sessions", icon: Search },
     { id: "manage-sessions", label: "Manage Sessions", icon: Clock },
     { id: "meetings", label: "Calendar", icon: Video },
+    { id: "past-sessions", label: "Past Sessions", icon: Clock },
     { id: "feedback", label: "Feedback", icon: MessageSquare },
     { id: "profile", label: "Profile", icon: User },
   ];
@@ -734,6 +736,9 @@ export default function Dashboard() {
           )}
           {activeTab === "assignments" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
             <StudentAssignments overrideStudentId={actingAsStudentId} />
+          )}
+          {activeTab === "past-sessions" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
+            <StudentPastSessions overrideStudentId={actingAsStudentId} />
           )}
           {activeTab === "home" && userRole === "principal" && !actingAsStudentId && (
             <PrincipalHome setActiveTab={setActiveTab} />

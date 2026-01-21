@@ -303,9 +303,14 @@ export default function Credits({ overrideStudentId }) {
                   ${plan.pricePerHour}/hour
                 </p>
               )}
-              {plan.pricePerCredit && (
+              {plan.pricePerCredit && userCountry === "PH" && (
                 <p className="text-sm text-gray-500">
                   ₱{plan.pricePerCredit} per credit
+                </p>
+              )}
+              {plan.pricePerCredit && userCountry !== "PH" && (
+                <p className="text-sm text-gray-500">
+                  ${plan.pricePerCredit} per credit
                 </p>
               )}
               <p className="text-sm text-gray-500 mt-2">{plan.description}</p>

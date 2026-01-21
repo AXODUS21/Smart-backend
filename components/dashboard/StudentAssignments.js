@@ -426,6 +426,24 @@ export default function StudentAssignments({ overrideStudentId }) {
                     {assignment.description && (
                       <p className="text-xs text-slate-700 mt-1 whitespace-pre-wrap line-clamp-2">{assignment.description}</p>
                     )}
+                    {/* Tutor attachment */}
+                    {assignment.file_url && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-1 text-blue-800 mb-1">
+                          <FileText className="w-3 h-3" />
+                          <span className="font-medium text-xs">Tutor Attachment</span>
+                        </div>
+                        <a
+                          href={assignment.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 hover:underline text-blue-800 text-xs"
+                        >
+                          <Download className="w-3 h-3" />
+                          Download Assignment File
+                        </a>
+                      </div>
+                    )}
                     {/* Submission/graded info */}
                     {assignment.submission_file_url && (
                       <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">

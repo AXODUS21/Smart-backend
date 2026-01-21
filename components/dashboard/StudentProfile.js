@@ -458,40 +458,19 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
       <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 space-y-4">
         <div>
           <div className="text-slate-900 font-semibold">Pricing Location</div>
-          <div className="text-slate-500 text-sm">Choose where you reside so credits show the correct pricing.</div>
+          <div className="text-slate-500 text-sm">Your location determines credit pricing. This cannot be changed after signup.</div>
         </div>
-        <div className="flex flex-col gap-3 md:flex-row md:items-end">
+        <div className="flex flex-col gap-3">
           <div className="flex-1">
-            <label className="block text-sm text-slate-600 mb-1">Select location</label>
-            <select
-              value={pricingRegion}
-              onChange={(e) => {
-                setPricingRegion(e.target.value);
-                setRegionStatus({ type: null, message: "" });
-              }}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"
-            >
-              <option value="PH">Philippines</option>
-              <option value="US">International</option>
-            </select>
+            <label className="block text-sm text-slate-600 mb-1">Location</label>
+            <div className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 text-slate-600">
+              {pricingRegion === "PH" ? "Philippines" : "International"}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Location is set during signup and cannot be edited.
+            </p>
           </div>
-          <button
-            onClick={handleSavePricingRegion}
-            disabled={savingRegion || !studentRecord}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-60"
-          >
-            {savingRegion ? "Saving..." : "Save Location"}
-          </button>
         </div>
-        {regionStatus.message && (
-          <div
-            className={`text-sm ${
-              regionStatus.type === "error" ? "text-red-600" : "text-green-600"
-            }`}
-          >
-            {regionStatus.message}
-          </div>
-        )}
       </div>
 
       {/* Setup Modal */}
