@@ -9,12 +9,15 @@ import { handleNoShow } from "@/lib/sessionPolicies";
 export default function PastSessions() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
+  const [allSessions, setAllSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showReview, setShowReview] = useState(null);
   const [reviews, setReviews] = useState({});
   const [processing, setProcessing] = useState({});
   const [showNoShowModal, setShowNoShowModal] = useState(null);
   const [noShowType, setNoShowType] = useState(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // Fetch past sessions for the tutor
   useEffect(() => {
@@ -65,7 +68,10 @@ export default function PastSessions() {
             student_id: session.student_id,
             review: session.tutor_review || null,
             profile_name: session.profile_name,
+            start_time_utc: session.start_time_utc,
+            duration_min: session.duration_min,
           }));
+          setAllSessions(transformedSessions);
           setSessions(transformedSessions);
         }
       } catch (error) {
@@ -99,6 +105,23 @@ export default function PastSessions() {
     });
     return `${startStr} - ${endStr}`;
   };
+
+  // Filter sessions by date range
+  useEffect(() => {
+    if (!allSessions.length) return;
+
+    let filtered = allSessions;
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      filtered = allSessions.filter((s) => {
+        const sessionDate = new Date(s.start_time_utc);
+        return sessionDate >= start && sessionDate <= end;
+      });
+    }
+    setSessions(filtered);
+  }, [startDate, endDate, allSessions]);
 
   const handleWriteReview = async (id) => {
     setShowReview(id);
@@ -315,6 +338,54 @@ export default function PastSessions() {
         </p>
       </div>
 
+      {/* Date Range Filter */}
+      <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
+        <h3 className="text-sm font-medium text-slate-700 mb-3">Filter by Date Range</h3>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <label className="block text-xs text-slate-600 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs text-slate-600 mb-1">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+          {(startDate || endDate) && (
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setStartDate("");
+                  setEndDate("");
+                }}
+                className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+        {startDate && endDate && (
+          <p className="text-xs text-slate-500 mt-2">
+            Showing sessions from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
+          </p>
+        )}
+        {allSessions.length > 0 && (
+          <p className="text-xs text-slate-500 mt-2">
+            Showing {sessions.length} of {allSessions.length} sessions
+          </p>
+        )}
+      </div>
+
       <div className="space-y-2">
         {sessions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
@@ -367,6 +438,14 @@ export default function PastSessions() {
 
               {showReview === session.id && session.status === "completed" && (
                 <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-xs font-medium text-green-900 mb-1">
+                      You will earn: {session.credits_required} credits (₱{(session.credits_required * 180).toFixed(2)})
+                    </p>
+                    <p className="text-xs text-green-700">
+                      {session.duration_min} minutes = {session.credits_required} credit{session.credits_required > 1 ? 's' : ''} (30 min = 1 credit, 1 hour = 2 credits)
+                    </p>
+                  </div>
                   <label className="block text-xs font-medium text-slate-900 mb-1.5">
                     Session Review (Required)
                   </label>
@@ -386,7 +465,7 @@ export default function PastSessions() {
                     >
                       {processing[session.id]
                         ? "Submitting..."
-                        : "Submit Review"}
+                        : "Submit Review & Earn Credits"}
                     </button>
                     <button
                       onClick={() => setShowReview(null)}

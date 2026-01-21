@@ -167,7 +167,7 @@ export default function TutorProfile() {
                 .in("status", ["approved", "processing", "completed"]);
 
               const totalWithdrawnCredits = withdrawals
-                ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 140, 0) // Convert PHP to credits (1 credit = 140 PHP)
+                ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 180, 0) // Convert PHP to credits (1 credit = 180 PHP)
                 : 0;
 
               // Net credits = earned - withdrawn
@@ -226,7 +226,7 @@ export default function TutorProfile() {
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to cash out ${credits} credits (${(credits * 140).toFixed(2)} PHP)?`
+      `Are you sure you want to cash out ${credits} credits (${(credits * 180).toFixed(2)} PHP)?`
     );
 
     if (!confirmed) return;
@@ -289,7 +289,7 @@ export default function TutorProfile() {
             .in("status", ["approved", "processing", "completed"]);
 
           const totalWithdrawnCredits = withdrawals
-            ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 140, 0)
+            ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 180, 0)
             : 0;
 
           const netCredits = totalCreditsEarned - totalWithdrawnCredits;
@@ -696,9 +696,9 @@ export default function TutorProfile() {
                 <div className="text-right">
                   <p className="text-sm text-slate-600 mb-1">Equivalent in PHP</p>
                   <p className="text-2xl font-bold text-emerald-600">
-                    ₱{(credits * 140).toFixed(2)}
+                    ₱{(credits * 180).toFixed(2)}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">1 credit = 140 PHP</p>
+                  <p className="text-xs text-slate-500 mt-1">1 credit = 180 PHP</p>
                 </div>
               </div>
               {/* Check if payment info is complete */}

@@ -79,14 +79,14 @@ export async function GET(request) {
           .in('status', ['approved', 'processing', 'completed']);
 
         const totalWithdrawnCredits = withdrawals
-          ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 140, 0)
+          ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 180, 0)
           : 0;
 
         credits = Math.max(0, totalCreditsEarned - totalWithdrawnCredits);
       }
     }
 
-    const creditToPhpRate = 140; // 1 credit = 140 PHP
+    const creditToPhpRate = 180; // 1 credit = 180 PHP
     const totalPhp = credits * creditToPhpRate;
 
     // Check Stripe balance (central account)

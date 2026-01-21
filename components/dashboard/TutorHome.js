@@ -34,6 +34,9 @@ export default function TutorHome() {
   const [students, setStudents] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [tutorId, setTutorId] = useState(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [allSessions, setAllSessions] = useState([]);
 
   const metricsData = [
     {
@@ -91,6 +94,58 @@ export default function TutorHome() {
     "Psychology",
   ];
 
+  // Function to calculate metrics from sessions
+  const calculateMetrics = (sessions) => {
+    // Filter sessions by date range if dates are set
+    let filteredSessions = sessions;
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // Include the entire end date
+      filteredSessions = sessions.filter((s) => {
+        const sessionDate = new Date(s.start_time_utc);
+        return sessionDate >= start && sessionDate <= end;
+      });
+    }
+
+    // Calculate metrics
+    // Count earnings only after tutor review is submitted (completed sessions)
+    const completedSessions = filteredSessions.filter(
+      (s) =>
+        s.status === "confirmed" &&
+        (s.session_status === "successful" || s.session_action === "review-submitted")
+    );
+
+    // Total unique students
+    const uniqueStudents = new Set(filteredSessions.map((s) => s.student_id));
+
+    // Hours taught
+    const hoursTaught = completedSessions.reduce(
+      (total, session) => total + (session.duration_min || 0) / 60,
+      0
+    );
+
+    // Credits earned
+    const creditsEarned = completedSessions.reduce(
+      (total, session) => total + (session.credits_required || 0),
+      0
+    );
+
+    setMetrics({
+      totalStudents: uniqueStudents.size,
+      hoursTaught: Math.round(hoursTaught * 10) / 10,
+      avgRating: 4.9, // Default or fetch from ratings table if available
+      creditsEarned,
+    });
+  };
+
+  // Recalculate metrics when date filters change
+  useEffect(() => {
+    if (allSessions.length > 0) {
+      calculateMetrics(allSessions);
+    }
+  }, [startDate, endDate, allSessions]);
+
   // Fetch tutor data and metrics - fetch tutor ID once
   useEffect(() => {
     const fetchData = async () => {
@@ -139,35 +194,8 @@ export default function TutorHome() {
         if (sessionsError) {
           console.error("Error fetching sessions:", sessionsError);
         } else if (sessions) {
-          // Calculate metrics
-          // Count earnings only after tutor review is submitted (completed sessions)
-          const completedSessions = sessions.filter(
-            (s) =>
-              s.status === "confirmed" &&
-              (s.session_status === "successful" || s.session_action === "review-submitted")
-          );
-
-          // Total unique students
-          const uniqueStudents = new Set(sessions.map((s) => s.student_id));
-
-          // Hours taught
-          const hoursTaught = completedSessions.reduce(
-            (total, session) => total + (session.duration_min || 0) / 60,
-            0
-          );
-
-          // Credits earned
-          const creditsEarned = completedSessions.reduce(
-            (total, session) => total + (session.credits_required || 0),
-            0
-          );
-
-          setMetrics({
-            totalStudents: uniqueStudents.size,
-            hoursTaught: Math.round(hoursTaught * 10) / 10,
-            avgRating: 4.9, // Default or fetch from ratings table if available
-            creditsEarned,
-          });
+          setAllSessions(sessions);
+          calculateMetrics(sessions);
 
           // Get upcoming sessions (next 3)
           const upcoming = sessions
@@ -431,6 +459,49 @@ export default function TutorHome() {
           Welcome Back, {tutorName}
         </h2>
         <p className="text-slate-500">{todayFormatted}</p>
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
+        <h3 className="text-sm font-medium text-slate-700 mb-3">Filter Dashboard by Date Range</h3>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <label className="block text-xs text-slate-600 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs text-slate-600 mb-1">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+          {(startDate || endDate) && (
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setStartDate("");
+                  setEndDate("");
+                }}
+                className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+        {startDate && endDate && (
+          <p className="text-xs text-slate-500 mt-2">
+            Showing data from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

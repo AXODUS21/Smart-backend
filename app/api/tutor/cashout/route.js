@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
 const PAYMONGO_BASE_URL = 'https://api.paymongo.com/v1';
-const CREDIT_TO_PHP_RATE = 140; // 1 credit = 140 PHP
+const CREDIT_TO_PHP_RATE = 180; // 1 credit = 180 PHP
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -79,7 +79,7 @@ export async function POST(request) {
           .in('status', ['approved', 'processing', 'completed']);
 
         const totalWithdrawnCredits = withdrawals
-          ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 140, 0)
+          ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 180, 0)
           : 0;
 
         credits = Math.max(0, totalCreditsEarned - totalWithdrawnCredits);
