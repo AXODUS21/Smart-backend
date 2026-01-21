@@ -76,6 +76,11 @@ export default function AdminJobs() {
         icon: <CheckCircle className="w-4 h-4" />,
         label: "Completed",
       },
+      rejected: {
+        color: "bg-rose-100 text-rose-800",
+        icon: <XCircle className="w-4 h-4" />,
+        label: "Rejected",
+      },
     };
 
     const config = statusConfig[status] || {
@@ -188,6 +193,7 @@ export default function AdminJobs() {
       confirmed: bookings.filter((b) => b.status === "confirmed").length,
       cancelled: bookings.filter((b) => b.status === "cancelled").length,
       completed: bookings.filter((b) => b.status === "completed").length,
+      rejected: bookings.filter((b) => b.status === "rejected").length,
     };
   };
 
@@ -275,7 +281,7 @@ export default function AdminJobs() {
       </div>
 
       {/* Status Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div
           onClick={() => setStatusFilter("all")}
           className={`bg-white rounded-lg p-4 shadow-sm border border-slate-200 cursor-pointer transition-all ${
@@ -320,6 +326,15 @@ export default function AdminJobs() {
         >
           <p className="text-sm font-medium text-slate-600">Completed</p>
           <p className="text-2xl font-bold text-slate-900 mt-2">{stats.completed}</p>
+        </div>
+        <div
+          onClick={() => setStatusFilter("rejected")}
+          className={`bg-white rounded-lg p-4 shadow-sm border border-slate-200 cursor-pointer transition-all ${
+            statusFilter === "rejected" ? "ring-2 ring-rose-500" : ""
+          }`}
+        >
+          <p className="text-sm font-medium text-slate-600">Rejected</p>
+          <p className="text-2xl font-bold text-slate-900 mt-2">{stats.rejected}</p>
         </div>
       </div>
 
