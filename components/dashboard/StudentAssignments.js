@@ -251,9 +251,25 @@ export default function StudentAssignments({ overrideStudentId }) {
   // Filter assignments
   const filteredAssignments = assignments
     .filter((assignment) => {
-      if (statusFilter === "all") return true;
-      if (statusFilter === "overdue") return isOverdue(assignment);
-      return assignment.status === statusFilter;
+      // Search filter
+      const matchesSearch =
+        !searchTerm ||
+        assignment.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        assignment.tutor?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        assignment.tutor?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        assignment.subject?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Status filter
+      let matchesStatus = true;
+      if (statusFilter !== "all") {
+        if (statusFilter === "overdue") {
+          matchesStatus = isOverdue(assignment);
+        } else {
+          matchesStatus = assignment.status === statusFilter;
+        }
+      }
+
+      return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
       switch (sortBy) {

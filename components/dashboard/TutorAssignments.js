@@ -380,6 +380,7 @@ export default function TutorAssignments() {
   const filteredAssignments = assignments
     .filter((assignment) => {
       const matchesSearch =
+        !searchTerm ||
         assignment.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         assignment.student?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         assignment.student?.email?.toLowerCase().includes(searchTerm.toLowerCase());

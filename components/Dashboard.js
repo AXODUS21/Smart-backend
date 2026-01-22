@@ -30,7 +30,6 @@ import {
   FileText,
   ClipboardList,
   Layout,
-  DollarSign,
   Ticket,
 } from "lucide-react";
 
@@ -61,7 +60,6 @@ import StudentAssignments from "./dashboard/StudentAssignments";
 import AdminAnnouncements from "./dashboard/AdminAnnouncements";
 import SuperadminSidebarConfig from "./dashboard/SuperadminSidebarConfig";
 import SuperadminTasks from "./dashboard/SuperadminTasks";
-import SuperadminWithdrawals from "./dashboard/SuperadminWithdrawals";
 import PayoutReports from "./dashboard/PayoutReports";
 import AdminTutorApplications from "./dashboard/AdminTutorApplications";
 import AdminVoucherRequests from "./dashboard/AdminVoucherRequests";
@@ -447,7 +445,6 @@ export default function Dashboard() {
     { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
     { id: "voucher-requests", label: "Voucher Requests", icon: Ticket },
-    { id: "withdraw-requests", label: "Withdrawal Requests", icon: DollarSign },
     { id: "payout-reports", label: "Payout Reports", icon: FileText },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
@@ -465,6 +462,9 @@ export default function Dashboard() {
       ? tutorTabs
       : tutorApplicationTabs;
 
+  // When principal is viewing as student, remove profile tab
+  const principalStudentTabs = studentTabsBase.filter(tab => tab.id !== "profile");
+
   const tabs =
     userRole === "student"
       ? studentModeEnabled
@@ -476,7 +476,7 @@ export default function Dashboard() {
       : userRole === "tutor"
       ? resolvedTutorTabs
       : userRole === "principal" && actingAsStudentId
-      ? studentTabsBase
+      ? principalStudentTabs
       : userRole === "principal"
       ? principalTabs
       : userRole === "superadmin"
@@ -515,6 +515,18 @@ export default function Dashboard() {
       setActiveTab("home");
     }
   }, [loading, userRole, tutorApplicationApproved]); // Removed activeTab from deps
+
+  // Redirect away from profile tab when principal is viewing as student
+  useEffect(() => {
+    if (
+      !loading &&
+      userRole === "principal" &&
+      actingAsStudentId &&
+      activeTab === "profile"
+    ) {
+      setActiveTab("home");
+    }
+  }, [loading, userRole, actingAsStudentId, activeTab]);
 
   // Stable callback for application status change
   const handleApplicationStatusChange = useCallback((status) => {
@@ -807,9 +819,6 @@ export default function Dashboard() {
           {activeTab === "voucher-requests" && userRole === "superadmin" && (
             <AdminVoucherRequests />
           )}
-          {activeTab === "withdraw-requests" && userRole === "superadmin" && (
-            <SuperadminWithdrawals />
-          )}
           {activeTab === "payout-reports" && userRole === "superadmin" && (
             <PayoutReports />
           )}
@@ -863,7 +872,7 @@ export default function Dashboard() {
             <PastSessions />
           )}
           {activeTab === "profile" && userRole === "tutor" && <TutorProfile />}
-          {activeTab === "profile" && (userRole === "student" || (userRole === "principal" && actingAsStudentId)) && (
+          {activeTab === "profile" && userRole === "student" && !actingAsStudentId && (
             <StudentProfile
               studentModeEnabled={studentModeEnabled}
               onChangeStudentMode={handleChangeStudentMode}

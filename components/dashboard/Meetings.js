@@ -532,11 +532,16 @@ export default function Meetings({ overrideStudentId }) {
 
       // Sort sessions
       let sorted = [...filtered];
-      if (sortBy === "name" || sortBy === "scheduled_with") {
+      if (sortBy === "name") {
         sorted.sort((a, b) => {
           const tutorA = a.tutor?.name || a.tutor?.email || "Unknown";
           const tutorB = b.tutor?.name || b.tutor?.email || "Unknown";
           return tutorA.localeCompare(tutorB);
+        });
+      } else if (sortBy === "scheduled_with") {
+        // Sort by scheduled date/time (earliest first)
+        sorted.sort((a, b) => {
+          return new Date(a.start_time_utc) - new Date(b.start_time_utc);
         });
       } else if (sortBy === "latest") {
         // Sort by latest (newest first) - descending order by start_time_utc
@@ -676,7 +681,7 @@ export default function Meetings({ overrideStudentId }) {
                     <option value="current">Current Status (Default)</option>
                     <option value="latest">Latest First</option>
                     <option value="name">By Tutor Name</option>
-                    <option value="scheduled_with">By Scheduled With</option>
+                    <option value="scheduled_with">By Scheduled Date/Time</option>
                   </select>
                 </div>
               </div>

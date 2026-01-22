@@ -15,7 +15,6 @@ export default function PastSessions() {
   const [reviews, setReviews] = useState({});
   const [processing, setProcessing] = useState({});
   const [showNoShowModal, setShowNoShowModal] = useState(null);
-  const [noShowType, setNoShowType] = useState(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -287,7 +286,6 @@ export default function PastSessions() {
       );
 
       setShowNoShowModal(null);
-      setNoShowType(null);
       alert(
         type === "student-no-show"
           ? "Student no-show recorded. Credits forfeited."
@@ -409,6 +407,10 @@ export default function PastSessions() {
                     <p className="text-xs text-slate-500">{session.date}</p>
                     <span className="text-xs text-slate-400">•</span>
                     <p className="text-xs text-slate-500">{session.time}</p>
+                    <span className="text-xs text-slate-400">•</span>
+                    <p className="text-xs text-slate-500">
+                      Credits: {session.credits_required} (₱{(session.credits_required * 180).toFixed(2)})
+                    </p>
                     {session.profile_name && (
                       <>
                         <span className="text-xs text-slate-400">•</span>
@@ -529,7 +531,6 @@ export default function PastSessions() {
             <div className="p-6 space-y-3">
               <button
                 onClick={() => {
-                  setNoShowType("student-no-show");
                   handleMarkNoShow(showNoShowModal, "student-no-show");
                 }}
                 disabled={processing[showNoShowModal]}
@@ -548,27 +549,7 @@ export default function PastSessions() {
 
               <button
                 onClick={() => {
-                  setNoShowType("tutor-no-show");
-                  handleMarkNoShow(showNoShowModal, "tutor-no-show");
-                }}
-                disabled={processing[showNoShowModal]}
-                className="w-full p-4 border-2 border-amber-200 rounded-lg hover:bg-amber-50 transition-colors text-left disabled:opacity-50"
-              >
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-slate-900">Tutor No-Show</p>
-                    <p className="text-sm text-slate-600 mt-1">
-                      You did not attend the session. Credits will be refunded to student.
-                    </p>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
                   setShowNoShowModal(null);
-                  setNoShowType(null);
                 }}
                 disabled={processing[showNoShowModal]}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg text-slate-900 font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"

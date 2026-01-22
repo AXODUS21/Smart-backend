@@ -19,6 +19,15 @@ export default function AdminVoucherRequests() {
   const [creditsInput, setCreditsInput] = useState({});
   const [reasonInput, setReasonInput] = useState({});
   const [actioningId, setActioningId] = useState(null);
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+  const [checkingRole, setCheckingRole] = useState(true);
+  const [granting, setGranting] = useState(false);
+  const [grantForm, setGrantForm] = useState({
+    principalEmail: "",
+    creditsAmount: "",
+    reason: "",
+    code: "",
+  });
 
   const getAccessToken = async () => {
     const {
@@ -50,6 +59,34 @@ export default function AdminVoucherRequests() {
   useEffect(() => {
     loadRequests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const checkSuperadmin = async () => {
+      try {
+        setCheckingRole(true);
+        const { data: userRes } = await supabase.auth.getUser();
+        const userId = userRes?.user?.id;
+        if (!userId) return;
+        const { data, error } = await supabase
+          .from("superadmins")
+          .select("id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!error && data) {
+          setIsSuperadmin(true);
+        } else {
+          setIsSuperadmin(false);
+        }
+      } catch (e) {
+        console.error("Failed to check superadmin role", e);
+      } finally {
+        setCheckingRole(false);
+      }
+    };
+
+    checkSuperadmin();
   }, []);
 
   const filtered = useMemo(() => {
@@ -93,6 +130,50 @@ export default function AdminVoucherRequests() {
     }
   };
 
+  const grantCredits = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setGranting(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Authentication expired. Please sign in again.");
+
+      const res = await fetch("/api/admin/vouchers/grant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          principalEmail: grantForm.principalEmail,
+          creditsAmount: Number(grantForm.creditsAmount),
+          reason: grantForm.reason,
+          code: grantForm.code || undefined,
+        }),
+      });
+
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error || "Failed to grant credits");
+
+      setSuccess(
+        `Added ${grantForm.creditsAmount} credits to ${payload?.principal?.email || grantForm.principalEmail
+        }.`
+      );
+      setGrantForm({
+        principalEmail: "",
+        creditsAmount: "",
+        reason: "",
+        code: "",
+      });
+      await loadRequests();
+    } catch (e) {
+      setError(e.message || "Failed to grant credits");
+    } finally {
+      setGranting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -112,6 +193,78 @@ export default function AdminVoucherRequests() {
 
       {error && <div className="text-sm text-red-600">{error}</div>}
       {success && <div className="text-sm text-green-700">{success}</div>}
+
+      {isSuperadmin && !checkingRole && (
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="font-semibold text-slate-900">Grant credits to a principal</div>
+              <p className="text-sm text-slate-600">
+                Add credits directly to a principal account without a voucher submission.
+              </p>
+            </div>
+          </div>
+
+          <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={grantCredits}>
+            <div className="md:col-span-2">
+              <label className="block text-xs text-slate-600 mb-1">Principal email</label>
+              <input
+                type="email"
+                required
+                value={grantForm.principalEmail}
+                onChange={(e) =>
+                  setGrantForm((prev) => ({ ...prev, principalEmail: e.target.value }))
+                }
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                placeholder="principal@example.com"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-600 mb-1">Credits to add</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                required
+                value={grantForm.creditsAmount}
+                onChange={(e) =>
+                  setGrantForm((prev) => ({ ...prev, creditsAmount: e.target.value }))
+                }
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                placeholder="e.g. 10"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-600 mb-1">Voucher code (optional)</label>
+              <input
+                value={grantForm.code}
+                onChange={(e) => setGrantForm((prev) => ({ ...prev, code: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                placeholder="Used for audit trail"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs text-slate-600 mb-1">Reason / notes</label>
+              <input
+                value={grantForm.reason}
+                onChange={(e) => setGrantForm((prev) => ({ ...prev, reason: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                placeholder="Optional reason for manual grant"
+              />
+            </div>
+            <div className="md:col-span-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={granting}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+              >
+                {granting && <Loader2 className="w-4 h-4 animate-spin" />}
+                Grant credits
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center gap-3 justify-between">

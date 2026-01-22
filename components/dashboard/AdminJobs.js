@@ -19,6 +19,8 @@ export default function AdminJobs() {
   const [maxDurationFilter, setMaxDurationFilter] = useState("");
   const [minCreditsFilter, setMinCreditsFilter] = useState("");
   const [maxCreditsFilter, setMaxCreditsFilter] = useState("");
+  const [sortBy, setSortBy] = useState("newest"); // newest, oldest, student, tutor, subject, date, status
+  const [sortDirection, setSortDirection] = useState("desc"); // asc, desc
 
   useEffect(() => {
     fetchBookings();
@@ -183,6 +185,66 @@ export default function AdminJobs() {
       filtered = filtered.filter((b) => parseFloat(b.credits_required || 0) <= maxCredits);
     }
 
+    // Sort bookings
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case "newest":
+        case "oldest":
+          aValue = new Date(a.start_time_utc || 0).getTime();
+          bValue = new Date(b.start_time_utc || 0).getTime();
+          break;
+        case "student":
+          aValue = (a.student?.name || a.student?.email || "").toLowerCase();
+          bValue = (b.student?.name || b.student?.email || "").toLowerCase();
+          break;
+        case "tutor":
+          aValue = (a.tutor?.name || a.tutor?.email || "").toLowerCase();
+          bValue = (b.tutor?.name || b.tutor?.email || "").toLowerCase();
+          break;
+        case "subject":
+          aValue = (a.subject || "").toLowerCase();
+          bValue = (b.subject || "").toLowerCase();
+          break;
+        case "date":
+          aValue = new Date(a.start_time_utc || 0).getTime();
+          bValue = new Date(b.start_time_utc || 0).getTime();
+          break;
+        case "status":
+          const statusOrder = { pending: 0, confirmed: 1, completed: 2, cancelled: 3, rejected: 4 };
+          aValue = statusOrder[a.status] ?? 5;
+          bValue = statusOrder[b.status] ?? 5;
+          break;
+        case "credits":
+          aValue = parseFloat(a.credits_required || 0);
+          bValue = parseFloat(b.credits_required || 0);
+          break;
+        case "duration":
+          aValue = parseFloat(a.duration_min || 0);
+          bValue = parseFloat(b.duration_min || 0);
+          break;
+        default:
+          aValue = new Date(a.start_time_utc || 0).getTime();
+          bValue = new Date(b.start_time_utc || 0).getTime();
+      }
+
+      // Handle string comparison
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        const comparison = aValue.localeCompare(bValue);
+        return sortDirection === "asc" ? comparison : -comparison;
+      }
+
+      // Handle numeric/date comparison
+      if (aValue < bValue) {
+        return sortDirection === "asc" ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortDirection === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
+
     return filtered;
   };
 
@@ -242,6 +304,8 @@ export default function AdminJobs() {
     setMaxDurationFilter("");
     setMinCreditsFilter("");
     setMaxCreditsFilter("");
+    setSortBy("newest");
+    setSortDirection("desc");
   };
 
   const hasActiveFilters = () => {
@@ -256,7 +320,9 @@ export default function AdminJobs() {
       minDurationFilter ||
       maxDurationFilter ||
       minCreditsFilter ||
-      maxCreditsFilter
+      maxCreditsFilter ||
+      sortBy !== "newest" ||
+      sortDirection !== "desc"
     );
   };
 
@@ -376,6 +442,31 @@ export default function AdminJobs() {
               Clear
             </button>
           )}
+          <div className="flex gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700 text-sm"
+            >
+              <option value="newest">Sort: Newest First</option>
+              <option value="oldest">Sort: Oldest First</option>
+              <option value="date">Sort: By Date</option>
+              <option value="student">Sort: By Student</option>
+              <option value="tutor">Sort: By Tutor</option>
+              <option value="subject">Sort: By Subject</option>
+              <option value="status">Sort: By Status</option>
+              <option value="credits">Sort: By Credits</option>
+              <option value="duration">Sort: By Duration</option>
+            </select>
+            <select
+              value={sortDirection}
+              onChange={(e) => setSortDirection(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700 text-sm"
+            >
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+          </div>
         </div>
 
         {/* Advanced Filters Panel */}

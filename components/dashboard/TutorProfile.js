@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, X, Edit, User, Briefcase, Award, BookOpen, CheckCircle, Wallet, DollarSign, CreditCard, AlertCircle } from "lucide-react";
+import { Save, Plus, X, Edit, User, Briefcase, Award, BookOpen, CheckCircle, Wallet, CreditCard, AlertCircle } from "lucide-react";
 import { ImageUpload } from "@/components/ImageUpload";
 
 const PROFILE_PHOTOS_BUCKET = "profile-photos";
@@ -18,7 +18,6 @@ export default function TutorProfile() {
   const [tutorData, setTutorData] = useState(null);
   const [credits, setCredits] = useState(0);
   const [balanceInfo, setBalanceInfo] = useState(null);
-  const [cashoutLoading, setCashoutLoading] = useState(false);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState({
     payment_method: "bank",
@@ -216,97 +215,7 @@ export default function TutorProfile() {
   }, [user, tutorData]);
 
   // Handle cash out
-  const handleCashOut = async () => {
-    if (!user) return;
-
-    if (credits <= 0) {
-      setError("No credits available to cash out.");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Are you sure you want to cash out ${credits} credits (${(credits * 180).toFixed(2)} PHP)?`
-    );
-
-    if (!confirmed) return;
-
-    setCashoutLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const response = await fetch("/api/tutor/cashout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId: user.id }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to process cash out");
-      }
-
-      setSuccess(data.message || "Cash out request submitted successfully!");
-
-      // Refresh balance info
-      const balanceResponse = await fetch(`/api/tutor/balance?userId=${user.id}`);
-      if (balanceResponse.ok) {
-        const balanceData = await balanceResponse.json();
-        setBalanceInfo(balanceData);
-      }
-
-      // Recalculate credits after cash out (same logic as initial fetch)
-      const { data: updatedTutorData } = await supabase
-        .from("Tutors")
-        .select("id")
-        .eq("user_id", user.id)
-        .single();
-
-      if (updatedTutorData?.id) {
-        const { data: sessions } = await supabase
-          .from("Schedules")
-          .select("credits_required, status, session_status, session_action")
-          .eq("tutor_id", updatedTutorData.id);
-
-        if (sessions) {
-          const totalCreditsEarned = sessions
-            .filter(
-              (s) =>
-                s.status === "confirmed" &&
-                (s.session_status === "successful" || s.session_action === "review-submitted")
-            )
-            .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
-
-          // Only count approved, processing, or completed withdrawals (not pending or rejected)
-          const { data: withdrawals } = await supabase
-            .from("TutorWithdrawals")
-            .select("amount")
-            .eq("tutor_id", updatedTutorData.id)
-            .in("status", ["approved", "processing", "completed"]);
-
-          const totalWithdrawnCredits = withdrawals
-            ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 180, 0)
-            : 0;
-
-          const netCredits = totalCreditsEarned - totalWithdrawnCredits;
-          setCredits(Math.max(0, netCredits));
-        }
-      }
-
-      setTimeout(() => setSuccess(""), 5000);
-    } catch (error) {
-      console.error("Error cashing out:", error);
-      setError(error.message || "Failed to process cash out. Please try again.");
-      setTimeout(() => setError(""), 5000);
-    } finally {
-      setCashoutLoading(false);
-    }
-  };
-
+  // Cash out removed; payouts are automatic now.
   // Add experience
   const handleAddExperience = () => {
     if (!newExperience.title || !newExperience.company) {
@@ -701,33 +610,20 @@ export default function TutorProfile() {
                   <p className="text-xs text-slate-500 mt-1">1 credit = 180 PHP</p>
                 </div>
               </div>
-              {/* Check if payment info is complete */}
-              {(!paymentInfo.bank_account_number && paymentInfo.payment_method === "bank") &&
-               (!paymentInfo.paypal_email && paymentInfo.payment_method === "paypal") &&
-               (!paymentInfo.gcash_number && paymentInfo.payment_method === "gcash") ? (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="text-amber-600 mt-0.5" size={20} />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-amber-800 mb-1">
-                        Payment Information Required
-                      </p>
-                      <p className="text-xs text-amber-700">
-                        Please add your payment information below before cashing out.
-                      </p>
-                    </div>
+              {/* Note about automatic payouts */}
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="text-amber-600 mt-0.5" size={20} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-amber-800 mb-1">
+                      Automatic payouts
+                    </p>
+                    <p className="text-xs text-amber-700">
+                      Payouts are processed automatically twice monthly. Ensure your payment information below is up to date.
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <button
-                  onClick={handleCashOut}
-                  disabled={credits <= 0 || cashoutLoading}
-                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <DollarSign size={18} />
-                  {cashoutLoading ? "Processing..." : "Cash Out Credits"}
-                </button>
-              )}
+              </div>
               {balanceInfo && (
                 <div className="pt-4 border-t border-slate-200">
                   <p className="text-xs text-slate-500 mb-2">Payment Account Balances:</p>

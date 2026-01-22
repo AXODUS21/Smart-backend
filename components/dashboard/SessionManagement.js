@@ -529,7 +529,7 @@ export default function SessionManagement({ overrideStudentId }) {
                 >
                   <option value="current">Current Status (Default)</option>
                   <option value="name">By Tutor Name</option>
-                  <option value="scheduled_with">By Scheduled With</option>
+                  <option value="scheduled_with">By Scheduled Date/Time</option>
                 </select>
               </div>
             </div>
@@ -548,7 +548,7 @@ export default function SessionManagement({ overrideStudentId }) {
 
             // Sort sessions
             let sortedSessions = [...filteredSessions];
-            if (sortBy === "name" || sortBy === "scheduled_with") {
+            if (sortBy === "name") {
               sortedSessions.sort((a, b) => {
                 const tutorA = a.tutor
                   ? `${a.tutor.first_name || ""} ${a.tutor.last_name || ""}`.trim() ||
@@ -559,6 +559,11 @@ export default function SessionManagement({ overrideStudentId }) {
                     "Unknown"
                   : "Unknown";
                 return tutorA.localeCompare(tutorB);
+              });
+            } else if (sortBy === "scheduled_with") {
+              // Sort by scheduled date/time (earliest first)
+              sortedSessions.sort((a, b) => {
+                return new Date(a.start_time_utc) - new Date(b.start_time_utc);
               });
             } else {
               // Default: current status - pending first, then confirmed, sorted by time
