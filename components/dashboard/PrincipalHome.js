@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import {
   Clock,
   Zap,
-  Users,
+  Building2,
   TrendingUp,
 } from "lucide-react";
 
@@ -14,7 +14,7 @@ export default function PrincipalHome({ setActiveTab }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
-    totalStudents: 0,
+    totalSchools: 0,
     creditsAvailable: 0,
     totalSessions: 0,
   });
@@ -36,24 +36,16 @@ export default function PrincipalHome({ setActiveTab }) {
           const fullName = `${principalData.first_name || ''} ${principalData.last_name || ''}`.trim();
           setPrincipalName(fullName || user.email);
           
-          const students = principalData.students || [];
-          const studentIds = students.map(s => s.student_id || s.id).filter(Boolean);
-          
-          // Count total sessions for all students
-          let totalSessions = 0;
-          if (studentIds.length > 0) {
-            const { data: sessions } = await supabase
-              .from("Schedules")
-              .select("id")
-              .in("student_id", studentIds);
-            
-            totalSessions = sessions?.length || 0;
-          }
+          // Get schools count
+          const { count } = await supabase
+            .from("Schools")
+            .select("*", { count: "exact", head: true })
+            .eq("principal_id", user.id);
 
           setMetrics({
-            totalStudents: students.length,
+            totalSchools: count || 0,
             creditsAvailable: principalData.credits || 0,
-            totalSessions: totalSessions,
+            totalSessions: 0, // Placeholder as sessions logic might need update
           });
         }
       } catch (error) {
@@ -79,11 +71,11 @@ export default function PrincipalHome({ setActiveTab }) {
 
   const metricCards = [
     {
-      title: "Total Students",
-      value: metrics.totalStudents,
-      icon: Users,
+      title: "Total Schools",
+      value: metrics.totalSchools,
+      icon: Building2,
       color: "bg-blue-500",
-      onClick: () => setActiveTab("students"),
+      onClick: () => setActiveTab("schools"),
     },
     {
       title: "Total Sessions",
@@ -100,7 +92,7 @@ export default function PrincipalHome({ setActiveTab }) {
           Welcome, {principalName}
         </h2>
         <p className="text-slate-600">
-          Manage your students and credits from your dashboard
+          Manage your schools and credits from your dashboard
         </p>
       </div>
 
@@ -137,13 +129,13 @@ export default function PrincipalHome({ setActiveTab }) {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
-            onClick={() => setActiveTab("students")}
+            onClick={() => setActiveTab("schools")}
             className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-left"
           >
-            <Users className="w-5 h-5 text-blue-600" />
+            <Building2 className="w-5 h-5 text-blue-600" />
             <div>
-              <p className="font-medium text-slate-900">Manage Students</p>
-              <p className="text-sm text-slate-500">Add or remove students</p>
+              <p className="font-medium text-slate-900">Manage Schools</p>
+              <p className="text-sm text-slate-500">Add or remove schools</p>
             </div>
           </button>
         </div>

@@ -31,6 +31,7 @@ import {
   ClipboardList,
   Layout,
   Ticket,
+  Building2,
 } from "lucide-react";
 
 // Dashboard components
@@ -66,8 +67,9 @@ import AdminVoucherRequests from "./dashboard/AdminVoucherRequests";
 import TutorApplication from "./dashboard/TutorApplication";
 import SessionManagement from "./dashboard/SessionManagement";
 import PrincipalHome from "./dashboard/PrincipalHome";
-import PrincipalStudents from "./dashboard/PrincipalStudents";
+import PrincipalSchools from "./dashboard/PrincipalSchools";
 import PrincipalVouchers from "./dashboard/PrincipalVouchers";
+import AdminSettings from "./dashboard/AdminSettings";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -350,7 +352,7 @@ export default function Dashboard() {
 
   const principalTabs = [
     { id: "home", label: "Dashboard", icon: Home },
-    { id: "students", label: "My Students", icon: Users },
+    { id: "schools", label: "My Schools", icon: Building2 },
     { id: "vouchers", label: "Vouchers", icon: Ticket },
   ];
 
@@ -453,6 +455,7 @@ export default function Dashboard() {
       label: "Tutor Applications",
       icon: ClipboardList,
     },
+    { id: "settings", label: "Document Template", icon: Settings },
   ];
 
   const resolvedTutorTabs =
@@ -761,14 +764,8 @@ export default function Dashboard() {
           {activeTab === "home" && userRole === "principal" && !actingAsStudentId && (
             <PrincipalHome setActiveTab={setActiveTab} />
           )}
-          {activeTab === "students" && userRole === "principal" && !actingAsStudentId && (
-            <PrincipalStudents
-              onStudentsChange={async () => {
-                const { data } = await supabase.from("Principals").select("students").eq("user_id", user.id).single();
-                const raw = data?.students || [];
-                setPrincipalLinkedStudents(raw.map((s) => ({ id: s.student_id ?? s.id, name: s.name || s.email || "Student" })).filter((s) => s.id != null));
-              }}
-            />
+          {activeTab === "schools" && userRole === "principal" && !actingAsStudentId && (
+            <PrincipalSchools />
           )}
           {activeTab === "vouchers" && userRole === "principal" && (
             <PrincipalVouchers />
@@ -797,6 +794,9 @@ export default function Dashboard() {
           )}
           {activeTab === "services" && userRole === "superadmin" && (
             <AdminServices />
+          )}
+          {activeTab === "settings" && userRole === "superadmin" && (
+            <AdminSettings />
           )}
           {activeTab === "announcements" && userRole === "superadmin" && (
             <AdminAnnouncements />
