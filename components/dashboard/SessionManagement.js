@@ -120,6 +120,10 @@ export default function SessionManagement({ overrideStudentId }) {
   const canCancelSession = (session) => {
     const now = new Date();
     const sessionStart = new Date(session.start_time_utc);
+    
+    // Cannot cancel past sessions
+    if (now >= sessionStart) return false;
+
     const hoursUntilSession = (sessionStart - now) / (1000 * 60 * 60);
     const requiredHours = platformSettings.cancellation_notice_hours || 24;
     return hoursUntilSession >= requiredHours;
@@ -129,6 +133,10 @@ export default function SessionManagement({ overrideStudentId }) {
   const canRescheduleSession = (session) => {
     const now = new Date();
     const sessionStart = new Date(session.start_time_utc);
+    
+    // Cannot reschedule past sessions
+    if (now >= sessionStart) return false;
+
     const hoursUntilSession = (sessionStart - now) / (1000 * 60 * 60);
     const requiredHours = platformSettings.rescheduling_notice_hours || 24;
     return hoursUntilSession >= requiredHours;
@@ -210,9 +218,13 @@ export default function SessionManagement({ overrideStudentId }) {
     console.log("Cancellation check - Hours until session:", hoursUntilSession, "Required hours:", requiredHours);
     
     if (!canCancelSession(selectedSession)) {
-      alert(
-        `Cancellations must be made at least ${requiredHours} hours in advance. Your session is in ${hoursUntilSession} hours.`
-      );
+      if (new Date(selectedSession.start_time_utc) <= new Date()) {
+        alert("Cannot cancel a past session.");
+      } else {
+        alert(
+          `Cancellations must be made at least ${requiredHours} hours in advance. Your session is in ${hoursUntilSession} hours.`
+        );
+      }
       return;
     }
 
@@ -358,10 +370,14 @@ export default function SessionManagement({ overrideStudentId }) {
     }
 
     if (!canRescheduleSession(selectedSession)) {
-      const hoursUntilSession = getHoursUntilSession(selectedSession);
-      alert(
-        `Rescheduling must be done at least ${platformSettings.rescheduling_notice_hours} hours in advance. Your session is in ${hoursUntilSession} hours.`
-      );
+      if (new Date(selectedSession.start_time_utc) <= new Date()) {
+        alert("Cannot reschedule a past session.");
+      } else {
+        const hoursUntilSession = getHoursUntilSession(selectedSession);
+        alert(
+          `Rescheduling must be done at least ${platformSettings.rescheduling_notice_hours} hours in advance. Your session is in ${hoursUntilSession} hours.`
+        );
+      }
       return;
     }
 
