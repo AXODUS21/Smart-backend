@@ -646,7 +646,7 @@ export default function SessionManagement({ overrideStudentId }) {
                   <div className="mt-4 space-y-2">
                     {!canCancelSession(session) && (
                       <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
-                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                         <span>
                           Cancellation deadline passed. Must cancel at least{" "}
                           {platformSettings.cancellation_notice_hours} hours in advance.
@@ -655,7 +655,7 @@ export default function SessionManagement({ overrideStudentId }) {
                     )}
                     {!canRescheduleSession(session) && (
                       <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
-                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                         <span>
                           Rescheduling deadline passed. Must reschedule at least{" "}
                           {platformSettings.rescheduling_notice_hours} hours in advance.
@@ -734,7 +734,7 @@ export default function SessionManagement({ overrideStudentId }) {
 
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <div className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-700 mt-0.5 flex-shrink-0" />
+                  <CheckCircle className="w-4 h-4 text-green-700 mt-0.5 shrink-0" />
                   <div className="text-sm text-green-700">
                     <p className="font-medium">Full credit refund</p>
                     <p className="text-xs mt-1">

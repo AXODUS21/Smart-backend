@@ -33,6 +33,7 @@ export default function Meetings({ overrideStudentId }) {
   const [tutorView, setTutorView] = useState("pending");
   const [sortBy, setSortBy] = useState("current"); // "current", "name", "scheduled_with", "latest"
   const [selectedTutorFilter, setSelectedTutorFilter] = useState("all"); // "all" or tutor ID
+  const [selectedSessionDetails, setSelectedSessionDetails] = useState(null);
 
   const getAccessToken = useCallback(async () => {
     const {
@@ -774,7 +775,10 @@ export default function Meetings({ overrideStudentId }) {
                           Completed
                         </p>
                       </div>
-                      <button className="ml-3 px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-300 transition-colors whitespace-nowrap">
+                      <button 
+                        onClick={() => setSelectedSessionDetails(session)}
+                        className="ml-3 px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-300 transition-colors whitespace-nowrap"
+                      >
                         View Details
                       </button>
                     </div>
@@ -784,6 +788,87 @@ export default function Meetings({ overrideStudentId }) {
             )}
           </div>
         </div>
+
+        {/* Session Details Modal */}
+        {selectedSessionDetails && (
+          <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Session Details
+                </h3>
+                <button
+                  onClick={() => setSelectedSessionDetails(null)}
+                  className="p-1 hover:bg-slate-100 rounded transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+              <div className="p-4 space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-slate-500 mb-1">Subject</h4>
+                  <p className="text-slate-900 font-medium">
+                    {selectedSessionDetails.subject || "Tutoring Session"}
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-500 mb-1">Tutor</h4>
+                    <p className="text-slate-900">
+                      {selectedSessionDetails.tutor?.name || uniqueTutors.find(([id]) => id === selectedSessionDetails.tutor_id)?.[1] || "Tutor"}
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-500 mb-1">Duration</h4>
+                    <p className="text-slate-900">
+                      {formatDuration(selectedSessionDetails.duration_min)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-500 mb-1">Date</h4>
+                    <p className="text-slate-900">
+                      {formatDate(selectedSessionDetails.start_time_utc)}
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-500 mb-1">Time</h4>
+                    <p className="text-slate-900">
+                      {formatTime(selectedSessionDetails.start_time_utc)}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium text-slate-500 mb-1">Status</h4>
+                  <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                    Completed
+                  </span>
+                </div>
+
+                {selectedSessionDetails.meeting_link && (
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-500 mb-1">Meeting Link</h4>
+                    <div className="bg-slate-50 p-2 rounded border border-slate-100 break-all text-xs text-slate-600 font-mono">
+                      {selectedSessionDetails.meeting_link}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="p-4 border-t border-slate-200 flex justify-end">
+                <button
+                  onClick={() => setSelectedSessionDetails(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
