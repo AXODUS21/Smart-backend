@@ -40,7 +40,10 @@ export default function AdminJobs() {
           ),
           tutor:tutor_id (
             id,
+            id,
             name,
+            first_name,
+            last_name,
             email
           )
         `
@@ -128,11 +131,14 @@ export default function AdminJobs() {
 
     // Tutor filter
     if (tutorFilter) {
-      filtered = filtered.filter(
-        (b) =>
-          b.tutor?.name?.toLowerCase().includes(tutorFilter.toLowerCase()) ||
-          b.tutor?.email?.toLowerCase().includes(tutorFilter.toLowerCase())
-      );
+      filtered = filtered.filter((b) => {
+        const t = b.tutor;
+        if (!t) return false;
+        let n = `${t.first_name || ""} ${t.last_name || ""}`.trim();
+        if (!n) n = t.name || "";
+        const displayName = n.trim() || t.email || "";
+        return displayName.toLowerCase().includes(tutorFilter.toLowerCase());
+      });
     }
 
     // Student filter
@@ -268,15 +274,21 @@ export default function AdminJobs() {
     return subjects;
   };
 
+  const getTutorDisplayName = (t) => {
+    if (!t) return "Unknown";
+    let n = `${t.first_name || ""} ${t.last_name || ""}`.trim();
+    if (!n) n = t.name || "";
+    // If name is still empty, or looks exactly like an email, fallback to Unknown
+    if (!n.trim() || n.trim() === t.email) return "Unknown";
+    return n.trim();
+  };
+
   const getUniqueTutors = () => {
     const tutors = bookings
-      .map((b) => ({ name: b.tutor?.name, email: b.tutor?.email }))
-      .filter((t) => t.name || t.email)
-      .filter((value, index, self) => {
-        const identifier = `${value.name || ""}-${value.email || ""}`;
-        return self.findIndex((t) => `${t.name || ""}-${t.email || ""}` === identifier) === index;
-      })
-      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      .map((b) => getTutorDisplayName(b.tutor))
+      .filter((name) => name && name !== "Unknown")
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b));
     return tutors;
   };
 
@@ -499,9 +511,9 @@ export default function AdminJobs() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
                 >
                   <option value="">All Tutors</option>
-                  {getUniqueTutors().map((tutor, index) => (
-                    <option key={index} value={tutor.name || tutor.email}>
-                      {tutor.name || tutor.email}
+                  {getUniqueTutors().map((tutorName, index) => (
+                    <option key={index} value={tutorName}>
+                      {tutorName}
                     </option>
                   ))}
                 </select>
@@ -641,7 +653,7 @@ export default function AdminJobs() {
                     <div className="text-sm text-slate-500">{booking.student?.email || ""}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-slate-900">{booking.tutor?.name || "Unknown"}</div>
+                    <div className="text-sm text-slate-900">{getTutorDisplayName(booking.tutor)}</div>
                     <div className="text-sm text-slate-500">{booking.tutor?.email || ""}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
