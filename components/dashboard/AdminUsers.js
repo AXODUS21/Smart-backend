@@ -293,14 +293,6 @@ export default function AdminUsers() {
                 <option value="role">Role</option>
               </select>
             </div>
-            <select
-              value={sortDirection}
-              onChange={(e) => setSortDirection(e.target.value)}
-              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
           </div>
         </div>
       </div>
