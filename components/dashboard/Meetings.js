@@ -100,7 +100,8 @@ export default function Meetings({ overrideStudentId }) {
             `
             *,
             tutor:tutor_id (
-              name,
+              first_name,
+              last_name,
               email
             )
           `
@@ -535,8 +536,12 @@ export default function Meetings({ overrideStudentId }) {
       let sorted = [...filtered];
       if (sortBy === "name") {
         sorted.sort((a, b) => {
-          const tutorA = a.tutor?.name || a.tutor?.email || "Unknown";
-          const tutorB = b.tutor?.name || b.tutor?.email || "Unknown";
+          const tutorA = a.tutor
+            ? `${a.tutor.first_name || ""} ${a.tutor.last_name || ""}`.trim() || a.tutor.email || "Unknown"
+            : "Unknown";
+          const tutorB = b.tutor
+            ? `${b.tutor.first_name || ""} ${b.tutor.last_name || ""}`.trim() || b.tutor.email || "Unknown"
+            : "Unknown";
           return tutorA.localeCompare(tutorB);
         });
       } else if (sortBy === "scheduled_with") {
@@ -581,7 +586,9 @@ export default function Meetings({ overrideStudentId }) {
         .filter((s) => s.tutor && s.tutor_id)
         .forEach((s) => {
           if (!tutorMap.has(s.tutor_id)) {
-            const tutorName = s.tutor?.name || s.tutor?.email || "Unknown";
+            const tutorName = s.tutor
+              ? `${s.tutor.first_name || ""} ${s.tutor.last_name || ""}`.trim() || s.tutor.email || "Unknown"
+              : "Unknown";
             tutorMap.set(s.tutor_id, tutorName);
           }
         });
@@ -707,8 +714,10 @@ export default function Meetings({ overrideStudentId }) {
                           {session.subject || "Tutoring Session"}
                         </p>
                         <p className="text-xs text-slate-500">
-                          {session.tutor?.name || "Tutor"} •{" "}
-                          {formatDate(session.start_time_utc)} at{" "}
+                          {session.tutor
+                            ? `${session.tutor.first_name || ""} ${session.tutor.last_name || ""}`.trim() || "Tutor"
+                            : "Tutor"}{" "}
+                          • {formatDate(session.start_time_utc)} at{" "}
                           {formatTime(session.start_time_utc)}
                         </p>
                         <p className="text-xs text-slate-400 mt-0.5">
@@ -768,8 +777,10 @@ export default function Meetings({ overrideStudentId }) {
                           {session.subject || "Tutoring Session"}
                         </p>
                         <p className="text-xs text-slate-500">
-                          {session.tutor?.name || "Tutor"} •{" "}
-                          {formatDate(session.start_time_utc)}
+                          {session.tutor
+                            ? `${session.tutor.first_name || ""} ${session.tutor.last_name || ""}`.trim() || "Tutor"
+                            : "Tutor"}{" "}
+                          • {formatDate(session.start_time_utc)}
                         </p>
                         <p className="text-xs text-slate-400 mt-0.5">
                           Completed
