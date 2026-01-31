@@ -143,11 +143,10 @@ export default function AdminJobs() {
 
     // Student filter
     if (studentFilter) {
-      filtered = filtered.filter(
-        (b) =>
-          b.student?.name?.toLowerCase().includes(studentFilter.toLowerCase()) ||
-          b.student?.email?.toLowerCase().includes(studentFilter.toLowerCase())
-      );
+      filtered = filtered.filter((b) => {
+        const name = b.student?.name || "";
+        return name.toLowerCase().includes(studentFilter.toLowerCase());
+      });
     }
 
     // Date range filter
@@ -294,13 +293,10 @@ export default function AdminJobs() {
 
   const getUniqueStudents = () => {
     const students = bookings
-      .map((b) => ({ name: b.student?.name, email: b.student?.email }))
-      .filter((s) => s.name || s.email)
-      .filter((value, index, self) => {
-        const identifier = `${value.name || ""}-${value.email || ""}`;
-        return self.findIndex((s) => `${s.name || ""}-${s.email || ""}` === identifier) === index;
-      })
-      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      .map((b) => b.student?.name)
+      .filter((name) => name && name.trim() !== "" && name !== "Unknown")
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b));
     return students;
   };
 
@@ -528,9 +524,9 @@ export default function AdminJobs() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700"
                 >
                   <option value="">All Students</option>
-                  {getUniqueStudents().map((student, index) => (
-                    <option key={index} value={student.name || student.email}>
-                      {student.name || student.email}
+                  {getUniqueStudents().map((studentName, index) => (
+                    <option key={index} value={studentName}>
+                      {studentName}
                     </option>
                   ))}
                 </select>
