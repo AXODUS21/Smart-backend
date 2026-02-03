@@ -607,7 +607,7 @@ export default function TutorProfile() {
                   <p className="text-2xl font-bold text-emerald-600">
                     ₱{(credits * 180).toFixed(2)}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">1 credit = 180 PHP</p>
+                  <p className="text-xs text-slate-500 mt-1">2 credit = 180 PHP</p>
                 </div>
               </div>
               {/* Note about automatic payouts */}

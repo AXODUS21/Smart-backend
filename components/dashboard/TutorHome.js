@@ -15,7 +15,6 @@ export default function TutorHome() {
   const [metrics, setMetrics] = useState({
     totalStudents: 0,
     hoursTaught: 0,
-    avgRating: 0,
     creditsEarned: 0,
   });
   const [upcomingSessions, setUpcomingSessions] = useState([]);
@@ -53,13 +52,7 @@ export default function TutorHome() {
       bgColor: "bg-purple-500",
       lightBg: "bg-purple-50",
     },
-    {
-      title: "Avg Rating",
-      value: metrics.avgRating > 0 ? metrics.avgRating.toFixed(1) : "N/A",
-      icon: Award,
-      bgColor: "bg-emerald-500",
-      lightBg: "bg-emerald-50",
-    },
+
     {
       title: "Credits Earned",
       value: metrics.creditsEarned.toString(),
@@ -134,7 +127,6 @@ export default function TutorHome() {
     setMetrics({
       totalStudents: uniqueStudents.size,
       hoursTaught: Math.round(hoursTaught * 10) / 10,
-      avgRating: 4.9, // Default or fetch from ratings table if available
       creditsEarned,
     });
   };
@@ -504,7 +496,7 @@ export default function TutorHome() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {metricsData.map((metric, index) => {
           const Icon = metric.icon;
           return (

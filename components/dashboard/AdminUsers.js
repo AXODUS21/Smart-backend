@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { Users, GraduationCap, BookOpen, Shield, Search, Eye, ArrowUpDown } from "lucide-react";
 
@@ -108,7 +108,8 @@ export default function AdminUsers() {
     }
   };
 
-  const filteredUsers = () => {
+
+  const filteredUsers = useMemo(() => {
     let allUsers = [];
     
     if (filterRole === "all" || filterRole === "student") {
@@ -129,12 +130,15 @@ export default function AdminUsers() {
       (u) => u.name !== "Unnamed User" && u.name !== "Unnamed"
     );
 
-    if (searchTerm) {
-      allUsers = allUsers.filter(
-        (u) =>
-          u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    // Apply search filter with trimmed search term
+    const trimmedSearch = searchTerm.trim();
+    if (trimmedSearch) {
+      const searchLower = trimmedSearch.toLowerCase();
+      allUsers = allUsers.filter((u) => {
+        const name = (u.name || '').toLowerCase();
+        const email = (u.email || '').toLowerCase();
+        return name.includes(searchLower) || email.includes(searchLower);
+      });
     }
 
     // Sort users
@@ -169,7 +173,7 @@ export default function AdminUsers() {
     });
 
     return allUsers;
-  };
+  }, [users.students, users.tutors, users.admins, users.principals, searchTerm, filterRole, sortField, sortDirection]);
 
   const getRoleIcon = (role) => {
     switch (role) {
@@ -293,14 +297,6 @@ export default function AdminUsers() {
                 <option value="role">Role</option>
               </select>
             </div>
-            <select
-              value={sortDirection}
-              onChange={(e) => setSortDirection(e.target.value)}
-              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
           </div>
         </div>
       </div>
@@ -355,8 +351,8 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
-              {filteredUsers().map((user, index) => (
-                <tr key={user.id || user.user_id || `user-${index}-${user.email}`} className="hover:bg-slate-50">
+              {filteredUsers.map((user, index) => (
+                <tr key={`${user.role}-${user.id || user.user_id || index}-${index}`} className="hover:bg-slate-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">{getRoleIcon(user.role)}</div>
@@ -395,7 +391,7 @@ export default function AdminUsers() {
               ))}
             </tbody>
           </table>
-          {filteredUsers().length === 0 && (
+          {filteredUsers.length === 0 && (
             <div className="text-center py-12 text-slate-500">No users found</div>
           )}
         </div>

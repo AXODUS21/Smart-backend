@@ -120,6 +120,10 @@ export default function SessionManagement({ overrideStudentId }) {
   const canCancelSession = (session) => {
     const now = new Date();
     const sessionStart = new Date(session.start_time_utc);
+    
+    // Cannot cancel past sessions
+    if (now >= sessionStart) return false;
+
     const hoursUntilSession = (sessionStart - now) / (1000 * 60 * 60);
     const requiredHours = platformSettings.cancellation_notice_hours || 24;
     return hoursUntilSession >= requiredHours;
@@ -129,6 +133,10 @@ export default function SessionManagement({ overrideStudentId }) {
   const canRescheduleSession = (session) => {
     const now = new Date();
     const sessionStart = new Date(session.start_time_utc);
+    
+    // Cannot reschedule past sessions
+    if (now >= sessionStart) return false;
+
     const hoursUntilSession = (sessionStart - now) / (1000 * 60 * 60);
     const requiredHours = platformSettings.rescheduling_notice_hours || 24;
     return hoursUntilSession >= requiredHours;
@@ -210,9 +218,13 @@ export default function SessionManagement({ overrideStudentId }) {
     console.log("Cancellation check - Hours until session:", hoursUntilSession, "Required hours:", requiredHours);
     
     if (!canCancelSession(selectedSession)) {
-      alert(
-        `Cancellations must be made at least ${requiredHours} hours in advance. Your session is in ${hoursUntilSession} hours.`
-      );
+      if (new Date(selectedSession.start_time_utc) <= new Date()) {
+        alert("Cannot cancel a past session.");
+      } else {
+        alert(
+          `Cancellations must be made at least ${requiredHours} hours in advance. Your session is in ${hoursUntilSession} hours.`
+        );
+      }
       return;
     }
 
@@ -358,10 +370,14 @@ export default function SessionManagement({ overrideStudentId }) {
     }
 
     if (!canRescheduleSession(selectedSession)) {
-      const hoursUntilSession = getHoursUntilSession(selectedSession);
-      alert(
-        `Rescheduling must be done at least ${platformSettings.rescheduling_notice_hours} hours in advance. Your session is in ${hoursUntilSession} hours.`
-      );
+      if (new Date(selectedSession.start_time_utc) <= new Date()) {
+        alert("Cannot reschedule a past session.");
+      } else {
+        const hoursUntilSession = getHoursUntilSession(selectedSession);
+        alert(
+          `Rescheduling must be done at least ${platformSettings.rescheduling_notice_hours} hours in advance. Your session is in ${hoursUntilSession} hours.`
+        );
+      }
       return;
     }
 
@@ -630,7 +646,7 @@ export default function SessionManagement({ overrideStudentId }) {
                   <div className="mt-4 space-y-2">
                     {!canCancelSession(session) && (
                       <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
-                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                         <span>
                           Cancellation deadline passed. Must cancel at least{" "}
                           {platformSettings.cancellation_notice_hours} hours in advance.
@@ -639,7 +655,7 @@ export default function SessionManagement({ overrideStudentId }) {
                     )}
                     {!canRescheduleSession(session) && (
                       <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
-                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                         <span>
                           Rescheduling deadline passed. Must reschedule at least{" "}
                           {platformSettings.rescheduling_notice_hours} hours in advance.
@@ -718,7 +734,7 @@ export default function SessionManagement({ overrideStudentId }) {
 
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <div className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-700 mt-0.5 flex-shrink-0" />
+                  <CheckCircle className="w-4 h-4 text-green-700 mt-0.5 shrink-0" />
                   <div className="text-sm text-green-700">
                     <p className="font-medium">Full credit refund</p>
                     <p className="text-xs mt-1">

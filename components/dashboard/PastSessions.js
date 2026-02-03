@@ -442,7 +442,7 @@ export default function PastSessions() {
                 <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-xs font-medium text-green-900 mb-1">
-                      You will earn: {session.credits_required} credits (₱{(session.credits_required * 180).toFixed(2)})
+                      You will earn: {session.credits_required} credits (₱{(session.credits_required * 90).toFixed(2)})
                     </p>
                     <p className="text-xs text-green-700">
                       {session.duration_min} minutes = {session.credits_required} credit{session.credits_required > 1 ? 's' : ''} (30 min = 1 credit, 1 hour = 2 credits)

@@ -140,7 +140,15 @@ export default function AdminAnalytics() {
         monthlyMap[month].bookings += 1;
       });
 
-      setMonthlyData(Object.values(monthlyMap));
+      // Sort monthly data by date (latest first)
+      const sortedMonthlyData = Object.values(monthlyMap).sort((a, b) => {
+        // Parse the month strings (e.g., "Jan 2026") into Date objects for comparison
+        const dateA = new Date(a.month);
+        const dateB = new Date(b.month);
+        return dateB - dateA; // Descending order (latest first)
+      });
+
+      setMonthlyData(sortedMonthlyData);
       setAnalytics({
         totalRevenue,
         companyShare,

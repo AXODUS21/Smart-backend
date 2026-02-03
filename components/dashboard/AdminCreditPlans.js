@@ -499,7 +499,7 @@ export default function AdminCreditPlans() {
                   </label>
 
                   <label className="block text-sm font-medium text-slate-600">
-                    Price per Credit ({plan.region === "US" ? "USD" : "PHP"})
+                    Price per 2 Credit ({plan.region === "US" ? "USD" : "PHP"})
                     <input
                       type="number"
                       min="0"
