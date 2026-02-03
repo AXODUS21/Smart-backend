@@ -571,9 +571,8 @@ export default function Meetings({ overrideStudentId }) {
 
     const allUpcomingSessions = scheduledMeetings.filter(
       (m) =>
-        new Date(m.start_time_utc) > new Date() ||
-        m.status === "pending" ||
-        m.status === "confirmed"
+        new Date(m.start_time_utc) > new Date() &&
+        (m.status === "pending" || m.status === "confirmed")
     );
     const allPastSessions = scheduledMeetings.filter(
       (m) => new Date(m.end_time_utc) < new Date() && m.status === "confirmed"

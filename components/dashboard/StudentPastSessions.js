@@ -51,7 +51,7 @@ export default function StudentPastSessions({ overrideStudentId }) {
           `
           )
           .eq("student_id", studentId)
-          .eq("status", "confirmed")
+          .in("status", ["confirmed", "successful", "pending"])
           .lt("end_time_utc", new Date().toISOString())
           .order("start_time_utc", { ascending: false });
 
@@ -287,6 +287,8 @@ export default function StudentPastSessions({ overrideStudentId }) {
                       ? "bg-green-100 text-green-700"
                       : session.no_show_type === "tutor-no-show"
                       ? "bg-red-100 text-red-700"
+                      : session.status === "pending"
+                      ? "bg-gray-100 text-gray-700"
                       : "bg-blue-100 text-blue-700"
                   }`}
                 >
@@ -294,6 +296,8 @@ export default function StudentPastSessions({ overrideStudentId }) {
                     ? "Tutor No-Show"
                     : session.status === "completed" || session.status === "successful"
                     ? "Completed"
+                    : session.status === "pending"
+                    ? "Expired"
                     : "Pending"}
                 </span>
               </div>

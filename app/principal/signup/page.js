@@ -78,6 +78,25 @@ export default function PrincipalSignupPage() {
 
     setLoading(true);
     try {
+      // Check if email already exists
+      const checkRes = await fetch('/api/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const checkData = await checkRes.json();
+
+      if (!checkRes.ok) {
+        throw new Error(checkData.error || 'Failed to validate email');
+      }
+
+      if (checkData.exists) {
+        throw new Error('This email address is already registered. Please sign in instead.');
+      }
+
       const studentsToSave = typeOfStudents.map((val) =>
         val === 'Other (Specify)' ? `Other: ${otherStudentText.trim()}` : val
       );

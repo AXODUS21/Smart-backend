@@ -101,13 +101,17 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
             });
 
             const upcoming = relevantSessions
-              .filter((s) => new Date(s.start_time_utc) > new Date())
+              .filter((s) => {
+                const isFuture = new Date(s.start_time_utc) > new Date();
+                const isActive = ["confirmed", "pending"].includes(s.status);
+                return isFuture && isActive;
+              })
               .slice(0, 3);
             setUpcomingSessions(upcoming);
 
             const completed = relevantSessions.filter(
               (s) =>
-                s.status === "confirmed" &&
+                (s.status === "confirmed" || s.status === "successful") &&
                 new Date(s.end_time_utc) < new Date()
             );
             const hoursCompleted = completed.reduce(
