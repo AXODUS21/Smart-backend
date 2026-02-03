@@ -23,6 +23,8 @@ export default function AdminAnalytics() {
     confirmedBookings: 0,
     cancelledBookings: 0,
     pendingBookings: 0,
+    completedBookings: 0,
+    rejectedBookings: 0,
   });
   const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,17 +100,30 @@ export default function AdminAnalytics() {
       }
 
       console.log(`Found ${bookings.length} bookings in date range`);
+      {/*50 should be good */}
+      // Display Buckets
+      const pendingStatuses = ["pending", "awaiting_approval"];
+      const confirmedStatuses = ["confirmed"]; 
+      const completedStatuses = ["completed", "successful", "student-no-show"];
+      const cancelledStatuses = ["cancelled", "tutor-no-show", "rescheduled"];
+      const rejectedStatuses = ["rejected"];
 
-      const confirmedBookings = bookings.filter(
-        (b) => b.status === "confirmed"
-      );
-      const totalLessonHours = confirmedBookings.reduce(
+      const pendingCounts = bookings.filter(b => pendingStatuses.includes(b.status));
+      const confirmedCounts = bookings.filter(b => confirmedStatuses.includes(b.status));
+      const completedCounts = bookings.filter(b => completedStatuses.includes(b.status));
+      const cancelledCounts = bookings.filter(b => cancelledStatuses.includes(b.status));
+      const rejectedCounts = bookings.filter(b => rejectedStatuses.includes(b.status));
+
+      // Revenue Calculation Set (Confirmed + Completed)
+      const revenueBookings = [...confirmedCounts, ...completedCounts];
+
+      const totalLessonHours = revenueBookings.reduce(
         (sum, b) => sum + (parseFloat(b.duration_min) || 0) / 60,
         0
       );
 
       // Calculate revenue (1 credit = $10, 70% tutor, 30% company)
-      const totalCredits = confirmedBookings.reduce(
+      const totalCredits = revenueBookings.reduce(
         (sum, b) => sum + (parseFloat(b.credits_required) || 0),
         0
       );
@@ -118,7 +133,7 @@ export default function AdminAnalytics() {
 
       // Calculate monthly breakdown
       const monthlyMap = {};
-      confirmedBookings.forEach((booking) => {
+      revenueBookings.forEach((booking) => {
         const month = new Date(booking.start_time_utc).toLocaleString(
           "default",
           {
@@ -155,9 +170,11 @@ export default function AdminAnalytics() {
         tutorShare,
         totalLessonHours,
         totalBookings: bookings ? bookings.length : 0,
-        confirmedBookings: confirmedBookings ? confirmedBookings.length : 0,
-        cancelledBookings: bookings ? bookings.filter((b) => b.status === "cancelled").length : 0,
-        pendingBookings: bookings ? bookings.filter((b) => b.status === "pending").length : 0,
+        confirmedBookings: confirmedCounts.length,
+        cancelledBookings: cancelledCounts.length,
+        pendingBookings: pendingCounts.length,
+        completedBookings: completedCounts.length,
+        rejectedBookings: rejectedCounts.length,
       });
     } catch (error) {
       console.error("Error fetching analytics:", error);
@@ -171,6 +188,8 @@ export default function AdminAnalytics() {
         confirmedBookings: 0,
         cancelledBookings: 0,
         pendingBookings: 0,
+        completedBookings: 0,
+        rejectedBookings: 0,
       });
       setMonthlyData([]);
     } finally {
@@ -554,23 +573,41 @@ export default function AdminAnalytics() {
         <h3 className="text-lg font-semibold text-slate-900 mb-4">
           Booking Statistics
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm font-medium text-slate-600">Total Bookings</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <p className="text-sm font-medium text-slate-600">All</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">
               {analytics.totalBookings}
             </p>
           </div>
-          <div className="p-4 bg-green-50 rounded-lg">
+          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <p className="text-sm font-medium text-slate-600">Pending</p>
+            <p className="text-2xl font-bold text-slate-900 mt-2">
+              {analytics.pendingBookings}
+            </p>
+          </div>
+          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
             <p className="text-sm font-medium text-slate-600">Confirmed</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">
               {analytics.confirmedBookings}
             </p>
           </div>
-          <div className="p-4 bg-red-50 rounded-lg">
+          <div className="p-4 bg-red-50 rounded-lg border border-red-200">
             <p className="text-sm font-medium text-slate-600">Cancelled</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">
               {analytics.cancelledBookings}
+            </p>
+          </div>
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm font-medium text-slate-600">Completed</p>
+            <p className="text-2xl font-bold text-slate-900 mt-2">
+              {analytics.completedBookings}
+            </p>
+          </div>
+          <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
+            <p className="text-sm font-medium text-slate-600">Rejected</p>
+            <p className="text-2xl font-bold text-slate-900 mt-2">
+              {analytics.rejectedBookings}
             </p>
           </div>
         </div>

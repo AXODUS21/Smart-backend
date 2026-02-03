@@ -34,6 +34,7 @@ export default function BookSession({ overrideStudentId }) {
     min_booking_hours_advance: 2,
     max_daily_sessions_per_student: 5,
   });
+  const [tutorBookings, setTutorBookings] = useState([]);
   const activeProfile = studentRecord ? getActiveProfile(studentRecord) : null;
   const activeProfileLabel = activeProfile
     ? activeProfile.name
@@ -108,6 +109,56 @@ export default function BookSession({ overrideStudentId }) {
 
     fetchData();
   }, [user, overrideStudentId]);
+
+  // Fetch tutor's existing bookings when tutor and date are selected
+  useEffect(() => {
+    const fetchTutorBookings = async () => {
+      if (!selectedTutor || !selectedDate) {
+        setTutorBookings([]);
+        return;
+      }
+
+      // Find the selected tutor's data
+      const tutorData = tutors.find((tutor) => {
+        const fullName = `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim();
+        return fullName === selectedTutor;
+      });
+
+      if (!tutorData) {
+        setTutorBookings([]);
+        return;
+      }
+
+      try {
+        // Parse date in UTC to avoid timezone issues
+        const [year, month, day] = selectedDate.split("-");
+        const dateStart = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 0, 0, 0, 0));
+        const dateEnd = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59, 999));
+
+
+
+        const { data, error } = await supabase
+          .from("Schedules")
+          .select("start_time_utc, end_time_utc, status")
+          .eq("tutor_id", tutorData.id)
+          .in("status", ["pending", "confirmed"])
+          .gte("start_time_utc", dateStart.toISOString())
+          .lte("start_time_utc", dateEnd.toISOString());
+
+        if (error) {
+          console.error("Error fetching tutor bookings:", error);
+          setTutorBookings([]);
+        } else {
+          setTutorBookings(data || []);
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        setTutorBookings([]);
+      }
+    };
+
+    fetchTutorBookings();
+  }, [selectedTutor, selectedDate, tutors]);
 
   // Get unique grade levels from tutors (from subject objects)
   const gradeLevels = [
@@ -243,7 +294,37 @@ export default function BookSession({ overrideStudentId }) {
       }
     });
 
-    return timeSlots.sort((a, b) => a.minutes - b.minutes);
+    // Filter out time slots that are already booked
+    const availableSlots = timeSlots.filter((slot) => {
+      // IMPORTANT: Create LOCAL date for this time slot
+      // The tutor's availability times (like "7:30 PM") are in LOCAL time, not UTC
+      // So we need to create a local Date object, which JavaScript will automatically store as UTC internally
+      const [year, month, day] = selectedDate.split("-");
+      const slotStartUTC = new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        Math.floor(slot.minutes / 60),
+        slot.minutes % 60,
+        0,
+        0
+      );
+
+      // Check if this slot overlaps with any existing booking
+      const isBooked = tutorBookings.some((booking) => {
+        const bookingStart = new Date(booking.start_time_utc);
+        const bookingEnd = new Date(booking.end_time_utc);
+        
+        // Check for any overlap
+        // A slot is booked if it starts before the booking ends AND ends after the booking starts
+        const slotEndUTC = new Date(slotStartUTC.getTime() + 30 * 60 * 1000); // 30 min slot
+        return slotStartUTC < bookingEnd && slotEndUTC > bookingStart;
+      });
+
+      return !isBooked;
+    });
+
+    return availableSlots.sort((a, b) => a.minutes - b.minutes);
   };
 
   // Get available durations based on selected time
@@ -397,6 +478,25 @@ export default function BookSession({ overrideStudentId }) {
         alert(
           `You have reached the maximum of ${maxDailySessions} sessions per day. Please choose a different date.`
         );
+        setIsBooking(false);
+        return;
+      }
+
+      // Check for double booking - ensure tutor doesn't have overlapping sessions
+      const { data: tutorExistingSessions, error: tutorSessionCheckError } = await supabase
+        .from("Schedules")
+        .select("id, start_time_utc, end_time_utc, status")
+        .eq("tutor_id", tutorData.id)
+        .in("status", ["pending", "confirmed"])
+        .or(`and(start_time_utc.lte.${endTime.toISOString()},end_time_utc.gte.${startTimeUTC.toISOString()})`);
+
+      if (tutorSessionCheckError) throw tutorSessionCheckError;
+
+      if (tutorExistingSessions && tutorExistingSessions.length > 0) {
+        alert(
+          `This time slot is no longer available. The tutor already has a session booked at this time. Please select a different time.`
+        );
+        setIsBooking(false);
         return;
       }
 
