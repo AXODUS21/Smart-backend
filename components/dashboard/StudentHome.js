@@ -7,7 +7,6 @@ import {
   Clock,
   Zap,
   TrendingUp,
-  Star,
   Megaphone,
   AlertCircle,
 } from "lucide-react";
@@ -25,7 +24,6 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
     sessionsBooked: 0,
     creditsAvailable: 0,
     hoursCompleted: 0,
-    avgRating: 4.5,
   });
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
@@ -253,13 +251,7 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
       bgColor: "bg-emerald-500",
       lightBg: "bg-emerald-50",
     },
-    {
-      title: "Avg Rating",
-      value: metrics.avgRating.toString(),
-      icon: Star,
-      bgColor: "bg-orange-500",
-      lightBg: "bg-orange-50",
-    },
+
   ];
 
   if (loading) {
@@ -308,7 +300,7 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {metricData.map((metric, index) => {
           const Icon = metric.icon;
           return (
