@@ -70,6 +70,7 @@ import PrincipalHome from "./dashboard/PrincipalHome";
 import PrincipalSchools from "./dashboard/PrincipalSchools";
 import PrincipalVouchers from "./dashboard/PrincipalVouchers";
 import AdminSettings from "./dashboard/AdminSettings";
+import AdminBlog from "./dashboard/AdminBlog";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -396,6 +397,7 @@ export default function Dashboard() {
     children: [
       { id: "services", label: "Services", icon: BookOpen },
       { id: "credit-plans", label: "Credit Plans", icon: Wallet },
+      { id: "blog", label: "Blog", icon: FileText },
     ],
   };
 
@@ -488,9 +490,9 @@ export default function Dashboard() {
       ? adminTabs
       : [];
 
-  // Auto-open CMS dropdown when services or credit-plans is active
+  // Auto-open CMS dropdown when services, credit-plans, or blog is active
   useEffect(() => {
-    if (activeTab === "services" || activeTab === "credit-plans") {
+    if (activeTab === "services" || activeTab === "credit-plans" || activeTab === "blog") {
       setOpenDropdowns((prev) => ({ ...prev, cms: true }));
     }
   }, [activeTab]);
@@ -821,6 +823,9 @@ export default function Dashboard() {
           )}
           {activeTab === "payout-reports" && userRole === "superadmin" && (
             <PayoutReports />
+          )}
+          {activeTab === "blog" && userRole === "superadmin" && (
+            <AdminBlog />
           )}
           {/* Admin tabs */}
           {activeTab === "home" && userRole === "admin" && <AdminDashboard />}
