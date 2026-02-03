@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Building2, Plus, X, Trash2, Search, FileText, Upload, Download, Info } from "lucide-react";
+import { Building2, Plus, X, Trash2, Search, FileText, Upload, Download, Info, Edit } from "lucide-react";
 
 export default function PrincipalSchools() {
   const { user } = useAuth();
@@ -16,6 +16,8 @@ export default function PrincipalSchools() {
   const [searchTerm, setSearchTerm] = useState("");
   const [templateUrl, setTemplateUrl] = useState(null);
   
+  const [editingId, setEditingId] = useState(null);
+
   // Form fields
   const [formData, setFormData] = useState({
     name: "",
@@ -116,7 +118,22 @@ export default function PrincipalSchools() {
     return publicUrl;
   };
 
-  const handleAddSchool = async () => {
+  const handleEditClick = (school) => {
+    setEditingId(school.id);
+    setFormData({
+      name: school.name,
+      voucher_code: school.voucher_code || "",
+      amount: school.amount || "",
+      address: school.address || "",
+      in_charge_name: school.in_charge_name || "",
+      in_charge_contact: school.in_charge_contact || "",
+      school_type: school.school_type || "",
+      file: null
+    });
+    setShowAddModal(true);
+  };
+
+  const handleSubmit = async () => {
     if (!formData.name || !formData.school_type) {
       setError("School Name and Type are required");
       return;
@@ -132,7 +149,7 @@ export default function PrincipalSchools() {
         fileUrl = await uploadFile(formData.file);
       }
 
-      const newSchool = {
+      const schoolData = {
         principal_id: user.id,
         name: formData.name,
         voucher_code: formData.voucher_code,
@@ -141,36 +158,63 @@ export default function PrincipalSchools() {
         in_charge_name: formData.in_charge_name,
         in_charge_contact: formData.in_charge_contact,
         school_type: formData.school_type,
-        file_url: fileUrl
       };
 
-      const { data, error } = await supabase
-        .from("Schools")
-        .insert(newSchool)
-        .select()
-        .single();
+      if (fileUrl) {
+        schoolData.file_url = fileUrl;
+      }
 
-      if (error) throw error;
+      if (editingId) {
+        // Update existing school
+        const { data, error } = await supabase
+          .from("Schools")
+          .update(schoolData)
+          .eq("id", editingId)
+          .select()
+          .single();
 
-      setSchools(prev => [data, ...prev]);
-      setSuccess(`Added ${data.name} successfully`);
+        if (error) throw error;
+
+        setSchools(prev => prev.map(s => s.id === editingId ? data : s));
+        setSuccess(`Updated ${data.name} successfully`);
+      } else {
+        // Add new school
+        // Only set file_url if it was uploaded, otherwise it stays undefined (good for insert) 
+        // Logic check: if fileUrl is null for new school, it's just null in DB which is fine.
+        const { data, error } = await supabase
+          .from("Schools")
+          .insert({ ...schoolData, file_url: fileUrl })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setSchools(prev => [data, ...prev]);
+        setSuccess(`Added ${data.name} successfully`);
+      }
+
       setShowAddModal(false);
-      setFormData({
-        name: "",
-        voucher_code: "",
-        amount: "",
-        address: "",
-        in_charge_name: "",
-        in_charge_contact: "",
-        school_type: "",
-        file: null
-      });
+      resetForm();
     } catch (err) {
-      console.error("Error adding school:", err);
-      setError(err.message || "Failed to add school");
+      console.error("Error saving school:", err);
+      setError(err.message || "Failed to save school");
     } finally {
       setAdding(false);
     }
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setFormData({
+      name: "",
+      voucher_code: "",
+      amount: "",
+      address: "",
+      in_charge_name: "",
+      in_charge_contact: "",
+      school_type: "",
+      file: null
+    });
   };
 
   const handleRemoveSchool = async (schoolId, schoolName) => {
@@ -221,7 +265,10 @@ export default function PrincipalSchools() {
           </p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            resetForm();
+            setShowAddModal(true);
+          }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
@@ -264,17 +311,27 @@ export default function PrincipalSchools() {
                 <div className="p-2 bg-blue-50 rounded-lg">
                   <Building2 className="w-6 h-6 text-blue-600" />
                 </div>
-                <button
-                  onClick={() => handleRemoveSchool(school.id, school.name)}
-                  disabled={removing[school.id]}
-                  className="text-slate-400 hover:text-red-600 transition-colors"
-                >
-                  {removing[school.id] ? (
-                    <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Trash2 className="w-5 h-5" />
-                  )}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEditClick(school)}
+                    className="text-slate-400 hover:text-blue-600 transition-colors"
+                    title="Edit School"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleRemoveSchool(school.id, school.name)}
+                    disabled={removing[school.id]}
+                    className="text-slate-400 hover:text-red-600 transition-colors"
+                    title="Remove School"
+                  >
+                    {removing[school.id] ? (
+                      <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Trash2 className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <h3 className="text-lg font-bold text-slate-900 mb-1">{school.name}</h3>
@@ -320,14 +377,19 @@ export default function PrincipalSchools() {
         )}
       </div>
 
-      {/* Add School Modal */}
+      {/* Add/Edit School Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-200 sticky top-0 bg-white z-10 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900">Add School</h2>
+              <h2 className="text-xl font-bold text-slate-900">
+                {editingId ? "Edit School" : "Add School"}
+              </h2>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {
+                  setShowAddModal(false);
+                  resetForm();
+                }}
                 className="text-slate-400 hover:text-slate-600"
               >
                 <X className="w-5 h-5" />
@@ -497,13 +559,16 @@ export default function PrincipalSchools() {
 
               <div className="flex gap-4 pt-4 border-t border-slate-100">
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    resetForm();
+                  }}
                   className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleAddSchool}
+                  onClick={handleSubmit}
                   disabled={adding}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
@@ -513,7 +578,7 @@ export default function PrincipalSchools() {
                       Saving...
                     </>
                   ) : (
-                    "Add School"
+                    editingId ? "Save Changes" : "Add School"
                   )}
                 </button>
               </div>

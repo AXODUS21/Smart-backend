@@ -280,6 +280,8 @@ export default function BookSession({ overrideStudentId }) {
     return durationMap[duration] || 0;
   };
 
+  const [isBooking, setIsBooking] = useState(false); // Add isBooking state
+
   // Handle booking confirmation
   const handleBooking = async () => {
     if (
@@ -307,6 +309,8 @@ export default function BookSession({ overrideStudentId }) {
       );
       return;
     }
+
+    setIsBooking(true); // Disable button immediately
 
     try {
       const usePrincipalCredits = Boolean(overrideStudentId);
@@ -501,6 +505,8 @@ export default function BookSession({ overrideStudentId }) {
     } catch (error) {
       console.error("Error booking session:", error);
       alert("Error booking session. Please try again.");
+    } finally {
+      setIsBooking(false); // Re-enable button
     }
   };
 
@@ -819,9 +825,19 @@ export default function BookSession({ overrideStudentId }) {
 
               <button
                 onClick={handleBooking}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                disabled={isBooking}
+                className={`w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors ${
+                  isBooking ? "opacity-75 cursor-not-allowed" : ""
+                }`}
               >
-                Confirm Booking
+                {isBooking ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Processing...
+                  </span>
+                ) : (
+                  "Confirm Booking"
+                )}
               </button>
             </div>
           </div>
