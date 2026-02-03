@@ -99,16 +99,21 @@ export default function AdminAnalytics() {
 
       console.log(`Found ${bookings.length} bookings in date range`);
 
-      const confirmedBookings = bookings.filter(
-        (b) => b.status === "confirmed"
-      );
-      const totalLessonHours = confirmedBookings.reduce(
+      const activeStatuses = ["confirmed", "completed", "successful", "student-no-show"];
+      const cancelledStatuses = ["cancelled", "rejected", "tutor-no-show", "rescheduled"];
+      const pendingStatuses = ["pending", "awaiting_approval"];
+
+      const confirmedCounts = bookings.filter(b => activeStatuses.includes(b.status));
+      const cancelledCounts = bookings.filter(b => cancelledStatuses.includes(b.status));
+      const pendingCounts = bookings.filter(b => pendingStatuses.includes(b.status));
+
+      const totalLessonHours = confirmedCounts.reduce(
         (sum, b) => sum + (parseFloat(b.duration_min) || 0) / 60,
         0
       );
 
       // Calculate revenue (1 credit = $10, 70% tutor, 30% company)
-      const totalCredits = confirmedBookings.reduce(
+      const totalCredits = confirmedCounts.reduce(
         (sum, b) => sum + (parseFloat(b.credits_required) || 0),
         0
       );
@@ -118,7 +123,7 @@ export default function AdminAnalytics() {
 
       // Calculate monthly breakdown
       const monthlyMap = {};
-      confirmedBookings.forEach((booking) => {
+      confirmedCounts.forEach((booking) => {
         const month = new Date(booking.start_time_utc).toLocaleString(
           "default",
           {
@@ -155,9 +160,9 @@ export default function AdminAnalytics() {
         tutorShare,
         totalLessonHours,
         totalBookings: bookings ? bookings.length : 0,
-        confirmedBookings: confirmedBookings ? confirmedBookings.length : 0,
-        cancelledBookings: bookings ? bookings.filter((b) => b.status === "cancelled").length : 0,
-        pendingBookings: bookings ? bookings.filter((b) => b.status === "pending").length : 0,
+        confirmedBookings: confirmedCounts.length,
+        cancelledBookings: cancelledCounts.length,
+        pendingBookings: pendingCounts.length,
       });
     } catch (error) {
       console.error("Error fetching analytics:", error);
@@ -554,7 +559,7 @@ export default function AdminAnalytics() {
         <h3 className="text-lg font-semibold text-slate-900 mb-4">
           Booking Statistics
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 bg-blue-50 rounded-lg">
             <p className="text-sm font-medium text-slate-600">Total Bookings</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">
@@ -565,6 +570,12 @@ export default function AdminAnalytics() {
             <p className="text-sm font-medium text-slate-600">Confirmed</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">
               {analytics.confirmedBookings}
+            </p>
+          </div>
+          <div className="p-4 bg-orange-50 rounded-lg">
+            <p className="text-sm font-medium text-slate-600">Pending</p>
+            <p className="text-2xl font-bold text-slate-900 mt-2">
+              {analytics.pendingBookings}
             </p>
           </div>
           <div className="p-4 bg-red-50 rounded-lg">
