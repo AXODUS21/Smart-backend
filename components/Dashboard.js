@@ -71,6 +71,9 @@ import PrincipalSchools from "./dashboard/PrincipalSchools";
 import PrincipalVouchers from "./dashboard/PrincipalVouchers";
 import AdminSettings from "./dashboard/AdminSettings";
 import AdminBlog from "./dashboard/AdminBlog";
+import AdminWhyChooseUs from "./dashboard/AdminWhyChooseUs";
+import AdminReviews from "./dashboard/AdminReviews";
+import AdminFAQs from "./dashboard/AdminFAQs";
 import Header from "./Header";
 
 export default function Dashboard() {
@@ -406,6 +409,9 @@ export default function Dashboard() {
       { id: "services", label: "Services", icon: BookOpen },
       { id: "credit-plans", label: "Credit Plans", icon: Wallet },
       { id: "blog", label: "Blog", icon: FileText },
+      { id: "why-choose-us", label: "Why Choose Us", icon: Layout },
+      { id: "reviews", label: "Reviews", icon: MessageSquare },
+      { id: "faqs", label: "FAQs", icon: BookOpen },
     ],
   };
 
@@ -500,7 +506,14 @@ export default function Dashboard() {
 
   // Auto-open CMS dropdown when services, credit-plans, or blog is active
   useEffect(() => {
-    if (activeTab === "services" || activeTab === "credit-plans" || activeTab === "blog") {
+    if (
+      activeTab === "services" ||
+      activeTab === "credit-plans" ||
+      activeTab === "blog" ||
+      activeTab === "why-choose-us" ||
+      activeTab === "reviews" ||
+      activeTab === "faqs"
+    ) {
       setOpenDropdowns((prev) => ({ ...prev, cms: true }));
     }
   }, [activeTab]);
@@ -835,6 +848,13 @@ export default function Dashboard() {
           {activeTab === "blog" && userRole === "superadmin" && (
             <AdminBlog />
           )}
+          {activeTab === "why-choose-us" && userRole === "superadmin" && (
+            <AdminWhyChooseUs />
+          )}
+          {activeTab === "reviews" && userRole === "superadmin" && (
+            <AdminReviews />
+          )}
+          {activeTab === "faqs" && userRole === "superadmin" && <AdminFAQs />}
           {/* Admin tabs */}
           {activeTab === "home" && userRole === "admin" && <AdminDashboard />}
           {activeTab === "analytics" && userRole === "admin" && (
