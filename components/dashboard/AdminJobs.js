@@ -66,6 +66,11 @@ export default function AdminJobs() {
         icon: <Clock className="w-4 h-4" />,
         label: "Pending",
       },
+      awaiting_approval: {
+        color: "bg-yellow-100 text-yellow-800",
+        icon: <Clock className="w-4 h-4" />,
+        label: "Awaiting Approval",
+      },
       confirmed: {
         color: "bg-green-100 text-green-800",
         icon: <CheckCircle className="w-4 h-4" />,
@@ -76,10 +81,30 @@ export default function AdminJobs() {
         icon: <XCircle className="w-4 h-4" />,
         label: "Cancelled",
       },
+      "tutor-no-show": {
+        color: "bg-red-100 text-red-800",
+        icon: <XCircle className="w-4 h-4" />,
+        label: "Tutor No-Show",
+      },
+      rescheduled: {
+        color: "bg-red-100 text-red-800",
+        icon: <Clock className="w-4 h-4" />,
+        label: "Rescheduled",
+      },
       completed: {
         color: "bg-blue-100 text-blue-800",
         icon: <CheckCircle className="w-4 h-4" />,
         label: "Completed",
+      },
+      successful: {
+        color: "bg-blue-100 text-blue-800",
+        icon: <CheckCircle className="w-4 h-4" />,
+        label: "Successful",
+      },
+      "student-no-show": {
+        color: "bg-blue-100 text-blue-800",
+        icon: <CheckCircle className="w-4 h-4" />,
+        label: "Student No-Show",
       },
       rejected: {
         color: "bg-rose-100 text-rose-800",
@@ -109,7 +134,15 @@ export default function AdminJobs() {
 
     // Status filter
     if (statusFilter !== "all") {
-      filtered = filtered.filter((b) => b.status === statusFilter);
+      const statusMap = {
+        pending: ["pending", "awaiting_approval"],
+        confirmed: ["confirmed"],
+        completed: ["completed", "successful", "student-no-show"],
+        cancelled: ["cancelled", "tutor-no-show", "rescheduled"],
+        rejected: ["rejected"],
+      };
+      const allowed = statusMap[statusFilter] || [statusFilter];
+      filtered = filtered.filter((b) => allowed.includes(b.status));
     }
 
     // Search filter
@@ -217,7 +250,13 @@ export default function AdminJobs() {
           bValue = new Date(b.start_time_utc || 0).getTime();
           break;
         case "status":
-          const statusOrder = { pending: 0, confirmed: 1, completed: 2, cancelled: 3, rejected: 4 };
+          const statusOrder = { 
+            pending: 0, awaiting_approval: 0,
+            confirmed: 1, 
+            completed: 2, successful: 2, "student-no-show": 2,
+            cancelled: 3, "tutor-no-show": 3, rescheduled: 3,
+            rejected: 4 
+          };
           aValue = statusOrder[a.status] ?? 5;
           bValue = statusOrder[b.status] ?? 5;
           break;
@@ -256,10 +295,10 @@ export default function AdminJobs() {
   const getStatusStats = () => {
     return {
       all: bookings.length,
-      pending: bookings.filter((b) => b.status === "pending").length,
+      pending: bookings.filter((b) => ["pending", "awaiting_approval"].includes(b.status)).length,
       confirmed: bookings.filter((b) => b.status === "confirmed").length,
-      cancelled: bookings.filter((b) => b.status === "cancelled").length,
-      completed: bookings.filter((b) => b.status === "completed").length,
+      cancelled: bookings.filter((b) => ["cancelled", "tutor-no-show", "rescheduled"].includes(b.status)).length,
+      completed: bookings.filter((b) => ["completed", "successful", "student-no-show"].includes(b.status)).length,
       rejected: bookings.filter((b) => b.status === "rejected").length,
     };
   };
