@@ -241,6 +241,7 @@ export default function SessionManagement({ overrideStudentId }) {
           cancellation_reason: cancellationReason,
           cancellation_status: "approved",
           credits_refunded: selectedSession.credits_required,
+          cancelled_by_role: "student",
         })
         .eq("id", selectedSession.id)
         .select();

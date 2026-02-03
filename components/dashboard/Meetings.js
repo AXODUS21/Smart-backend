@@ -12,6 +12,7 @@ import {
   Check,
   X,
   User,
+  Users,
   Link,
 } from "lucide-react";
 
@@ -367,14 +368,15 @@ export default function Meetings({ overrideStudentId }) {
   };
 
   // Handle rejecting a booking
-  const handleRejectBooking = async (bookingId, creditsRequired) => {
+  // Handle rejecting a booking
+  const handleRejectBooking = async (bookingId) => {
     setProcessing((prev) => ({ ...prev, [bookingId]: "rejecting" }));
 
     try {
       // Get the booking details first
       const { data: bookingData, error: bookingError } = await supabase
         .from("Schedules")
-        .select("student_id, tutor_id, subject, start_time_utc, end_time_utc, principal_user_id")
+        .select("student_id, tutor_id, subject, start_time_utc, end_time_utc, principal_user_id, credits_required")
         .eq("id", bookingId)
         .maybeSingle();
 
@@ -391,6 +393,8 @@ export default function Meetings({ overrideStudentId }) {
         throw new Error("Invalid booking data - no student or principal ID");
       }
 
+      const creditsToRefund = Number(bookingData.credits_required) || 0;
+
       // Try to refund credits (to Principal or Student)
       try {
         if (bookingData.principal_user_id) {
@@ -399,13 +403,17 @@ export default function Meetings({ overrideStudentId }) {
             .select("credits")
             .eq("user_id", bookingData.principal_user_id)
             .maybeSingle();
+            
           if (!principalError && principalData) {
-            const newCredits = (principalData.credits || 0) + creditsRequired;
+            const currentCredits = Number(principalData.credits) || 0;
+            const newCredits = currentCredits + creditsToRefund;
+            
             const { error: updateError } = await supabase
               .from("Principals")
               .update({ credits: newCredits })
               .eq("user_id", bookingData.principal_user_id);
-            if (!updateError) console.log(`Refunded ${creditsRequired} credits to principal`);
+              
+            if (!updateError) console.log(`Refunded ${creditsToRefund} credits to principal`);
           }
         } else if (bookingData.student_id) {
           const { data: studentData, error: studentError } = await supabase
@@ -413,13 +421,17 @@ export default function Meetings({ overrideStudentId }) {
             .select("credits")
             .eq("id", bookingData.student_id)
             .maybeSingle();
+            
           if (!studentError && studentData) {
-            const newCredits = (studentData.credits || 0) + creditsRequired;
+            const currentCredits = Number(studentData.credits) || 0;
+            const newCredits = currentCredits + creditsToRefund;
+            
             const { error: updateError } = await supabase
               .from("Students")
               .update({ credits: newCredits })
               .eq("id", bookingData.student_id);
-            if (!updateError) console.log(`Refunded ${creditsRequired} credits to student`);
+              
+            if (!updateError) console.log(`Refunded ${creditsToRefund} credits to student`);
           }
         }
       } catch (creditError) {
@@ -429,7 +441,11 @@ export default function Meetings({ overrideStudentId }) {
       // Update booking status to rejected
       const { error: updateBookingError } = await supabase
         .from("Schedules")
-        .update({ status: "rejected" })
+        .update({ 
+          status: "rejected",
+          cancelled_by_role: "tutor",
+          credits_refunded: creditsToRefund
+        })
         .eq("id", bookingId);
 
       if (updateBookingError) {
@@ -660,6 +676,26 @@ export default function Meetings({ overrideStudentId }) {
             >
               Past Sessions
             </button>
+            <button
+              onClick={() => setView("cancelled")}
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+                view === "cancelled"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Cancelled
+            </button>
+            <button
+              onClick={() => setView("rejected")}
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+                view === "rejected"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Rejected
+            </button>
           </div>
 
           {/* Filtering Controls */}
@@ -811,6 +847,158 @@ export default function Meetings({ overrideStudentId }) {
                 )}
               </div>
             )}
+
+            {view === "cancelled" && (
+              <div className="space-y-2">
+                {(() => {
+                  const cancelledSessions = scheduledMeetings.filter(
+                    (m) => m.status === "cancelled"
+                  );
+                  const sortedCancelled = cancelledSessions.sort((a, b) => 
+                    new Date(b.start_time_utc) - new Date(a.start_time_utc)
+                  );
+
+                  if (sortedCancelled.length === 0) {
+                    return (
+                      <div className="text-center py-6 text-gray-500">
+                        <p className="text-sm">No cancelled sessions.</p>
+                      </div>
+                    );
+                  }
+
+                  return sortedCancelled.map((session) => (
+                    <div
+                      key={session.id}
+                      className="flex flex-col gap-3 p-4 bg-orange-50/50 rounded-lg border border-orange-100"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-slate-900">
+                            {session.subject || "Tutoring Session"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {(() => {
+                              const t = session.tutor;
+                              if (!t) return "Tutor";
+                              let n = `${t.first_name || ""} ${t.last_name || ""}`.trim();
+                              if (!n) n = t.name || "";
+                              return n.trim() || "Tutor";
+                            })()}{" "}
+                             • {formatDate(session.start_time_utc)}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Duration: {formatDuration(session.duration_min)}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                            Cancelled
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Attribution Section */}
+                      <div className="flex items-start gap-2 pt-2 border-t border-orange-100/50">
+                        <div className="bg-white p-1 rounded-full shrink-0">
+                           {session.cancelled_by_role === 'student' ? (
+                             <User className="w-3 h-3 text-slate-400" />
+                           ) : session.cancelled_by_role === 'tutor' ? (
+                             <Users className="w-3 h-3 text-slate-400" />
+                           ) : (
+                             <X className="w-3 h-3 text-slate-400" />
+                           )}
+                        </div>
+                        <div className="text-xs">
+                          <p className="font-medium text-slate-700">
+                            {session.cancelled_by_role === 'student'
+                              ? 'Cancelled by You'
+                              : session.cancelled_by_role === 'tutor'
+                              ? 'Cancelled by Tutor'
+                              : session.cancelled_by_role === 'system'
+                              ? 'Automatically Cancelled'
+                              : 'Cancelled'}
+                          </p>
+                          {session.cancellation_reason && (
+                            <p className="text-slate-500 mt-0.5 italic">
+                              "{session.cancellation_reason}"
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
+
+            {view === "rejected" && (
+              <div className="space-y-2">
+                {(() => {
+                  const rejectedSessions = scheduledMeetings.filter(
+                    (m) => m.status === "rejected"
+                  );
+                  const sortedRejected = rejectedSessions.sort((a, b) => 
+                    new Date(b.start_time_utc) - new Date(a.start_time_utc)
+                  );
+
+                  if (sortedRejected.length === 0) {
+                    return (
+                      <div className="text-center py-6 text-gray-500">
+                        <p className="text-sm">No rejected sessions.</p>
+                      </div>
+                    );
+                  }
+
+                  return sortedRejected.map((session) => (
+                    <div
+                      key={session.id}
+                      className="flex flex-col gap-3 p-4 bg-red-50/50 rounded-lg border border-red-100"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-slate-900">
+                            {session.subject || "Tutoring Session"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {(() => {
+                              const t = session.tutor;
+                              if (!t) return "Tutor";
+                              let n = `${t.first_name || ""} ${t.last_name || ""}`.trim();
+                              if (!n) n = t.name || "";
+                              return n.trim() || "Tutor";
+                            })()}{" "}
+                             • {formatDate(session.start_time_utc)}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Duration: {formatDuration(session.duration_min)}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            Rejected
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Attribution Section */}
+                      <div className="flex items-start gap-2 pt-2 border-t border-red-100/50">
+                        <div className="bg-white p-1 rounded-full shrink-0">
+                           <Users className="w-3 h-3 text-slate-400" />
+                        </div>
+                        <div className="text-xs">
+                          <p className="font-medium text-slate-700">Rejected by Tutor</p>
+                          {session.cancellation_reason && (
+                            <p className="text-slate-500 mt-0.5 italic">
+                              "{session.cancellation_reason}"
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
           </div>
         </div>
 
@@ -915,6 +1103,11 @@ export default function Meetings({ overrideStudentId }) {
     (booking) =>
       booking.status === "rejected" && !isPastBooking(booking.start_time_utc)
   );
+  // Filter out cancelled bookings specifically for the Cancelled tab
+  const cancelledBookings = tutorBookings.filter(
+    (booking) =>
+      booking.status === "cancelled"
+  ).sort((a, b) => new Date(b.start_time_utc) - new Date(a.start_time_utc));
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -974,6 +1167,16 @@ export default function Meetings({ overrideStudentId }) {
           >
             Rejected ({rejectedBookings.length})
           </button>
+          <button
+            onClick={() => setTutorView("cancelled")}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              tutorView === "cancelled"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Cancelled ({cancelledBookings.length})
+          </button>
         </div>
 
         <div className="p-4">
@@ -1030,10 +1233,7 @@ export default function Meetings({ overrideStudentId }) {
                       </button>
                       <button
                         onClick={() =>
-                          handleRejectBooking(
-                            booking.id,
-                            booking.credits_required
-                          )
+                          handleRejectBooking(booking.id)
                         }
                         disabled={processing[booking.id]}
                         className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1 whitespace-nowrap"
@@ -1176,6 +1376,73 @@ export default function Meetings({ overrideStudentId }) {
                           <span className="font-medium">Cancellation reason:</span> {booking.cancellation_reason}
                         </p>
                       )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Cancelled Requests Tab */}
+          {tutorView === "cancelled" && (
+            <div className="space-y-2">
+              {cancelledBookings.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">
+                  <X className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-sm">No cancelled sessions.</p>
+                </div>
+              ) : (
+                cancelledBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex flex-col gap-2 p-3 bg-red-50 border border-red-200 rounded-lg"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm text-slate-900">
+                            {booking.subject}
+                          </p>
+                          <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-xs">
+                            Cancelled
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-1">
+                          {booking.profile_name ||
+                            booking.student?.name ||
+                            booking.student?.email ||
+                            "Student"}{" "}
+                          • {formatDate(booking.start_time_utc)} at{" "}
+                          {formatTime(booking.start_time_utc)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Attribution Section */}
+                    <div className="flex items-start gap-2 pt-2 border-t border-red-200/50">
+                       <div className="bg-white p-1 rounded-full shrink-0">
+                          {booking.cancelled_by_role === 'student' ? (
+                            <User className="w-3 h-3 text-slate-400" />
+                          ) : booking.cancelled_by_role === 'tutor' || booking.status === 'rejected' ? (
+                            <Users className="w-3 h-3 text-slate-400" />
+                          ) : (
+                            <X className="w-3 h-3 text-slate-400" />
+                          )}
+                       </div>
+                       <div className="text-xs">
+                         <p className="font-medium text-slate-700">
+                           {booking.cancelled_by_role === 'student'
+                             ? 'Cancelled by Student'
+                             : booking.cancelled_by_role === 'tutor'
+                             ? 'Cancelled by You'
+                             : 'Cancelled'}
+                         </p>
+                         {booking.cancellation_reason && (
+                           <p className="text-slate-500 mt-0.5 italic">
+                             "{booking.cancellation_reason}"
+                           </p>
+                         )}
+                       </div>
                     </div>
                   </div>
                 ))
