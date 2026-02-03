@@ -212,7 +212,7 @@ export default function TutorHome() {
     };
 
     fetchData();
-  }, [user]);
+  }, [user?.id]); // Use user.id to avoid refetching when user object reference changes
 
   // Fetch withdrawals for tutor (depends on tutorId)
   useEffect(() => {
@@ -286,7 +286,7 @@ export default function TutorHome() {
     };
 
     fetchAnnouncements();
-  }, [user]);
+  }, [user?.id]);
 
   // Remove a subject (by index since subjects are now objects)
   const handleRemoveSubject = async (indexToRemove) => {

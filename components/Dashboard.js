@@ -301,7 +301,7 @@ export default function Dashboard() {
     }
 
     determineRole();
-  }, [user]);
+  }, [user?.id]); // Use user.id to avoid re-running when user object reference changes
 
   // Load persisted student mode from localStorage per user
   useEffect(() => {
@@ -311,7 +311,7 @@ export default function Dashboard() {
       const v = localStorage.getItem(key);
       if (v === "true") setStudentModeEnabled(true);
     } catch {}
-  }, [user]);
+  }, [user?.id]);
 
   const handleChangeStudentMode = (enabled) => {
     setStudentModeEnabled(enabled);
