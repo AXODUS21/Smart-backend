@@ -169,7 +169,7 @@ export default function Dashboard() {
         // Check if user is a principal
         const { data: principalData, error: principalError } = await supabase
           .from("Principals")
-          .select("id, first_name, last_name, email, students")
+          .select("id, first_name, last_name, email")
           .eq("user_id", user.id)
           .maybeSingle();
 
@@ -184,15 +184,23 @@ export default function Dashboard() {
             principalData.last_name || ""
           }`.trim();
           setUserName(fullName || user.email);
-          const raw = principalData.students || [];
-          setPrincipalLinkedStudents(
-            raw
-              .map((s) => ({
-                id: s.student_id ?? s.id,
-                name: s.name || s.email || "Student",
+          
+          // Fetch schools for this principal
+          const { data: schools, error: schoolsError } = await supabase
+            .from("Schools")
+            .select("id, name")
+            .eq("principal_id", user.id)
+            .order("created_at", { ascending: false });
+          
+          if (!schoolsError && schools) {
+            setPrincipalLinkedStudents(
+              schools.map((school) => ({
+                id: school.id,
+                name: school.name,
               }))
-              .filter((s) => s.id != null)
-          );
+            );
+          }
+          
           setLoading(false);
           return;
         }
@@ -353,7 +361,7 @@ export default function Dashboard() {
 
   const principalTabs = [
     { id: "home", label: "Dashboard", icon: Home },
-    { id: "schools", label: "My Schools", icon: Building2 },
+    { id: "manage-schools", label: "Manage Schools", icon: Building2 },
     { id: "vouchers", label: "Vouchers", icon: Ticket },
   ];
 
@@ -609,14 +617,14 @@ export default function Dashboard() {
             </button>
           )}
 
-          {/* Principal: View as student dropdown when not acting */}
+          {/* Principal: View as school dropdown when not acting */}
           {userRole === "principal" && !actingAsStudentId && principalLinkedStudents.length > 0 && (
             <div className="mb-2">
               <button
                 onClick={() => setPrincipalViewAsOpen((o) => !o)}
                 className="w-full flex items-center justify-between gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 hover:bg-slate-50"
               >
-                {sidebarOpen && <span>View as student</span>}
+                {sidebarOpen && <span>View as school</span>}
                 <ChevronDown className={`w-4 h-4 shrink-0 ${principalViewAsOpen ? "rotate-180" : ""}`} />
               </button>
               {principalViewAsOpen && sidebarOpen && (
@@ -766,7 +774,7 @@ export default function Dashboard() {
           {activeTab === "home" && userRole === "principal" && !actingAsStudentId && (
             <PrincipalHome setActiveTab={setActiveTab} />
           )}
-          {activeTab === "schools" && userRole === "principal" && !actingAsStudentId && (
+          {activeTab === "manage-schools" && userRole === "principal" && !actingAsStudentId && (
             <PrincipalSchools />
           )}
           {activeTab === "vouchers" && userRole === "principal" && (
