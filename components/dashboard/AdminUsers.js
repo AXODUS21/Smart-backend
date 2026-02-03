@@ -31,6 +31,32 @@ export default function AdminUsers() {
 
       if (allUsersError) {
         console.error("Error fetching all users:", allUsersError);
+
+        // Check current user role for debugging RLS
+        const { data: { user } } = await supabase.auth.getUser();
+        console.log("Current Auth User ID:", user?.id);
+        
+        if (user) {
+          const [adminCheck, superAdminCheck] = await Promise.all([
+            supabase.from('admins').select('id').eq('user_id', user.id),
+            supabase.from('superadmins').select('id').eq('user_id', user.id)
+          ]);
+          
+          console.log("Is in 'admins' table?", adminCheck.data?.length > 0);
+          console.log("Is in 'superadmins' table?", superAdminCheck.data?.length > 0);
+        }
+
+        console.log("Falling back to direct table queries...");
+        
+        // Fetch principals separately first to see the exact error
+        console.log("Attempting to fetch Principals table...");
+        const principalsTest = await supabase.from("Principals").select("*").order("created_at", { ascending: false });
+        console.log("Principals fetch result:", {
+          data: principalsTest.data,
+          error: principalsTest.error,
+          count: principalsTest.data?.length || 0
+        });
+        
         // Fallback to old method if function doesn't exist
         const [studentsData, tutorsData, adminsData, principalsData] = await Promise.all([
           supabase.from("Students").select("*").order("created_at", { ascending: false }),
@@ -38,6 +64,12 @@ export default function AdminUsers() {
           supabase.from("admins").select("*").order("created_at", { ascending: false }),
           supabase.from("Principals").select("*").order("created_at", { ascending: false }),
         ]);
+
+        console.log("Direct query results:");
+        console.log("  Students:", studentsData.data?.length || 0);
+        console.log("  Tutors:", tutorsData.data?.length || 0);
+        console.log("  Admins:", adminsData.data?.length || 0);
+        console.log("  Principals:", principalsData.data?.length || 0, principalsData);
 
         if (studentsData.error) {
           console.error("Error fetching students:", studentsData.error);
@@ -62,6 +94,8 @@ export default function AdminUsers() {
           admins: adminsData.data || [],
           principals: principalsData.data || [],
         });
+        
+        console.log("Fetched principals (fallback):", principalsData.data?.length || 0, principalsData.data);
       } else {
         // Transform the function result into the expected format
         const students = [];
@@ -70,14 +104,27 @@ export default function AdminUsers() {
         const principals = [];
         
         (allUsersData || []).forEach(user => {
+          // Construct name from first_name and last_name if available
+          let displayName = user.name;
+          if (!displayName && (user.first_name || user.last_name)) {
+            displayName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+          }
+          if (!displayName) {
+            displayName = user.email;
+          }
+          
           const userObj = {
             id: user.id,
             user_id: user.id,
             email: user.email,
-            name: user.name || user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            name: displayName,
             created_at: user.created_at,
             role: user.role,
             has_profile: user.has_profile,
+            credits: user.credits,
+            students: user.students,
           };
 
           if (user.role === 'student') {
@@ -100,6 +147,8 @@ export default function AdminUsers() {
           admins,
           principals,
         });
+        
+        console.log("Fetched principals (RPC):", principals.length, principals);
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -171,6 +220,18 @@ export default function AdminUsers() {
       }
       return 0;
     });
+
+    console.log("Filtering results:");
+    console.log("  Filter role:", filterRole);
+    console.log("  Before filtering:", {
+      students: users.students.length,
+      tutors: users.tutors.length,
+      admins: users.admins.length,
+      principals: users.principals.length,
+      total: allUsers.length
+    });
+    console.log("  After filtering:", allUsers.length);
+    console.log("  Principals in filtered list:", allUsers.filter(u => u.role === 'principal').length);
 
     return allUsers;
   }, [users.students, users.tutors, users.admins, users.principals, searchTerm, filterRole, sortField, sortDirection]);
