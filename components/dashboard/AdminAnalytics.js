@@ -98,7 +98,7 @@ export default function AdminAnalytics() {
       }
 
       console.log(`Found ${bookings.length} bookings in date range`);
-
+      {/*50 should be good */}
       const activeStatuses = ["confirmed", "completed", "successful", "student-no-show"];
       const cancelledStatuses = ["cancelled", "rejected", "tutor-no-show", "rescheduled"];
       const pendingStatuses = ["pending", "awaiting_approval"];
