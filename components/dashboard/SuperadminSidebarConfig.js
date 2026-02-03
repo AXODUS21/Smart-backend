@@ -25,6 +25,8 @@ export default function SuperadminSidebarConfig({ onConfigUpdate }) {
     { tab_id: "credit-plans", tab_label: "Credit Plans", is_visible: true, display_order: 8 },
     { tab_id: "announcements", tab_label: "Announcements", is_visible: true, display_order: 9 },
     { tab_id: "parents-review", tab_label: "Parents Review", is_visible: true, display_order: 10 },
+    { tab_id: "cms", tab_label: "CMS", is_visible: true, display_order: 11 },
+    { tab_id: "voucher-requests", tab_label: "Voucher Requests", is_visible: true, display_order: 12 },
   ];
 
   useEffect(() => {

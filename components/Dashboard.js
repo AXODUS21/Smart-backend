@@ -373,6 +373,21 @@ export default function Dashboard() {
     { id: "application", label: "Application", icon: FileText },
   ];
 
+  // CMS dropdown structure
+  const cmsDropdown = {
+    id: "cms",
+    label: "CMS",
+    icon: Layout,
+    children: [
+      { id: "services", label: "Services", icon: BookOpen },
+      { id: "credit-plans", label: "Credit Plans", icon: Wallet },
+      { id: "blog", label: "Blog", icon: FileText },
+      { id: "why-choose-us", label: "Why Choose Us", icon: Layout },
+      { id: "reviews", label: "Reviews", icon: MessageSquare },
+      { id: "faqs", label: "FAQs", icon: BookOpen },
+    ],
+  };
+
   // Default admin tabs mapping
   const adminTabsMap = {
     home: { id: "home", label: "Dashboard", icon: Home },
@@ -399,54 +414,31 @@ export default function Dashboard() {
       label: "Tutor Applications",
       icon: ClipboardList,
     },
-  };
-
-  // CMS dropdown structure
-  const cmsDropdown = {
-    id: "cms",
-    label: "CMS",
-    icon: Layout,
-    children: [
-      { id: "services", label: "Services", icon: BookOpen },
-      { id: "credit-plans", label: "Credit Plans", icon: Wallet },
-      { id: "blog", label: "Blog", icon: FileText },
-      { id: "why-choose-us", label: "Why Choose Us", icon: Layout },
-      { id: "reviews", label: "Reviews", icon: MessageSquare },
-      { id: "faqs", label: "FAQs", icon: BookOpen },
-    ],
+    cms: cmsDropdown,
   };
 
   // Build admin tabs from configuration or use defaults
   const getAdminTabs = () => {
     if (userRole === "admin" && adminSidebarConfig.length > 0) {
-      // Use configured tabs - check if services or credit-plans are in config
-      const configuredTabs = adminSidebarConfig
+      return adminSidebarConfig
         .map((config) => {
+          // Special handling for CMS which was previously split
+          if (config.tab_id === "cms") return cmsDropdown;
+          
           const tab = adminTabsMap[config.tab_id];
           if (tab) return tab;
+          
+          // Fallback for individual CMS items if they still exist in old configs
+          if (config.tab_id === "services") return { id: "services", label: "Services", icon: BookOpen };
+          if (config.tab_id === "credit-plans") return { id: "credit-plans", label: "Credit Plans", icon: Wallet };
+          
           return null;
         })
         .filter(Boolean);
-
-      // Check if both services and credit-plans are in the config
-      const hasServices = configuredTabs.some((t) => t.id === "services");
-      const hasCreditPlans = configuredTabs.some(
-        (t) => t.id === "credit-plans"
-      );
-
-      // If both are present, replace them with CMS dropdown
-      if (hasServices && hasCreditPlans) {
-        const filtered = configuredTabs.filter(
-          (t) => t.id !== "services" && t.id !== "credit-plans"
-        );
-        return [...filtered, cmsDropdown];
-      }
-
-      return configuredTabs;
     }
-    // Default tabs - use CMS dropdown
+    // Default tabs - use CMS dropdown + others excluding split items
     const defaultTabs = Object.values(adminTabsMap).filter(
-      (t) => t.id !== "services" && t.id !== "credit-plans"
+      (t) => t.id !== "services" && t.id !== "credit-plans" && t.id !== "cms"
     );
     return [...defaultTabs, cmsDropdown];
   };
