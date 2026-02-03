@@ -13,7 +13,12 @@ import {
   CreditCard,
   AlertCircle,
   Loader2,
+  FileSpreadsheet,
+  FileType,
 } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 const STATUS_COLORS = {
   pending: "bg-amber-100 text-amber-700 border-amber-300",
@@ -252,6 +257,100 @@ export default function SuperadminWithdrawals() {
     return { method: "Unknown", details: [] };
   };
 
+  const exportToExcel = () => {
+    if (!filteredWithdrawals.length) return;
+
+    const exportData = filteredWithdrawals.map((w) => {
+      // Handle Supabase join - tutor might be an object or array
+      const tutorRaw = w.tutor;
+      const tutor = Array.isArray(tutorRaw) ? tutorRaw[0] : tutorRaw;
+      const paymentDetails = getPaymentDetails(tutor);
+      
+      const paymentInfo = paymentDetails.details
+        .map(d => `${d.label}: ${d.value}`)
+        .join("; ");
+
+      return {
+        "Request ID": w.id,
+        "Tutor Name": tutor ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() : "Unknown",
+        "Tutor Email": tutor?.email || "N/A",
+        "Amount (PHP)": parseFloat(w.amount || 0).toFixed(2),
+        "Status": w.status || "pending",
+        "Requested Date": formatDate(w.requested_at),
+        "Processed Date": w.processed_at ? formatDate(w.processed_at) : "N/A",
+        "Payment Method": paymentDetails.method,
+        "Payment Details": paymentInfo,
+        "Transaction ID": w.payout_transaction_id || "N/A",
+        "Note": w.note || ""
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Add some column widths
+    const wscols = [
+      { wch: 10 }, // ID
+      { wch: 20 }, // Name
+      { wch: 25 }, // Email
+      { wch: 15 }, // Amount
+      { wch: 12 }, // Status
+      { wch: 20 }, // Requested
+      { wch: 20 }, // Processed
+      { wch: 15 }, // Method
+      { wch: 40 }, // Details
+      { wch: 20 }, // Tx ID
+      { wch: 30 }, // Note
+    ];
+    ws['!cols'] = wscols;
+
+    XLSX.utils.book_append_sheet(wb, ws, "Withdrawals");
+    XLSX.writeFile(wb, `Withdrawals_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    if (!filteredWithdrawals.length) return;
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(18);
+    doc.text("Withdrawal Requests Report", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Status Filter: ${filterStatus.toUpperCase()}`, 14, 35);
+    
+    if (searchTerm) {
+      doc.text(`Search Term: "${searchTerm}"`, 14, 40);
+    }
+
+    const tableData = filteredWithdrawals.map((w) => {
+      const tutorRaw = w.tutor;
+      const tutor = Array.isArray(tutorRaw) ? tutorRaw[0] : tutorRaw;
+      const paymentDetails = getPaymentDetails(tutor);
+
+      return [
+         w.id,
+         tutor ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() : "Unknown",
+         parseFloat(w.amount || 0).toFixed(2),
+         w.status || "pending",
+         formatDate(w.requested_at),
+         paymentDetails.method,
+      ];
+    });
+
+    doc.autoTable({
+      startY: 45,
+      head: [["ID", "Tutor", "Amount", "Status", "Requested", "Method"]],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [66, 139, 202] },
+    });
+
+    doc.save(`Withdrawals_Export_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
@@ -321,6 +420,22 @@ export default function SuperadminWithdrawals() {
             >
               <RefreshCcw size={18} />
               Refresh
+            </button>
+            <button
+              onClick={exportToExcel}
+              disabled={filteredWithdrawals.length === 0}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileSpreadsheet size={18} />
+              Excel
+            </button>
+            <button
+              onClick={exportToPDF}
+              disabled={filteredWithdrawals.length === 0}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileType size={18} />
+              PDF
             </button>
           </div>
         </div>

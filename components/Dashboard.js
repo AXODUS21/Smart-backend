@@ -62,6 +62,7 @@ import AdminAnnouncements from "./dashboard/AdminAnnouncements";
 import SuperadminSidebarConfig from "./dashboard/SuperadminSidebarConfig";
 import SuperadminTasks from "./dashboard/SuperadminTasks";
 import PayoutReports from "./dashboard/PayoutReports";
+import SuperadminWithdrawals from "./dashboard/SuperadminWithdrawals";
 import AdminTutorApplications from "./dashboard/AdminTutorApplications";
 import AdminVoucherRequests from "./dashboard/AdminVoucherRequests";
 import TutorApplication from "./dashboard/TutorApplication";
@@ -463,6 +464,7 @@ export default function Dashboard() {
     { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
     { id: "voucher-requests", label: "Voucher Requests", icon: Ticket },
+    { id: "withdrawals", label: "Withdrawals", icon: Wallet },
     { id: "payout-reports", label: "Payout Reports", icon: FileText },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
@@ -844,6 +846,9 @@ export default function Dashboard() {
           )}
           {activeTab === "payout-reports" && userRole === "superadmin" && (
             <PayoutReports />
+          )}
+          {activeTab === "withdrawals" && userRole === "superadmin" && (
+            <SuperadminWithdrawals />
           )}
           {activeTab === "blog" && userRole === "superadmin" && (
             <AdminBlog />
