@@ -29,6 +29,8 @@ export default function Meetings({ overrideStudentId }) {
     bookingId: null,
   });
   const [meetingLink, setMeetingLink] = useState("");
+  const [cancelModal, setCancelModal] = useState({ isOpen: false, booking: null });
+  const [cancellationReason, setCancellationReason] = useState("");
 
   const [view, setView] = useState("upcoming");
   const [tutorView, setTutorView] = useState("pending");
@@ -130,6 +132,27 @@ export default function Meetings({ overrideStudentId }) {
     const now = new Date();
     const bookingStart = new Date(startTimeUtc);
     return bookingStart < now;
+  };
+
+  // Check if tutor can cancel a confirmed booking (must be at least 24 hours in advance)
+  const canTutorCancelBooking = (booking) => {
+    if (!booking || !booking.start_time_utc) return false;
+    const now = new Date();
+    const sessionStart = new Date(booking.start_time_utc);
+    
+    // Cannot cancel past sessions
+    if (now >= sessionStart) return false;
+    
+    const hoursUntilSession = (sessionStart - now) / (1000 * 60 * 60);
+    return hoursUntilSession >= 24;
+  };
+
+  // Get hours until session for display
+  const getHoursUntilSession = (booking) => {
+    if (!booking || !booking.start_time_utc) return 0;
+    const now = new Date();
+    const sessionStart = new Date(booking.start_time_utc);
+    return Math.round((sessionStart - now) / (1000 * 60 * 60) * 10) / 10;
   };
 
   // Automatically reject/cancel past pending bookings
@@ -387,6 +410,27 @@ export default function Meetings({ overrideStudentId }) {
 
       if (!bookingData) {
         throw new Error("Booking not found");
+      }
+
+      // Check if booking is within 24 hours - tutors cannot reject/cancel within 24 hours
+      if (bookingData.start_time_utc) {
+        const now = new Date();
+        const sessionStart = new Date(bookingData.start_time_utc);
+        const hoursUntilSession = (sessionStart - now) / (1000 * 60 * 60);
+        
+        if (hoursUntilSession < 24 && hoursUntilSession > 0) {
+          setProcessing((prev) => ({ ...prev, [bookingId]: false }));
+          alert(
+            `Cannot reject/cancel sessions within 24 hours of start time. This session is in ${Math.round(hoursUntilSession * 10) / 10} hours.`
+          );
+          return;
+        }
+        
+        if (sessionStart <= now) {
+          setProcessing((prev) => ({ ...prev, [bookingId]: false }));
+          alert("Cannot reject/cancel a past session.");
+          return;
+        }
       }
 
       if (!bookingData.student_id && !bookingData.principal_user_id) {
