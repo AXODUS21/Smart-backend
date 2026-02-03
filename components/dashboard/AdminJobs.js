@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Briefcase, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Search, Filter, X } from "lucide-react";
+import { Briefcase, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Search, Filter, X, FileSpreadsheet, FileText } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 export default function AdminJobs() {
   const [bookings, setBookings] = useState([]);
@@ -352,6 +355,73 @@ export default function AdminJobs() {
       <div>
         <h2 className="text-2xl font-semibold text-slate-900 mb-2">Jobs (Bookings)</h2>
         <p className="text-slate-500">View all bookings with status indicators</p>
+      </div>
+
+      {/* Export Buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            const dataToExport = filteredBookings().map(b => ({
+              "Booking ID": b.id,
+              "Student Name": b.student?.name || "Unknown",
+              "Student Email": b.student?.email || "",
+              "Tutor Name": getTutorDisplayName(b.tutor),
+              "Tutor Email": b.tutor?.email || "",
+              "Subject": b.subject || "N/A",
+              "Date": new Date(b.start_time_utc).toLocaleDateString(),
+              "Time": new Date(b.start_time_utc).toLocaleTimeString(),
+              "Duration (min)": parseFloat(b.duration_min || 0),
+              "Credits": parseFloat(b.credits_required || 0),
+              "Status": b.status
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Bookings");
+            XLSX.writeFile(wb, `bookings_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          Export Excel
+        </button>
+        <button
+          onClick={() => {
+            const doc = new jsPDF();
+            
+            // Add title
+            doc.setFontSize(18);
+            doc.text("Job Bookings Report", 14, 22);
+            doc.setFontSize(11);
+            doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+
+            const tableColumn = ["ID", "Student", "Tutor", "Subject", "Date", "Time", "Status"];
+            const tableRows = filteredBookings().map(b => [
+              b.id,
+              b.student?.name || "Unknown",
+              getTutorDisplayName(b.tutor),
+              b.subject || "N/A",
+              new Date(b.start_time_utc).toLocaleDateString(),
+              new Date(b.start_time_utc).toLocaleTimeString(),
+              b.status
+            ]);
+
+            autoTable(doc, {
+              head: [tableColumn],
+              body: tableRows,
+              startY: 40,
+              theme: 'grid',
+              styles: { fontSize: 8 },
+              headStyles: { fillColor: [41, 128, 185] }
+            });
+
+            doc.save(`bookings_export_${new Date().toISOString().split('T')[0]}.pdf`);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+        >
+          <FileText className="w-4 h-4" />
+          Export PDF
+        </button>
       </div>
 
       {/* Status Stats */}
