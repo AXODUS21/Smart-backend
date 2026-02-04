@@ -17,6 +17,7 @@ import {
   BookOpen,
   Search,
 } from "lucide-react";
+import { ImageUpload } from "@/components/ImageUpload";
 
 export default function AdminBlog() {
   const { user } = useAuth();
@@ -51,6 +52,9 @@ export default function AdminBlog() {
     featured_image: "",
     is_published: true,
   });
+
+  const [imageFile, setImageFile] = useState(null);
+  const [imageResetToken, setImageResetToken] = useState(0);
 
   // Get admin ID
   useEffect(() => {
@@ -121,6 +125,26 @@ export default function AdminBlog() {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
+      let featured_image_url = formData.featured_image;
+
+      if (imageFile) {
+        const fileExt = imageFile.name.split(".").pop();
+        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `blog-posts/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("blog-images")
+          .upload(filePath, imageFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("blog-images")
+          .getPublicUrl(filePath);
+        
+        featured_image_url = publicUrlData.publicUrl;
+      }
+
       if (editingId) {
         const { error: updateError } = await supabase
           .from("BlogPosts")
@@ -131,7 +155,7 @@ export default function AdminBlog() {
             content: formData.content,
             category: formData.category,
             read_time: formData.read_time,
-            featured_image: formData.featured_image,
+            featured_image: featured_image_url,
             is_published: formData.is_published,
             updated_at: new Date().toISOString(),
           })
@@ -150,7 +174,7 @@ export default function AdminBlog() {
             content: formData.content,
             category: formData.category,
             read_time: formData.read_time,
-            featured_image: formData.featured_image,
+            featured_image: featured_image_url,
             is_published: formData.is_published,
             publish_date: formData.is_published ? new Date().toISOString() : null,
           });
@@ -169,6 +193,8 @@ export default function AdminBlog() {
         featured_image: "",
         is_published: true,
       });
+      setImageFile(null);
+      setImageResetToken(prev => prev + 1);
       setShowForm(false);
       setEditingId(null);
 
@@ -197,6 +223,8 @@ export default function AdminBlog() {
       is_published: post.is_published !== false,
     });
     setEditingId(post.id);
+    setImageFile(null);
+    setImageResetToken(prev => prev + 1);
     setShowForm(true);
   };
 
@@ -327,6 +355,8 @@ export default function AdminBlog() {
               featured_image: "",
               is_published: true,
             });
+            setImageFile(null);
+            setImageResetToken(prev => prev + 1);
             setError("");
             setSuccess("");
           }}
@@ -442,16 +472,17 @@ export default function AdminBlog() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Featured Image URL
+                  Featured Image
                 </label>
-                <input
-                  type="text"
-                  value={formData.featured_image}
-                  onChange={(e) =>
-                    setFormData({ ...formData, featured_image: e.target.value })
-                  }
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="https://..."
+                <ImageUpload
+                  onImageChange={(file) => {
+                    setImageFile(file);
+                    if (!file) {
+                      setFormData(prev => ({ ...prev, featured_image: "" }));
+                    }
+                  }}
+                  initialUrl={formData.featured_image}
+                  resetSignal={imageResetToken}
                 />
               </div>
             </div>
@@ -493,6 +524,8 @@ export default function AdminBlog() {
                     featured_image: "",
                     is_published: true,
                   });
+                  setImageFile(null);
+                  setImageResetToken(prev => prev + 1);
                   setError("");
                 }}
                 className="px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"

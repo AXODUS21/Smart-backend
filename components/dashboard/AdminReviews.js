@@ -13,6 +13,7 @@ import {
   Star,
   User,
 } from "lucide-react";
+import { ImageUpload } from "@/components/ImageUpload";
 
 export default function AdminReviews() {
   const [items, setItems] = useState([]);
@@ -31,6 +32,9 @@ export default function AdminReviews() {
     date: new Date().toISOString().split("T")[0],
     avatar_url: "",
   });
+
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarResetToken, setAvatarResetToken] = useState(0);
 
   useEffect(() => {
     fetchItems();
@@ -64,11 +68,36 @@ export default function AdminReviews() {
         return;
       }
 
+      let avatar_url_val = formData.avatar_url;
+
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split(".").pop();
+        const fileName = `review_${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `reviews/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("blog-images")
+          .upload(filePath, avatarFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("blog-images")
+          .getPublicUrl(filePath);
+        
+        avatar_url_val = publicUrlData.publicUrl;
+      }
+
+      const submissionData = {
+        ...formData,
+        avatar_url: avatar_url_val,
+      };
+
       if (editingId) {
         const { error } = await supabase
           .from("cms_reviews")
           .update({
-            ...formData,
+            ...submissionData,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingId);
@@ -76,7 +105,7 @@ export default function AdminReviews() {
         if (error) throw error;
         setSuccess("Review updated successfully");
       } else {
-        const { error } = await supabase.from("cms_reviews").insert(formData);
+        const { error } = await supabase.from("cms_reviews").insert(submissionData);
 
         if (error) throw error;
         setSuccess("Review created successfully");
@@ -101,8 +130,11 @@ export default function AdminReviews() {
       content: "",
       rating: 5,
       date: new Date().toISOString().split("T")[0],
+
       avatar_url: "",
     });
+    setAvatarFile(null);
+    setAvatarResetToken(prev => prev + 1);
   };
 
   const handleEdit = (item) => {
@@ -116,6 +148,8 @@ export default function AdminReviews() {
       avatar_url: item.avatar_url || "",
     });
     setEditingId(item.id);
+    setAvatarFile(null);
+    setAvatarResetToken(prev => prev + 1);
     setShowForm(true);
   };
 
@@ -269,16 +303,17 @@ export default function AdminReviews() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Avatar URL
+                  Avatar Image
                 </label>
-                <input
-                  type="text"
-                  value={formData.avatar_url}
-                  onChange={(e) =>
-                    setFormData({ ...formData, avatar_url: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="https://..."
+                <ImageUpload
+                  onImageChange={(file) => {
+                    setAvatarFile(file);
+                    if (!file) {
+                      setFormData(prev => ({ ...prev, avatar_url: "" }));
+                    }
+                  }}
+                  initialUrl={formData.avatar_url}
+                  resetSignal={avatarResetToken}
                 />
               </div>
             </div>
