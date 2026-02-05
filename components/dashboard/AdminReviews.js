@@ -13,6 +13,7 @@ import {
   Star,
   User,
 } from "lucide-react";
+import Modal from "@/components/ui/Modal";
 import { ImageUpload } from "@/components/ImageUpload";
 
 export default function AdminReviews() {
@@ -196,6 +197,16 @@ export default function AdminReviews() {
         </button>
       </div>
 
+      <Modal
+        isOpen={showForm}
+        onClose={() => {
+            setShowForm(false);
+            setEditingId(null);
+            resetForm();
+        }}
+        title={editingId ? "Edit Review" : "New Review"}
+      >
+
       {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" />
@@ -210,11 +221,6 @@ export default function AdminReviews() {
         </div>
       )}
 
-      {showForm && (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold mb-4">
-            {editingId ? "Edit Review" : "New Review"}
-          </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -349,8 +355,7 @@ export default function AdminReviews() {
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
 
       {loading ? (
         <div className="animate-pulse space-y-4">

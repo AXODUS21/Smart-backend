@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import Modal from "@/components/ui/Modal";
 
 export default function AdminFAQs() {
   const [items, setItems] = useState([]);
@@ -23,14 +24,13 @@ export default function AdminFAQs() {
   const [success, setSuccess] = useState("");
 
   const [formData, setFormData] = useState({
-    category: "General",
+    category: "Students",
     question: "",
     answer: "",
-    display_order: 0,
+    display_order: 1,
   });
 
   const CATEGORIES = [
-    "General",
     "Students",
     "Tutors",
     "Parents",
@@ -101,10 +101,10 @@ export default function AdminFAQs() {
 
   const resetForm = () => {
     setFormData({
-      category: "General",
+      category: "Students",
       question: "",
       answer: "",
-      display_order: items.length + 1,
+      display_order: 1,
     });
   };
 
@@ -164,6 +164,16 @@ export default function AdminFAQs() {
         </button>
       </div>
 
+      <Modal
+        isOpen={showForm}
+        onClose={() => {
+            setShowForm(false);
+            setEditingId(null);
+            resetForm();
+        }}
+        title={editingId ? "Edit FAQ" : "New FAQ"}
+      >
+
       {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" />
@@ -178,11 +188,6 @@ export default function AdminFAQs() {
         </div>
       )}
 
-      {showForm && (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold mb-4">
-            {editingId ? "Edit FAQ" : "New FAQ"}
-          </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -207,8 +212,7 @@ export default function AdminFAQs() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Display Order
                 </label>
-                <input
-                  type="number"
+                <select
                   value={formData.display_order}
                   onChange={(e) =>
                     setFormData({
@@ -217,7 +221,13 @@ export default function AdminFAQs() {
                     })
                   }
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
+                >
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <option key={num} value={num}>
+                      {num}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -261,14 +271,12 @@ export default function AdminFAQs() {
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
               >
                 Cancel
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
 
       {loading ? (
         <div className="animate-pulse space-y-4">

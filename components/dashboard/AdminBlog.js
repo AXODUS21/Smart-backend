@@ -18,6 +18,7 @@ import {
   Search,
 } from "lucide-react";
 import { ImageUpload } from "@/components/ImageUpload";
+import Modal from "@/components/ui/Modal";
 
 export default function AdminBlog() {
   const { user } = useAuth();
@@ -228,6 +229,7 @@ export default function AdminBlog() {
     setShowForm(true);
   };
 
+
   // Handle delete
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this blog post?")) return;
@@ -383,10 +385,26 @@ export default function AdminBlog() {
 
       {/* Create/Edit Form */}
       {showForm && (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            {editingId ? "Edit Post" : "Create New Post"}
-          </h3>
+      <Modal
+        isOpen={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditingId(null);
+          setFormData({
+            title: "",
+            excerpt: "",
+            content: "",
+            category: "Learning Tips",
+            read_time: "5 min read",
+            featured_image: "",
+            is_published: true,
+          });
+          setImageFile(null);
+          setImageResetToken(prev => prev + 1);
+          setError("");
+        }}
+        title={editingId ? "Edit Post" : "Create New Post"}
+      >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -534,7 +552,7 @@ export default function AdminBlog() {
               </button>
             </div>
           </form>
-        </div>
+      </Modal>
       )}
 
       {/* Search and Filter */}

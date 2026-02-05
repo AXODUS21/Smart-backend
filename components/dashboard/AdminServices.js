@@ -196,7 +196,7 @@ export default function AdminServices() {
         .upsert(
           {
             ...updates,
-            id: service.dbId || undefined,
+            id: typeof service.dbId === 'string' && service.dbId.startsWith('new-') ? undefined : service.dbId,
           },
           {
             onConflict: "id",

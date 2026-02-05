@@ -409,7 +409,7 @@ export default function PastSessions() {
                     <p className="text-xs text-slate-500">{session.time}</p>
                     <span className="text-xs text-slate-400">•</span>
                     <p className="text-xs text-slate-500">
-                      Credits: {session.credits_required} (₱{(session.credits_required * 180).toFixed(2)})
+                      Credits: {session.credits_required} (₱{(session.credits_required * 90).toFixed(2)})
                     </p>
                     {session.profile_name && (
                       <>

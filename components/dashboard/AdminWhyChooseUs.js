@@ -12,6 +12,7 @@ import {
   Layout,
   Star,
 } from "lucide-react";
+import Modal from "@/components/ui/Modal";
 
 export default function AdminWhyChooseUs() {
   const [items, setItems] = useState([]);
@@ -147,6 +148,17 @@ export default function AdminWhyChooseUs() {
         </button>
       </div>
 
+      <Modal
+        isOpen={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditingId(null);
+          setFormData({ title: "", description: "", icon_name: "Star" });
+          setError("");
+        }}
+        title={editingId ? "Edit Item" : "New Item"}
+      >
+
       {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" />
@@ -161,11 +173,6 @@ export default function AdminWhyChooseUs() {
         </div>
       )}
 
-      {showForm && (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold mb-4">
-            {editingId ? "Edit Item" : "New Item"}
-          </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -222,16 +229,18 @@ export default function AdminWhyChooseUs() {
                 {editingId ? "Update" : "Create"}
               </button>
               <button
-                type="button"
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                  setFormData({ title: "", description: "", icon_name: "Star" });
+                }}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
               >
                 Cancel
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
 
       {loading ? (
         <div className="animate-pulse space-y-4">

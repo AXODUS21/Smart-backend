@@ -21,12 +21,10 @@ export default function SuperadminSidebarConfig({ onConfigUpdate }) {
     { tab_id: "jobs", tab_label: "Jobs", is_visible: true, display_order: 4 },
     { tab_id: "tasks", tab_label: "Tasks", is_visible: true, display_order: 5 },
     { tab_id: "subjects", tab_label: "Subjects", is_visible: true, display_order: 6 },
-    { tab_id: "services", tab_label: "Services", is_visible: true, display_order: 7 },
-    { tab_id: "credit-plans", tab_label: "Credit Plans", is_visible: true, display_order: 8 },
-    { tab_id: "announcements", tab_label: "Announcements", is_visible: true, display_order: 9 },
-    { tab_id: "parents-review", tab_label: "Parents Review", is_visible: true, display_order: 10 },
-    { tab_id: "cms", tab_label: "CMS", is_visible: true, display_order: 11 },
-    { tab_id: "voucher-requests", tab_label: "Voucher Requests", is_visible: true, display_order: 12 },
+    { tab_id: "announcements", tab_label: "Announcements", is_visible: true, display_order: 7 },
+    { tab_id: "parents-review", tab_label: "Parents Review", is_visible: true, display_order: 8 },
+    { tab_id: "cms", tab_label: "CMS", is_visible: true, display_order: 9 },
+    { tab_id: "voucher-requests", tab_label: "Voucher Requests", is_visible: true, display_order: 10 },
   ];
 
   useEffect(() => {

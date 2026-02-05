@@ -878,6 +878,12 @@ export default function Dashboard() {
           {activeTab === "voucher-requests" && userRole === "admin" && (
             <AdminVoucherRequests />
           )}
+          {activeTab === "blog" && userRole === "admin" && <AdminBlog />}
+          {activeTab === "why-choose-us" && userRole === "admin" && (
+            <AdminWhyChooseUs />
+          )}
+          {activeTab === "reviews" && userRole === "admin" && <AdminReviews />}
+          {activeTab === "faqs" && userRole === "admin" && <AdminFAQs />}
           {activeTab === "credits" && userRole === "student" && (
             <Credits />
           )}
