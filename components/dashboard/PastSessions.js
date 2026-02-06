@@ -288,7 +288,7 @@ export default function PastSessions() {
       setShowNoShowModal(null);
       alert(
         type === "student-no-show"
-          ? "Student no-show recorded. Credits forfeited."
+          ? "Student no-show recorded. You will receive credits for this session."
           : "Tutor no-show recorded. Credits refunded to student."
       );
     } catch (error) {
@@ -541,7 +541,7 @@ export default function PastSessions() {
                   <div>
                     <p className="font-medium text-slate-900">Student No-Show</p>
                     <p className="text-sm text-slate-600 mt-1">
-                      Student did not attend the session. Credits will be forfeited.
+                      Student did not attend the session. You will receive credits for this session.
                     </p>
                   </div>
                 </div>
