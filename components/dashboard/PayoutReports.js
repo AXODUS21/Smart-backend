@@ -119,7 +119,7 @@ export default function PayoutReports() {
       ["Failed Payouts", summary.failed_payouts || 0],
       ["Pending Payouts", summary.pending_payouts || 0],
       ["Total Amount (PHP)", `₱${(summary.total_amount || 0).toFixed(2)}`],
-      ["Credit Rate", `₱${summary.credit_rate || 180} per credit`],
+      ["Credit Rate", `₱${summary.credit_rate || 90} per credit`],
     ];
 
     const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
@@ -216,7 +216,7 @@ export default function PayoutReports() {
       ["Failed Payouts", summary.failed_payouts || 0],
       ["Pending Payouts", summary.pending_payouts || 0],
       ["Total Amount (PHP)", `₱${(summary.total_amount || 0).toFixed(2)}`],
-      ["Credit Rate", `₱${summary.credit_rate || 180} per credit`],
+      ["Credit Rate", `₱${summary.credit_rate || 90} per credit`],
     ];
 
     doc.autoTable({
@@ -469,7 +469,7 @@ function ReportDetailsView({ report, formatDateTime, formatDate }) {
           </div>
           <div>
             <p className="text-sm text-slate-600">Credit Rate</p>
-            <p className="text-2xl font-bold text-slate-900">₱{summary.credit_rate || 180}</p>
+            <p className="text-2xl font-bold text-slate-900">₱{summary.credit_rate || 90}</p>
           </div>
         </div>
       </div>
