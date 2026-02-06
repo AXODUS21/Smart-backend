@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const CREDIT_TO_PHP_RATE = 180; // 1 credit = 180 PHP
+const CREDIT_TO_PHP_RATE = 90; // 1 credit = 90 PHP
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

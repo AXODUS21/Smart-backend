@@ -263,7 +263,8 @@ export default function StudentAssignments({ overrideStudentId }) {
       let matchesStatus = true;
       if (statusFilter !== "all") {
         if (statusFilter === "overdue") {
-          matchesStatus = isOverdue(assignment);
+          // Include assignments with status "overdue" OR assignments that meet overdue criteria
+          matchesStatus = assignment.status === "overdue" || isOverdue(assignment);
         } else {
           matchesStatus = assignment.status === statusFilter;
         }

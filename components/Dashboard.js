@@ -70,6 +70,7 @@ import SessionManagement from "./dashboard/SessionManagement";
 import PrincipalHome from "./dashboard/PrincipalHome";
 import PrincipalSchools from "./dashboard/PrincipalSchools";
 import PrincipalVouchers from "./dashboard/PrincipalVouchers";
+import PrincipalProfile from "./dashboard/PrincipalProfile";
 import AdminSettings from "./dashboard/AdminSettings";
 import AdminBlog from "./dashboard/AdminBlog";
 import AdminWhyChooseUs from "./dashboard/AdminWhyChooseUs";
@@ -762,7 +763,7 @@ export default function Dashboard() {
         <Header
           userName={userName}
           onProfileClick={() => {
-            if (userRole === "tutor" || userRole === "student") {
+            if (userRole === "tutor" || userRole === "student" || userRole === "principal") {
               setActiveTab("profile");
             }
           }}
@@ -784,8 +785,13 @@ export default function Dashboard() {
           {activeTab === "manage-schools" && userRole === "principal" && !actingAsStudentId && (
             <PrincipalSchools />
           )}
+
+
           {activeTab === "vouchers" && userRole === "principal" && (
             <PrincipalVouchers />
+          )}
+          {activeTab === "profile" && userRole === "principal" && !actingAsStudentId && (
+            <PrincipalProfile />
           )}
           {activeTab === "home" && userRole === "tutor" && <TutorHome />}
           {activeTab === "assignments" && userRole === "tutor" && (
