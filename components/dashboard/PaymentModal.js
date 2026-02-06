@@ -239,7 +239,11 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
                 {plan.credits} Credits
               </span>
               <span className="text-xl font-bold text-slate-900">
-                ${Number(plan.price).toFixed(2)}
+                {Number(plan.price).toLocaleString(undefined, {
+                  style: "currency",
+                  currency: plan.region === "PH" ? "PHP" : "USD",
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
           </div>
