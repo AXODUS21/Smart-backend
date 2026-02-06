@@ -49,10 +49,36 @@ export async function POST(request) {
     }
 
     const supabase = getSupabaseClient();
+
+    // Fetch user's region
+    let pricingRegion = 'US';
+    
+    // Try to find user in Students table
+    const { data: studentData, error: studentError } = await supabase
+      .from('Students')
+      .select('pricing_region')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (studentData) {
+      pricingRegion = studentData.pricing_region;
+    } else {
+      // Try to find user in Principals table
+      const { data: principalData, error: principalError } = await supabase
+        .from('Principals')
+        .select('pricing_region')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (principalData) {
+        pricingRegion = principalData.pricing_region;
+      }
+    }
+
     const fetchPlan = async () => {
       let planQuery = supabase
         .from('credit_plans')
-        .select('id, slug, name, credits, price_usd, savings_percent, is_family_pack')
+        .select('id, slug, name, credits, price_usd, price_php, savings_percent, is_family_pack')
         .eq('slug', planId)
         .eq('is_active', true)
         .maybeSingle();
@@ -66,7 +92,7 @@ export async function POST(request) {
       if (!planData) {
         const { data: byIdData, error: byIdError } = await supabase
           .from('credit_plans')
-          .select('id, slug, name, credits, price_usd, savings_percent, is_active, is_family_pack')
+          .select('id, slug, name, credits, price_usd, price_php, savings_percent, is_active, is_family_pack')
           .eq('id', planId)
           .eq('is_active', true)
           .maybeSingle();
@@ -91,7 +117,16 @@ export async function POST(request) {
     }
 
     const credits = planData.credits;
-    const price = parseFloat(planData.price_usd);
+    let price;
+    let currency;
+
+    if (pricingRegion === 'PH') {
+      price = parseFloat(planData.price_php);
+      currency = 'php';
+    } else {
+      price = parseFloat(planData.price_usd);
+      currency = 'usd';
+    }
 
     if (!Number.isFinite(price) || price <= 0) {
       return NextResponse.json(
@@ -106,7 +141,7 @@ export async function POST(request) {
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency: currency,
             product_data: {
               name: `${planData.name || planData.slug || 'Credits'} (${credits} Credits)`,
               description: 'Tutoring credits purchase',
@@ -123,7 +158,8 @@ export async function POST(request) {
         planId: planData.slug || planData.id,
         credits: credits.toString(),
         userId,
-        priceUsd: price.toFixed(2),
+        price: price.toFixed(2),
+        currency: currency,
         isFamilyPack: (planData.is_family_pack === true).toString(), // Store directly in metadata
       },
     });

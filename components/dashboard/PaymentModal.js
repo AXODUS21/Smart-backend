@@ -239,7 +239,8 @@ export default function PaymentModal({ isOpen, onClose, plan, userId }) {
                 {plan.credits} Credits
               </span>
               <span className="text-xl font-bold text-slate-900">
-                ${Number(plan.price).toFixed(2)}
+                {plan.region === "PH" ? "₱" : "$"}
+                {Number(plan.price).toFixed(2)}
               </span>
             </div>
           </div>
