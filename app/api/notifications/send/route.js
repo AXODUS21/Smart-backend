@@ -391,6 +391,45 @@ const EMAIL_TEMPLATES = {
       </html>
     `,
   },
+  session_issue: {
+    subject: (data) => `Issue Reported: Session with ${data.tutorName}`,
+    html: (data) => `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #f59e0b; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .info-box { background: white; padding: 15px; border-left: 4px solid #f59e0b; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Session Issue Reported</h1>
+          </div>
+          <div class="content">
+            <p>A student has reported an issue with a tutoring session:</p>
+            <div class="info-box">
+              <p><strong>Student:</strong> ${data.studentName} (${data.studentEmail})</p>
+              <p><strong>Tutor:</strong> ${data.tutorName}</p>
+              <p><strong>Session ID:</strong> ${data.sessionId}</p>
+              <p><strong>Date:</strong> ${data.sessionDate}</p>
+              <p><strong>Issue:</strong> ${data.issueType}</p>
+            </div>
+            <p><strong>Description:</strong></p>
+            <p style="background: white; padding: 15px; border-radius: 5px;">${data.description}</p>
+            <p>Please review this issue and contact the student/tutor as needed.</p>
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/admin/sessions" style="display: inline-block; padding: 12px 30px; background: #f59e0b; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px;">View Sessions</a>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  },
 };
 
 export async function POST(request) {

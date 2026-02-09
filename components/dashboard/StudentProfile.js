@@ -52,13 +52,36 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
       try {
         let data = null;
         if (overrideStudentId) {
-          const res = await supabase
-            .from("Students")
-            .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region, first_name, last_name, extra_profiles, active_profile_id, has_family_pack")
+          // Check if it's a school first
+          const { data: schoolData } = await supabase
+            .from("Schools")
+            .select("id, name")
             .eq("id", overrideStudentId)
             .single();
-          if (res.error) throw res.error;
-          data = res.data;
+
+          if (schoolData) {
+            // This is a school view - create pseudo-student record
+            data = {
+              id: schoolData.id,
+              first_name: schoolData.name,
+              last_name: "",
+              isSchool: true,
+              // School doesn't have these student-specific fields
+              student_pin: null,
+              student_security_question: null,
+              student_security_answer: null,
+              has_family_pack: true, // Schools can always add profiles
+            };
+          } else {
+            // Fallback: try as student ID
+            const res = await supabase
+              .from("Students")
+              .select("id, user_id, student_pin, student_security_question, student_security_answer, name, email, pricing_region, first_name, last_name, extra_profiles, active_profile_id, has_family_pack")
+              .eq("id", overrideStudentId)
+              .single();
+            if (res.error) throw res.error;
+            data = res.data;
+          }
         } else {
           const res = await supabase
             .from("Students")

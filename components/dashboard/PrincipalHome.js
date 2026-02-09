@@ -71,6 +71,13 @@ export default function PrincipalHome({ setActiveTab }) {
 
   const metricCards = [
     {
+      title: "Credits Available",
+      value: metrics.creditsAvailable,
+      icon: Zap,
+      color: "bg-yellow-500",
+      onClick: () => setActiveTab("credits"),
+    },
+    {
       title: "Total Schools",
       value: metrics.totalSchools,
       icon: Building2,

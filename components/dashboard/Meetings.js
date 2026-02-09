@@ -1139,7 +1139,7 @@ export default function Meetings({ overrideStudentId }) {
   // Filter out past confirmed/cancelled bookings
   const confirmedBookings = tutorBookings.filter(
     (booking) =>
-      (booking.status === "confirmed" || booking.status === "cancelled") &&
+      booking.status === "confirmed" &&
       !isPastBooking(booking.start_time_utc)
   );
   // Filter out past rejected bookings

@@ -44,15 +44,45 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
       try {
         let studentData = null;
         let principalCredits = null;
+        let schoolName = null;
+        let isSchoolView = false;
+        let schoolId = null;
+        
         if (overrideStudentId) {
-          const { data } = await supabase
-            .from("Students")
-            .select("id, first_name, last_name, extra_profiles, active_profile_id")
+          // overrideStudentId is actually a school ID when principal views as school
+          // First try to fetch as a school
+          const { data: schoolData } = await supabase
+            .from("Schools")
+            .select("id, name")
             .eq("id", overrideStudentId)
             .single();
-          studentData = data;
-          const { data: pri } = await supabase.from("Principals").select("credits").eq("user_id", user.id).single();
-          principalCredits = pri?.credits ?? 0;
+          
+          if (schoolData) {
+            // This is a school view - fetch principal credits
+            schoolName = schoolData.name;
+            isSchoolView = true;
+            schoolId = schoolData.id;
+            const { data: pri } = await supabase.from("Principals").select("credits").eq("user_id", user.id).single();
+            principalCredits = pri?.credits ?? 0;
+            
+            // Create a pseudo-student data object for the school view
+            studentData = {
+              id: schoolData.id,
+              first_name: schoolData.name,
+              last_name: "",
+              isSchool: true,
+            };
+          } else {
+            // Fallback: try fetching as a student ID (for backwards compatibility)
+            const { data } = await supabase
+              .from("Students")
+              .select("id, first_name, last_name, extra_profiles, active_profile_id")
+              .eq("id", overrideStudentId)
+              .single();
+            studentData = data;
+            const { data: pri } = await supabase.from("Principals").select("credits").eq("user_id", user.id).single();
+            principalCredits = pri?.credits ?? 0;
+          }
         } else {
           const { data } = await supabase
             .from("Students")
@@ -64,7 +94,7 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
 
         if (studentData) {
           setStudentRecord(studentData);
-          const fullName = `${studentData.first_name || ""} ${studentData.last_name || ""}`.trim();
+          const fullName = schoolName || `${studentData.first_name || ""} ${studentData.last_name || ""}`.trim();
           setStudentName(fullName || studentData.email || (user?.email) || "");
           setMetrics((prev) => ({
             ...prev,
@@ -74,8 +104,8 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
           const profileIdFilter =
             studentData.active_profile_id || DEFAULT_PROFILE_ID;
 
-          // Get sessions
-          const { data: sessions } = await supabase
+          // Build session query based on whether it's a school or student view
+          let sessionsQuery = supabase
             .from("Schedules")
             .select(
               `
@@ -86,9 +116,17 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
                 email
               )
             `
-            )
-            .eq("student_id", studentData.id)
-            .order("start_time_utc", { ascending: true });
+            );
+          
+          // Filter by school_id or student_id
+          if (isSchoolView) {
+            sessionsQuery = sessionsQuery.eq("school_id", schoolId);
+          } else {
+            sessionsQuery = sessionsQuery.eq("student_id", studentData.id);
+          }
+          
+          // Get sessions
+          const { data: sessions } = await sessionsQuery.order("start_time_utc", { ascending: true });
 
           if (sessions) {
             const relevantSessions = sessions.filter((session) => {

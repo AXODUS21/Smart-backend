@@ -63,16 +63,38 @@ export default function BookSession({ overrideStudentId }) {
         // Fetch student record and credits
         let studentData = null;
         if (overrideStudentId) {
-          const { data, error } = await supabase
-            .from("Students")
-            .select("id, first_name, last_name, extra_profiles, active_profile_id")
+          // overrideStudentId might be a school ID when principal views as school
+          // First check if it's a school - treat school as student entity
+          const { data: schoolData } = await supabase
+            .from("Schools")
+            .select("id, name")
             .eq("id", overrideStudentId)
             .single();
-          studentData = data;
-          if (error) console.error("Error fetching student:", error);
-          // Principal's shared credits when acting as student
-          const { data: pri } = await supabase.from("Principals").select("credits").eq("user_id", user?.id).single();
-          setStudentCredits(pri?.credits ?? 0);
+
+          if (schoolData) {
+            // Treat school as student - use school ID as student ID
+            studentData = {
+              id: schoolData.id,
+              first_name: schoolData.name,
+              last_name: "",
+              isSchool: true,
+            };
+            // Principal's shared credits when acting as school
+            const { data: pri } = await supabase.from("Principals").select("credits").eq("user_id", user?.id).single();
+            setStudentCredits(pri?.credits ?? 0);
+          } else {
+            // Not a school, try as student ID
+            const { data, error } = await supabase
+              .from("Students")
+              .select("id, first_name, last_name, extra_profiles, active_profile_id")
+              .eq("id", overrideStudentId)
+              .single();
+            studentData = data;
+            if (error) console.error("Error fetching student:", error);
+            // Principal's shared credits when acting as student
+            const { data: pri } = await supabase.from("Principals").select("credits").eq("user_id", user?.id).single();
+            setStudentCredits(pri?.credits ?? 0);
+          }
         } else {
           const { data, error } = await supabase
             .from("Students")
@@ -398,13 +420,31 @@ export default function BookSession({ overrideStudentId }) {
       // Get student and tutor IDs
       let studentData = null;
       if (overrideStudentId) {
-        const { data, error } = await supabase
-          .from("Students")
-          .select("id, first_name, last_name, extra_profiles, active_profile_id")
+        // First check if it's a school - treat school as student entity
+        const { data: schoolData } = await supabase
+          .from("Schools")
+          .select("id, name")
           .eq("id", overrideStudentId)
           .single();
-        if (error) throw error;
-        studentData = data;
+
+        if (schoolData) {
+          // Treat school as student
+          studentData = {
+            id: schoolData.id,
+            first_name: schoolData.name,
+            last_name: "",
+            isSchool: true,
+          };
+        } else {
+          // Not a school, try as student ID
+          const { data, error } = await supabase
+            .from("Students")
+            .select("id, first_name, last_name, extra_profiles, active_profile_id")
+            .eq("id", overrideStudentId)
+            .single();
+          if (error) throw error;
+          studentData = data;
+        }
       } else {
         const { data, error } = await supabase
           .from("Students")
@@ -502,7 +542,6 @@ export default function BookSession({ overrideStudentId }) {
 
       // Create booking request with correct UTC times
       const insertPayload = {
-        student_id: studentData.id,
         tutor_id: tutorData.id,
         subject: selectedSubject,
         start_time_utc: startTimeUTC.toISOString(),
@@ -513,7 +552,15 @@ export default function BookSession({ overrideStudentId }) {
         profile_name: profileNameForInsert,
         status: "pending",
       };
-      if (usePrincipalCredits) insertPayload.principal_user_id = user.id;
+      
+      // Set student_id or school_id based on whether this is a school booking
+      if (studentData.isSchool) {
+        insertPayload.school_id = studentData.id;
+        insertPayload.principal_user_id = user.id;
+      } else {
+        insertPayload.student_id = studentData.id;
+        if (usePrincipalCredits) insertPayload.principal_user_id = user.id;
+      }
 
       const { error: scheduleError } = await supabase.from("Schedules").insert(insertPayload);
 

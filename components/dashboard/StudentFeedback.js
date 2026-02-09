@@ -19,13 +19,36 @@ export default function StudentFeedback({ overrideStudentId }) {
 
       try {
         let studentData = null;
+        let schoolId = null;
+        let isSchoolView = false;
+        
         if (overrideStudentId) {
-          const { data } = await supabase
-            .from("Students")
-            .select("id, first_name, last_name, extra_profiles, active_profile_id")
+          // Check if it's a school first
+          const { data: schoolData } = await supabase
+            .from("Schools")
+            .select("id, name")
             .eq("id", overrideStudentId)
             .single();
-          studentData = data;
+
+          if (schoolData) {
+            // This is a school view
+            isSchoolView = true;
+            schoolId = schoolData.id;
+            studentData = {
+              id: schoolData.id,
+              first_name: schoolData.name,
+              last_name: "",
+              isSchool: true,
+            };
+          } else {
+            // Fallback: try as student ID
+            const { data } = await supabase
+              .from("Students")
+              .select("id, first_name, last_name, extra_profiles, active_profile_id")
+              .eq("id", overrideStudentId)
+              .single();
+            studentData = data;
+          }
         } else {
           const { data } = await supabase
             .from("Students")
@@ -39,8 +62,8 @@ export default function StudentFeedback({ overrideStudentId }) {
         setStudentRecord(studentData);
         const profileIdFilter = studentData.active_profile_id || DEFAULT_PROFILE_ID;
 
-        // Fetch sessions with tutor reviews (feedback)
-        const { data, error } = await supabase
+        // Build query based on whether it's a school or student view
+        let query = supabase
           .from("Schedules")
           .select(
             `
@@ -50,8 +73,17 @@ export default function StudentFeedback({ overrideStudentId }) {
               email
             )
           `
-          )
-          .eq("student_id", studentData.id)
+          );
+        
+        // Filter by school_id or student_id
+        if (isSchoolView) {
+          query = query.eq("school_id", schoolId);
+        } else {
+          query = query.eq("student_id", studentData.id);
+        }
+        
+        // Fetch sessions with tutor reviews (feedback)
+        const { data, error } = await query
           .not("tutor_review", "is", null)
           .order("start_time_utc", { ascending: false });
 

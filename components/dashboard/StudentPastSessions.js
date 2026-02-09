@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, X, MessageSquare, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { handleNoShow } from "@/lib/sessionPolicies";
@@ -13,6 +13,8 @@ export default function StudentPastSessions({ overrideStudentId }) {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState({});
   const [showNoShowModal, setShowNoShowModal] = useState(null);
+  const [reportModal, setReportModal] = useState({ isOpen: false, sessionId: null });
+  const [reportMessage, setReportMessage] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -23,8 +25,26 @@ export default function StudentPastSessions({ overrideStudentId }) {
 
       try {
         let studentId = null;
+        let schoolId = null;
+        let isSchoolView = false;
+        
         if (overrideStudentId) {
-          studentId = overrideStudentId;
+          // overrideStudentId might be a school ID when principal views as school
+          // First check if it's a school - treat school as student entity
+          const { data: schoolData } = await supabase
+            .from("Schools")
+            .select("id, name")
+            .eq("id", overrideStudentId)
+            .single();
+
+          if (schoolData) {
+            // Treat school as student - use school_id column for querying
+            isSchoolView = true;
+            schoolId = schoolData.id;
+          } else {
+            // Fallback: use as student ID
+            studentId = overrideStudentId;
+          }
         } else {
           const { data: studentData } = await supabase
             .from("Students")
@@ -34,10 +54,10 @@ export default function StudentPastSessions({ overrideStudentId }) {
           studentId = studentData?.id;
         }
 
-        if (!studentId) return;
+        if (!studentId && !schoolId) return;
 
-        // Fetch sessions that have ended (past sessions) and are confirmed
-        const { data, error } = await supabase
+        // Build the query based on whether it's a school or student view
+        let query = supabase
           .from("Schedules")
           .select(
             `
@@ -49,8 +69,17 @@ export default function StudentPastSessions({ overrideStudentId }) {
               last_name
             )
           `
-          )
-          .eq("student_id", studentId)
+          );
+        
+        // Filter by school_id or student_id
+        if (isSchoolView) {
+          query = query.eq("school_id", schoolId);
+        } else {
+          query = query.eq("student_id", studentId);
+        }
+        
+        // Fetch past sessions that are confirmed
+        const { data, error } = await query
           .in("status", ["confirmed", "successful", "pending"])
           .lt("end_time_utc", new Date().toISOString())
           .order("start_time_utc", { ascending: false });
@@ -131,7 +160,43 @@ export default function StudentPastSessions({ overrideStudentId }) {
     setShowNoShowModal(null);
 
     try {
-      await handleNoShow(sessionId, "tutor-no-show");
+      const result = await handleNoShow(sessionId, "tutor-no-show");
+      
+      if (result && result.isConflict) {
+        alert(result.message);
+        // Refresh session to show updated status
+        const { data } = await supabase
+          .from("Schedules")
+          .select(
+            `
+            *,
+            tutor:tutor_id (
+              name,
+              email,
+              first_name,
+              last_name
+            )
+          `
+          )
+          .eq("id", sessionId)
+          .single();
+          
+        if (data) {
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === sessionId
+                ? {
+                    ...s,
+                    status: data.session_status || "completed",
+                    action: data.session_action || null,
+                  }
+                : s
+            )
+          );
+        }
+        return;
+      }
+
       alert("Tutor no-show recorded. Credits have been refunded to your account.");
       
       // Refresh sessions
@@ -168,6 +233,59 @@ export default function StudentPastSessions({ overrideStudentId }) {
     } catch (error) {
       console.error("Error marking tutor no-show:", error);
       alert("Error marking tutor no-show. Please try again.");
+    } finally {
+      setProcessing((prev) => ({ ...prev, [sessionId]: false }));
+    }
+  };
+
+  const handleReportIssue = async () => {
+    if (!reportMessage.trim()) {
+      alert("Please enter a description of the issue.");
+      return;
+    }
+
+    const sessionId = reportModal.sessionId;
+    setProcessing((prev) => ({ ...prev, [sessionId]: true }));
+
+    try {
+      const session = sessions.find(s => s.id === sessionId);
+      if (!session) throw new Error("Session not found");
+
+      // Get student details
+      const { data: studentData } = await supabase
+        .from("Students")
+        .select("name, email")
+        .eq("user_id", user.id)
+        .single();
+
+      const response = await fetch("/api/notifications/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "session_issue",
+          recipients: ["admin@smartbrainlearning.org"],
+          data: {
+            studentName: studentData?.name || user.email,
+            studentEmail: studentData?.email || user.email,
+            tutorName: session.tutor,
+            sessionId: session.id,
+            sessionDate: session.date,
+            issueType: "Conflict: Tutor marked successful, Student reported issue",
+            description: reportMessage
+          },
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to send report");
+
+      alert("Your issue has been reported. Support will review it shortly.");
+      setReportModal({ isOpen: false, sessionId: null });
+      setReportMessage("");
+    } catch (error) {
+      console.error("Error reporting issue:", error);
+      alert("Failed to report issue. Please try again or email admin@smartbrainlearning.org directly.");
     } finally {
       setProcessing((prev) => ({ ...prev, [sessionId]: false }));
     }
@@ -294,17 +412,35 @@ export default function StudentPastSessions({ overrideStudentId }) {
                 >
                   {session.no_show_type === "tutor-no-show"
                     ? "Tutor No-Show"
-                    : session.status === "completed" || session.status === "successful"
-                    ? "Completed"
+                    : session.status === "successful"
+                    ? "Successful"
+                    : session.status === "completed"
+                    ? "Completed (Pending)"
                     : session.status === "pending"
                     ? "Expired"
                     : "Pending"}
                 </span>
               </div>
 
-              {/* No-show button - only show if session is completed and no no-show has been marked */}
-              {!session.no_show_type &&
-                (session.status === "completed" || session.status === "successful") && (
+              {/* Actions based on session status */}
+              {/* If successful, show Report Issue (conflict prevention) */}
+              {session.status === "successful" && (
+                <div className="mt-2 pt-2 border-t border-slate-200">
+                  <button
+                    onClick={() => setReportModal({ isOpen: true, sessionId: session.id })}
+                    className="px-3 py-1.5 text-xs bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-1"
+                  >
+                    <AlertCircle className="w-3 h-3" />
+                    Report Issue
+                  </button>
+                  <p className="text-xs text-slate-500 mt-1">
+                    The tutor has marked this session as successful. Contact support if this is incorrect.
+                  </p>
+                </div>
+              )}
+
+              {/* No-show button - only show if session is completed (but not successful) and no no-show has been marked */}
+              {!session.no_show_type && session.status === "completed" && (
                   <div className="mt-2 pt-2 border-t border-slate-200">
                     <button
                       onClick={() => setShowNoShowModal(session.id)}
@@ -352,6 +488,64 @@ export default function StudentPastSessions({ overrideStudentId }) {
                   className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Issue Modal */}
+      {reportModal.isOpen && (
+        <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-4 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-blue-600" />
+                Report Issue
+              </h3>
+              <button 
+                onClick={() => setReportModal({ isOpen: false, sessionId: null })}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-slate-600 mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                You are reporting an issue for a session marked as "Successful" by the tutor. Please describe why you are disputing this session.
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Description of Issue
+                </label>
+                <textarea
+                  value={reportMessage}
+                  onChange={(e) => setReportMessage(e.target.value)}
+                  placeholder="e.g. The tutor did not show up, or the session was cut short..."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm h-32 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setReportModal({ isOpen: false, sessionId: null })}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReportIssue}
+                  disabled={processing[reportModal.sessionId] || !reportMessage.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+                >
+                  {processing[reportModal.sessionId] ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Submit Report
                 </button>
               </div>
             </div>

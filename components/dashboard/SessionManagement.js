@@ -34,16 +34,34 @@ export default function SessionManagement({ overrideStudentId }) {
 
     try {
       let studentData = null;
+      let schoolId = null;
+      let isSchoolView = false;
+      
       if (overrideStudentId) {
-        const { data, error } = await supabase
-          .from("Students")
-          .select("id")
+        // overrideStudentId might be a school ID when principal views as school
+        // First check if it's a school - treat school as student entity
+        const { data: schoolData } = await supabase
+          .from("Schools")
+          .select("id, name")
           .eq("id", overrideStudentId)
           .single();
-        studentData = data;
-        if (error) {
-          console.error("Error fetching student:", error);
-          return;
+
+        if (schoolData) {
+          // Treat school as student - use school_id column for querying
+          isSchoolView = true;
+          schoolId = schoolData.id;
+        } else {
+          // Not a school, try as student ID
+          const { data, error } = await supabase
+            .from("Students")
+            .select("id")
+            .eq("id", overrideStudentId)
+            .single();
+          studentData = data;
+          if (error) {
+            console.error("Error fetching student:", error);
+            return;
+          }
         }
       } else {
         const { data, error } = await supabase
@@ -58,13 +76,13 @@ export default function SessionManagement({ overrideStudentId }) {
         }
       }
 
-      if (!studentData) {
-        console.log("No student data found");
+      if (!studentData && !schoolId) {
+        console.log("No student or school data found");
         return;
       }
 
-      // Fetch upcoming sessions (confirmed and pending that can be managed)
-      const { data: sessionsData, error: sessionsError } = await supabase
+      // Build the query based on whether it's a school or student view
+      let query = supabase
         .from("Schedules")
         .select(
           `
@@ -76,8 +94,17 @@ export default function SessionManagement({ overrideStudentId }) {
             availability
           )
         `
-        )
-        .eq("student_id", studentData.id)
+        );
+      
+      // Filter by school_id or student_id
+      if (isSchoolView) {
+        query = query.eq("school_id", schoolId);
+      } else {
+        query = query.eq("student_id", studentData.id);
+      }
+      
+      // Fetch upcoming sessions (confirmed and pending that can be managed)
+      const { data: sessionsData, error: sessionsError } = await query
         .in("status", ["confirmed", "pending"])
         .gt("start_time_utc", new Date().toISOString())
         .order("start_time_utc", { ascending: true });

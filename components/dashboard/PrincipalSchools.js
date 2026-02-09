@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Building2, Plus, X, Trash2, Search, FileText, Upload, Download, Info, Edit } from "lucide-react";
+import { Building2, Plus, X, Trash2, Search, FileText, Upload, Download, Info, Edit, Zap } from "lucide-react";
 
 export default function PrincipalSchools() {
   const { user } = useAuth();
@@ -15,6 +15,7 @@ export default function PrincipalSchools() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [templateUrl, setTemplateUrl] = useState(null);
+  const [credits, setCredits] = useState(0);
   
   const [editingId, setEditingId] = useState(null);
 
@@ -85,8 +86,26 @@ export default function PrincipalSchools() {
       }
     };
 
+    const fetchCredits = async () => {
+      if (!user) return;
+      try {
+        const { data } = await supabase
+          .from("Principals")
+          .select("credits")
+          .eq("user_id", user.id)
+          .single();
+        
+        if (data) {
+          setCredits(data.credits || 0);
+        }
+      } catch (err) {
+        console.error("Error fetching credits:", err);
+      }
+    };
+
     fetchSchools();
     fetchTemplate();
+    fetchCredits();
   }, [user]);
 
   const handleInputChange = (e) => {
@@ -274,6 +293,22 @@ export default function PrincipalSchools() {
           <Plus className="w-5 h-5" />
           Add School
         </button>
+      </div>
+
+      {/* Credits Display */}
+      <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-xl p-6 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-white/20 p-3 rounded-lg">
+              <Zap className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="text-white/80 text-sm font-medium">Available Credits</p>
+              <p className="text-3xl font-bold">{credits}</p>
+            </div>
+          </div>
+          <p className="text-white/80 text-sm">Credits are used to book sessions for your students</p>
+        </div>
       </div>
 
       {success && (

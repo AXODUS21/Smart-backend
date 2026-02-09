@@ -44,12 +44,31 @@ export default function StudentAssignments({ overrideStudentId }) {
 
       let studentData = null;
       if (overrideStudentId) {
-        const { data } = await supabase
-          .from("Students")
-          .select("id, first_name, last_name, extra_profiles, active_profile_id")
+        // overrideStudentId might be a school ID when principal views as school
+        // First check if it's a school - treat school as a student entity
+        const { data: schoolData } = await supabase
+          .from("Schools")
+          .select("id, name")
           .eq("id", overrideStudentId)
           .single();
-        studentData = data;
+
+        if (schoolData) {
+          // Treat school as a student entity using school ID as student ID
+          studentData = {
+            id: schoolData.id, // Use school ID as student ID
+            first_name: schoolData.name,
+            last_name: "",
+            isSchool: true,
+          };
+        } else {
+          // Fallback: try fetching as a student ID (for backwards compatibility)
+          const { data } = await supabase
+            .from("Students")
+            .select("id, first_name, last_name, extra_profiles, active_profile_id")
+            .eq("id", overrideStudentId)
+            .single();
+          studentData = data;
+        }
       } else {
         const { data } = await supabase
           .from("Students")
@@ -71,11 +90,12 @@ export default function StudentAssignments({ overrideStudentId }) {
   // Fetch assignments
   useEffect(() => {
     const fetchAssignments = async () => {
-      if (!studentId) return;
+      if (!studentId && !studentRecord?.isSchool) return;
       const profileIdFilter = studentRecord?.active_profile_id || DEFAULT_PROFILE_ID;
 
       try {
-        const { data, error } = await supabase
+        // Build query based on whether it's a school or student view
+        let query = supabase
           .from("Assignments")
           .select(
             `
@@ -86,9 +106,16 @@ export default function StudentAssignments({ overrideStudentId }) {
               email
             )
           `
-          )
-          .eq("student_id", studentId)
-          .order("created_at", { ascending: false });
+          );
+        
+        // Filter by school_id or student_id
+        if (studentRecord?.isSchool) {
+          query = query.eq("school_id", studentRecord.id);
+        } else {
+          query = query.eq("student_id", studentId);
+        }
+        
+        const { data, error } = await query.order("created_at", { ascending: false });
 
         if (error) throw error;
 
@@ -178,7 +205,7 @@ export default function StudentAssignments({ overrideStudentId }) {
       setSubmissionNotes("");
 
       // Refresh assignments
-      const { data: updatedData } = await supabase
+      let refreshQuery = supabase
         .from("Assignments")
         .select(
           `
@@ -189,9 +216,16 @@ export default function StudentAssignments({ overrideStudentId }) {
             email
           )
         `
-        )
-        .eq("student_id", studentId)
-        .order("created_at", { ascending: false });
+        );
+      
+      // Filter by school_id or student_id
+      if (studentRecord?.isSchool) {
+        refreshQuery = refreshQuery.eq("school_id", studentRecord.id);
+      } else {
+        refreshQuery = refreshQuery.eq("student_id", studentId);
+      }
+      
+      const { data: updatedData } = await refreshQuery.order("created_at", { ascending: false });
 
       const profileIdFilter = studentRecord?.active_profile_id || DEFAULT_PROFILE_ID;
       const filteredData = (updatedData || []).filter((assignment) => {
@@ -312,6 +346,7 @@ export default function StudentAssignments({ overrideStudentId }) {
       </div>
     );
   }
+
 
   return (
     <div className="space-y-4">
