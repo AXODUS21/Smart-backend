@@ -217,8 +217,8 @@ export default function AdminAnalytics() {
         totalRevenuePHP,
         companyShareUSD, // Net Profit USD
         companySharePHP, // Net Profit PHP
-        tutorShareUSD,   // Expenses USD
-        tutorSharePHP,   // Expenses PHP
+        tutorShareUSD: totalTutorPayUSD,
+        tutorSharePHP: totalTutorPayPHP,
         totalLessonHours,
         totalBookings: safeBookings.length,
         confirmedBookings: confirmedCounts.length,

@@ -366,10 +366,10 @@ export default function SuperadminWithdrawals() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold text-slate-900">
-          Tutor Withdrawal Requests
+          Payout Approvals
         </h2>
         <p className="text-slate-500 mt-1">
-          Review and approve/reject tutor cash out requests
+          Review and approve/reject payouts
         </p>
       </div>
 

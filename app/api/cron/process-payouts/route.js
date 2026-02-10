@@ -111,7 +111,7 @@ export async function POST(request) {
           .from('TutorWithdrawals')
           .select('amount')
           .eq('tutor_id', tutor.id)
-          .in('status', ['approved', 'processing', 'completed']);
+          .in('status', ['pending', 'approved', 'processing', 'completed']);
 
         const totalWithdrawnCredits = withdrawals
           ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / CREDIT_TO_PHP_RATE, 0)

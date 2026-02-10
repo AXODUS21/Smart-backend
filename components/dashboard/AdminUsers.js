@@ -14,8 +14,8 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
-  const [sortField, setSortField] = useState("created_at");
-  const [sortDirection, setSortDirection] = useState("desc");
+  const [sortField, setSortField] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
   const [viewingUser, setViewingUser] = useState(null);
 
   
@@ -58,44 +58,78 @@ export default function AdminUsers() {
         });
         
         // Fallback to old method if function doesn't exist
-        const [studentsData, tutorsData, adminsData, principalsData] = await Promise.all([
+        const [studentsData, tutorsData, adminsData, principalsData, schoolsData] = await Promise.all([
           supabase.from("Students").select("*").order("created_at", { ascending: false }),
           supabase.from("Tutors").select("*").order("created_at", { ascending: false }),
           supabase.from("admins").select("*").order("created_at", { ascending: false }),
           supabase.from("Principals").select("*").order("created_at", { ascending: false }),
+          supabase.from("Schools").select("principal_id"),
         ]);
 
         console.log("Direct query results:");
         console.log("  Students:", studentsData.data?.length || 0);
         console.log("  Tutors:", tutorsData.data?.length || 0);
         console.log("  Admins:", adminsData.data?.length || 0);
-        console.log("  Principals:", principalsData.data?.length || 0, principalsData);
+        console.log("  Principals:", principalsData.data?.length || 0);
 
-        if (studentsData.error) {
-          console.error("Error fetching students:", studentsData.error);
-          throw studentsData.error;
-        }
-        if (tutorsData.error) {
-          console.error("Error fetching tutors:", tutorsData.error);
-          throw tutorsData.error;
-        }
-        if (adminsData.error) {
-          console.error("Error fetching admins:", adminsData.error);
-          throw adminsData.error;
-        }
-        if (principalsData.error) {
-          console.error("Error fetching principals:", principalsData.error);
-          // Don't throw, just log - principals table might not exist yet
-        }
+        if (studentsData.error) throw studentsData.error;
+        if (tutorsData.error) throw tutorsData.error;
+        if (adminsData.error) throw adminsData.error;
+        
+        // Process principals with school counts
+        const allSchools = schoolsData.data || [];
+        const principals = (principalsData.data || []).map(p => {
+            const schoolCount = allSchools.filter(s => s.principal_id === p.user_id).length;
+            
+            // Construct principal object matching the structure
+            let displayName = p.first_name || p.email;
+            if (p.first_name && p.last_name) {
+                displayName = `${p.first_name} ${p.last_name}`;
+            } else if (p.district_school_name) {
+                displayName = p.district_school_name;
+            }
+
+            return {
+                id: p.id,
+                user_id: p.user_id,
+                email: p.email,
+                name: displayName, // Use name or district name
+                created_at: p.created_at,
+                role: 'principal',
+                has_profile: true,
+                credits: p.credits,
+                contact_number: p.contact_number,
+                address: p.address,
+                district_school_name: p.district_school_name,
+                type_of_school: p.type_of_school,
+                school_count: schoolCount
+            };
+        });
+
+        // Map other users
+        const mapUser = (u, role) => ({
+            id: u.id,
+            user_id: u.user_id,
+            email: u.email,
+            name: (u.first_name && u.last_name) ? `${u.first_name} ${u.last_name}` : (u.name || u.email),
+            created_at: u.created_at,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            role: role,
+            has_profile: true, // Assuming direct table fetch means they have a profile
+            credits: u.credits,
+            students: u.students, // for students/principals if applicable
+            district_school_name: u.district_school_name,
+            subjects: u.subjects, // for tutors
+            bio: u.bio // for tutors
+        });
 
         setUsers({
-          students: studentsData.data || [],
-          tutors: tutorsData.data || [],
-          admins: adminsData.data || [],
-          principals: principalsData.data || [],
+          students: (studentsData.data || []).map(u => mapUser(u, 'student')),
+          tutors: (tutorsData.data || []).map(u => mapUser(u, 'tutor')),
+          admins: (adminsData.data || []).map(u => mapUser(u, 'admin')),
+          principals: principals,
         });
-        
-        console.log("Fetched principals (fallback):", principalsData.data?.length || 0, principalsData.data);
       } else {
         // Transform the function result into the expected format
         const students = [];
@@ -125,6 +159,14 @@ export default function AdminUsers() {
             has_profile: user.has_profile,
             credits: user.credits,
             students: user.students,
+            // Principal specific fields
+            district_school_name: user.district_school_name,
+            type_of_school: user.type_of_school,
+            contact_number: user.contact_number,
+            address: user.address,
+            // Tutor specific fields
+            subjects: user.subjects,
+            bio: user.bio,
           };
 
           if (user.role === 'student') {
@@ -134,6 +176,10 @@ export default function AdminUsers() {
           } else if (user.role === 'admin' || user.role === 'superadmin') {
             admins.push(userObj);
           } else if (user.role === 'principal') {
+            // For principals, prioritize school name as display name
+            if (user.district_school_name) {
+              userObj.name = user.district_school_name;
+            }
             principals.push(userObj);
           } else if (user.role === 'pending') {
             // Add pending users to students list with a note
@@ -186,7 +232,15 @@ export default function AdminUsers() {
       allUsers = allUsers.filter((u) => {
         const name = (u.name || '').toLowerCase();
         const email = (u.email || '').toLowerCase();
-        return name.includes(searchLower) || email.includes(searchLower);
+        const firstName = (u.first_name || '').toLowerCase();
+        const lastName = (u.last_name || '').toLowerCase();
+        const schoolName = (u.district_school_name || '').toLowerCase();
+        
+        return name.includes(searchLower) || 
+               email.includes(searchLower) || 
+               firstName.includes(searchLower) || 
+               lastName.includes(searchLower) ||
+               schoolName.includes(searchLower);
       });
     }
 
@@ -501,12 +555,26 @@ export default function AdminUsers() {
                 </div>
               )}
               {viewingUser.role === "principal" && (
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Students</p>
-                  <p className="text-lg text-slate-900">
-                    {viewingUser.students?.length || 0} student(s)
-                  </p>
-                </div>
+                <>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">Contact Number</p>
+                    <p className="text-lg text-slate-900">
+                      {viewingUser.contact_number || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">Address</p>
+                    <p className="text-lg text-slate-900">
+                      {viewingUser.address || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">Schools</p>
+                    <p className="text-lg text-slate-900">
+                      {viewingUser.school_count || 0} school(s)
+                    </p>
+                  </div>
+                </>
               )}
               {viewingUser.role === "tutor" && (
                 <>

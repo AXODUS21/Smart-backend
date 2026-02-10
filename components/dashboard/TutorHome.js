@@ -19,9 +19,7 @@ export default function TutorHome() {
   });
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [withdrawals, setWithdrawals] = useState([]);
-  const [withdrawAmount, setWithdrawAmount] = useState(0);
-  const [withdrawMessage, setWithdrawMessage] = useState("");
+
   const [assignments, setAssignments] = useState([]);
   const [assignmentUpload, setAssignmentUpload] = useState({
     title: "",
@@ -214,20 +212,7 @@ export default function TutorHome() {
     fetchData();
   }, [user?.id]); // Use user.id to avoid refetching when user object reference changes
 
-  // Fetch withdrawals for tutor (depends on tutorId)
-  useEffect(() => {
-    async function fetchWithdrawals() {
-      if (!tutorId) return;
-      
-      const { data } = await supabase
-        .from("TutorWithdrawals")
-        .select("*")
-        .eq("tutor_id", tutorId)
-        .order("requested_at", { ascending: false });
-      setWithdrawals(data || []);
-    }
-    fetchWithdrawals();
-  }, [tutorId]);
+
   // Fetch students (for assignments) - depends on tutorId
   useEffect(() => {
     async function fetchStudents() {
@@ -349,34 +334,7 @@ export default function TutorHome() {
   });
 
   // 1. Place these inside the function body of TutorHome, before return
-  const handleWithdrawSubmit = async (e) => {
-    e.preventDefault();
-    setWithdrawMessage("");
-    const amt = Number(withdrawAmount);
-    if (!amt || amt <= 0) {
-      setWithdrawMessage("Enter a valid amount");
-      return;
-    }
-    if (!tutorId) {
-      setWithdrawMessage("Could not find your tutor record.");
-      return;
-    }
-    const { error } = await supabase
-      .from("TutorWithdrawals")
-      .insert({ tutor_id: tutorId, amount: amt });
-    if (error) setWithdrawMessage("Error: " + error.message);
-    else {
-      setWithdrawMessage("Request submitted!");
-      setWithdrawAmount(0);
-      // Re-fetch withdrawals
-      const { data } = await supabase
-        .from("TutorWithdrawals")
-        .select("*")
-        .eq("tutor_id", tutorId)
-        .order("requested_at", { ascending: false });
-      setWithdrawals(data || []);
-    }
-  };
+
   const handleAssignmentUpload = async (e) => {
     e.preventDefault();
     setAssignmentMsg("");
