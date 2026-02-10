@@ -113,29 +113,6 @@ export async function POST(request) {
         
         console.log("PayMongo: 🎯 FINAL isFamilyPack value:", isFamilyPack);
 
-        // Record transaction
-        try {
-          const amountInCentavos = attachData.data.attributes.amount || 0;
-          const { error: transactionError } = await supabase.from('Transactions').insert({
-            user_id: userId,
-            amount: amountInCentavos / 100, // Convert to main unit
-            currency: 'PHP',
-            source: 'paymongo',
-            transaction_id: paymentIntentId,
-            status: 'succeeded',
-            plan_id: planId || 'unknown',
-            credits_amount: credits
-          });
-
-          if (transactionError) {
-            console.error('Error recording transaction:', transactionError);
-          } else {
-            console.log('Transaction recorded successfully');
-          }
-        } catch (err) {
-          console.error('Failed to record transaction:', err);
-        }
-
         // Check if user is a principal first
         const { data: principalData, error: principalFetchError } = await supabase
           .from('Principals')
@@ -248,6 +225,36 @@ export async function POST(request) {
                 }
               }
               
+              
+              // RECORD TRANSACTION
+              try {
+                const amountInCentavos = attachData.data.attributes.amount || 0;
+                const transactionData = {
+                  user_id: userId,
+                  email: newStudentData?.email,
+                  amount: amountInCentavos / 100,
+                  currency: attachData.data.attributes.currency || "php",
+                  source: "paymongo",
+                  transaction_id: paymentIntentId,
+                  status: "succeeded",
+                  plan_id: planId || "unknown",
+                  credits_amount: credits,
+                  created_at: new Date().toISOString(),
+                };
+
+                const { error: transactionError } = await supabase
+                  .from("transactions")
+                  .insert(transactionData);
+
+                if (transactionError) {
+                  console.error("Error recording transaction:", transactionError);
+                } else {
+                  console.log("Transaction recorded successfully");
+                }
+              } catch (err) {
+                console.error("Failed to record transaction:", err);
+              }
+
               // Send credit purchase notification
               if (newStudentData?.email) {
                 try {
@@ -353,6 +360,46 @@ export async function POST(request) {
                 }
               }
               
+              
+              // RECORD TRANSACTION
+              try {
+                const amountInCentavos = attachData.data.attributes.amount || 0;
+                
+                // Fetch email if needed
+                let userEmail = null;
+                const { data: userData } = await supabase
+                  .from('Students')
+                  .select('email')
+                  .eq('user_id', userId)
+                  .single();
+                if (userData) userEmail = userData.email;
+
+                const transactionData = {
+                  user_id: userId,
+                  email: userEmail,
+                  amount: amountInCentavos / 100,
+                  currency: attachData.data.attributes.currency || "php",
+                  source: "paymongo",
+                  transaction_id: paymentIntentId,
+                  status: "succeeded",
+                  plan_id: planId || "unknown",
+                  credits_amount: credits,
+                  created_at: new Date().toISOString(),
+                };
+
+                const { error: transactionError } = await supabase
+                  .from("transactions")
+                  .insert(transactionData);
+
+                if (transactionError) {
+                  console.error("Error recording transaction:", transactionError);
+                } else {
+                  console.log("Transaction recorded successfully");
+                }
+              } catch (err) {
+                console.error("Failed to record transaction:", err);
+              }
+
               // Send credit purchase notification
               try {
                 const { data: studentInfo } = await supabase

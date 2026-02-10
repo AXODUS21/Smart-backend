@@ -474,6 +474,40 @@ export async function GET(request) {
       }
     }
 
+    // RECORD TRANSACTION
+    try {
+      console.log("Recording transaction for user:", userId);
+      const transactionData = {
+        user_id: userId,
+        email: currentData?.email || null, // Will fetch if missing later
+        amount: session.amount_total ? session.amount_total / 100 : 0,
+        currency: session.currency || "usd",
+        source: "stripe",
+        transaction_id: session.id,
+        status: "succeeded",
+        plan_id: planId || "unknown",
+        credits_amount: credits,
+        created_at: new Date().toISOString(),
+      };
+
+      // If email is missing from currentData, try to get it from student info query later or session customer details
+      if (!transactionData.email && session.customer_details?.email) {
+        transactionData.email = session.customer_details.email;
+      }
+
+      const { error: transactionError } = await supabase
+        .from("transactions")
+        .insert(transactionData);
+
+      if (transactionError) {
+        console.error("Error recording transaction:", transactionError);
+      } else {
+        console.log("Transaction recorded successfully");
+      }
+    } catch (err) {
+      console.error("Failed to record transaction:", err);
+    }
+
     // Send credit purchase notification
     console.log(
       "[NOTIFICATION] Starting credit purchase notification process..."
