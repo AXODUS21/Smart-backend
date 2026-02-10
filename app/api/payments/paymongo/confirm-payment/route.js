@@ -113,6 +113,29 @@ export async function POST(request) {
         
         console.log("PayMongo: 🎯 FINAL isFamilyPack value:", isFamilyPack);
 
+        // Record transaction
+        try {
+          const amountInCentavos = attachData.data.attributes.amount || 0;
+          const { error: transactionError } = await supabase.from('Transactions').insert({
+            user_id: userId,
+            amount: amountInCentavos / 100, // Convert to main unit
+            currency: 'PHP',
+            source: 'paymongo',
+            transaction_id: paymentIntentId,
+            status: 'succeeded',
+            plan_id: planId || 'unknown',
+            credits_amount: credits
+          });
+
+          if (transactionError) {
+            console.error('Error recording transaction:', transactionError);
+          } else {
+            console.log('Transaction recorded successfully');
+          }
+        } catch (err) {
+          console.error('Failed to record transaction:', err);
+        }
+
         // Check if user is a principal first
         const { data: principalData, error: principalFetchError } = await supabase
           .from('Principals')

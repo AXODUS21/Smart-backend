@@ -48,10 +48,12 @@ export default function AdminAnalytics() {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
+      // 1. Fetch Bookings for Lesson Hours & counts
       // Build query - start with base query
-      let query = supabase.from("Schedules").select("*");
+      let query = supabase.from("Schedules").select("*, Students(pricing_region)");
       let startTimestamp = null;
       let endTimestamp = null;
+      let transactionsQuery = supabase.from("Transactions").select("*");
 
       // Apply date filters if dates are provided
       if (dateRange.start && dateRange.end) {
@@ -67,40 +69,26 @@ export default function AdminAnalytics() {
         query = query
           .gte("start_time_utc", startTimestamp)
           .lte("start_time_utc", endTimestamp);
+          
+        transactionsQuery = transactionsQuery
+          .gte("created_at", startTimestamp)
+          .lte("created_at", endTimestamp);
       }
 
-      // Execute query
-      const { data: bookings, error } = await query;
+      // Execute queries in parallel
+      const [bookingsRes, transactionsRes] = await Promise.all([
+        query,
+        transactionsQuery
+      ]);
 
-      if (error) {
-        console.error("Error fetching bookings:", error);
-        throw error;
-      }
+      const bookings = bookingsRes.data || [];
+      const transactions = transactionsRes.data || [];
 
-      // If no bookings found, log it for debugging
-      if (!bookings || bookings.length === 0) {
-        console.log("No bookings found in date range:", dateRange);
-        if (startTimestamp && endTimestamp) {
-          console.log("Using timestamps:", startTimestamp, "to", endTimestamp);
-        }
-        // Set empty state and return early
-        setAnalytics({
-          totalRevenue: 0,
-          companyShare: 0,
-          tutorShare: 0,
-          totalLessonHours: 0,
-          totalBookings: 0,
-          confirmedBookings: 0,
-          cancelledBookings: 0,
-          pendingBookings: 0,
-        });
-        setMonthlyData([]);
-        setLoading(false);
-        return;
-      }
+      if (bookingsRes.error) throw bookingsRes.error;
+      if (transactionsRes.error) throw transactionsRes.error;
 
-      console.log(`Found ${bookings.length} bookings in date range`);
-      {/*50 should be good */}
+      console.log(`Found ${bookings.length} bookings and ${transactions.length} transactions`);
+
       // Display Buckets
       const pendingStatuses = ["pending", "awaiting_approval"];
       const confirmedStatuses = ["confirmed"]; 
@@ -122,65 +110,79 @@ export default function AdminAnalytics() {
         0
       );
 
-      // Calculate revenue (1 credit = $10, 70% tutor, 30% company)
-      const totalCredits = revenueBookings.reduce(
-        (sum, b) => sum + (parseFloat(b.credits_required) || 0),
-        0
-      );
-      const totalRevenue = totalCredits * 10;
-      const tutorShare = totalRevenue * 0.7;
-      const companyShare = totalRevenue * 0.3;
+      // --- Revenue Calculation from Transactions (Exact) ---
+      let totalRevenueUSD = 0;
+      let totalRevenuePHP = 0;
+
+      transactions.forEach(t => {
+        const amount = parseFloat(t.amount) || 0;
+        const currency = (t.currency || '').toUpperCase();
+        
+        if (currency === 'PHP') {
+          totalRevenuePHP += amount;
+        } else {
+          // Assume USD for others
+          totalRevenueUSD += amount;
+        }
+      });
 
       // Calculate monthly breakdown
       const monthlyMap = {};
-      revenueBookings.forEach((booking) => {
-        const month = new Date(booking.start_time_utc).toLocaleString(
-          "default",
-          {
-            month: "short",
-            year: "numeric",
-          }
-        );
-        if (!monthlyMap[month]) {
-          monthlyMap[month] = {
-            month,
-            revenue: 0,
-            hours: 0,
-            bookings: 0,
-          };
-        }
-        monthlyMap[month].revenue +=
-          (parseFloat(booking.credits_required) || 0) * 10;
-        monthlyMap[month].hours += (parseFloat(booking.duration_min) || 0) / 60;
+      
+      // Process transactions for revenue
+      transactions.forEach(t => {
+        const month = new Date(t.created_at).toLocaleString("default", { month: "short", year: "numeric" });
+        if (!monthlyMap[month]) monthlyMap[month] = { month, revenueUSD: 0, revenuePHP: 0, hours: 0, bookings: 0 };
+        
+        const amount = parseFloat(t.amount) || 0;
+        const currency = (t.currency || '').toUpperCase();
+        
+        if (currency === 'PHP') monthlyMap[month].revenuePHP += amount;
+        else monthlyMap[month].revenueUSD += amount;
+      });
+
+      // Process bookings for hours & counts
+      bookings.forEach(b => {
+        // Only count completed/confirmed for hours
+        if (!confirmedStatuses.includes(b.status) && !completedStatuses.includes(b.status)) return;
+        
+        const month = new Date(b.start_time_utc).toLocaleString("default", { month: "short", year: "numeric" });
+        if (!monthlyMap[month]) monthlyMap[month] = { month, revenueUSD: 0, revenuePHP: 0, hours: 0, bookings: 0 };
+        
+        monthlyMap[month].hours += (parseFloat(b.duration_min) || 0) / 60;
         monthlyMap[month].bookings += 1;
       });
 
       // Sort monthly data by date (latest first)
       const sortedMonthlyData = Object.values(monthlyMap).sort((a, b) => {
-        // Parse the month strings (e.g., "Jan 2026") into Date objects for comparison
         const dateA = new Date(a.month);
         const dateB = new Date(b.month);
-        return dateB - dateA; // Descending order (latest first)
+        return dateB - dateA;
       });
 
       setMonthlyData(sortedMonthlyData);
       setAnalytics({
-        totalRevenue,
-        companyShare,
-        tutorShare,
+        totalRevenueUSD,
+        totalRevenuePHP,
+        companyShare: 0, // Not applicable with mixed currencies without rate
+        tutorShare: 0,   // Not applicable
         totalLessonHours,
-        totalBookings: bookings ? bookings.length : 0,
+        totalBookings: bookings.length,
         confirmedBookings: confirmedCounts.length,
         cancelledBookings: cancelledCounts.length,
         pendingBookings: pendingCounts.length,
         completedBookings: completedCounts.length,
         rejectedBookings: rejectedCounts.length,
       });
+
+
     } catch (error) {
       console.error("Error fetching analytics:", error);
       // Set default values on error
+      // Set default values on error
       setAnalytics({
-        totalRevenue: 0,
+        totalRevenueUSD: 0, // Updated key
+        totalRevenuePHP: 0, // Updated key
         companyShare: 0,
         tutorShare: 0,
         totalLessonHours: 0,
@@ -205,9 +207,8 @@ export default function AdminAnalytics() {
       `${dateRange.start} to ${dateRange.end}`,
     ];
     const rows = [
-      ["Total Revenue", `$${analytics.totalRevenue.toFixed(2)}`],
-      ["Company Share", `$${analytics.companyShare.toFixed(2)}`],
-      ["Tutor Share", `$${analytics.tutorShare.toFixed(2)}`],
+      ["Total Revenue (USD)", `$${analytics.totalRevenueUSD.toFixed(2)}`],
+      ["Total Revenue (PHP)", `₱${analytics.totalRevenuePHP.toFixed(2)}`],
       ["Total Lesson Hours", `${analytics.totalLessonHours.toFixed(2)}`],
       ["Total Bookings", analytics.totalBookings],
       ["Confirmed Bookings", analytics.confirmedBookings],
@@ -262,20 +263,14 @@ export default function AdminAnalytics() {
               <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Value</th>
             </tr>
             <tr>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Total Revenue</td>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${analytics.totalRevenue.toFixed(
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Total Revenue (USD)</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${analytics.totalRevenueUSD.toFixed(
                 2
               )}</td>
             </tr>
             <tr>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Company Share</td>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${analytics.companyShare.toFixed(
-                2
-              )}</td>
-            </tr>
-            <tr>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Tutor Share</td>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${analytics.tutorShare.toFixed(
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Total Revenue (PHP)</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">₱${analytics.totalRevenuePHP.toFixed(
                 2
               )}</td>
             </tr>
@@ -320,7 +315,8 @@ export default function AdminAnalytics() {
           <table style="width: 100%; border-collapse: collapse;">
             <tr style="background-color: #f8fafc;">
               <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Month</th>
-              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Revenue</th>
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Rev (USD)</th>
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Rev (PHP)</th>
               <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Hours</th>
               <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Bookings</th>
             </tr>
@@ -331,7 +327,10 @@ export default function AdminAnalytics() {
                     <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">${
                       m.month
                     }</td>
-                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${m.revenue.toFixed(
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">$${m.revenueUSD.toFixed(
+                      2
+                    )}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">₱${m.revenuePHP.toFixed(
                       2
                     )}</td>
                     <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">${m.hours.toFixed(
@@ -414,22 +413,16 @@ export default function AdminAnalytics() {
 
   const metricData = [
     {
-      title: "Total Revenue",
-      value: `$${analytics.totalRevenue.toFixed(2)}`,
+      title: "Total Revenue (USD)",
+      value: `$${analytics.totalRevenueUSD.toFixed(2)}`,
       icon: DollarSign,
       bgColor: "bg-emerald-500",
     },
     {
-      title: "Company Share",
-      value: `$${analytics.companyShare.toFixed(2)}`,
-      icon: TrendingUp,
-      bgColor: "bg-blue-500",
-    },
-    {
-      title: "Tutor Share",
-      value: `$${analytics.tutorShare.toFixed(2)}`,
+      title: "Total Revenue (PHP)",
+      value: `₱${analytics.totalRevenuePHP.toFixed(2)}`,
       icon: DollarSign,
-      bgColor: "bg-purple-500",
+      bgColor: "bg-teal-500",
     },
     {
       title: "Lesson Hours",
@@ -627,7 +620,10 @@ export default function AdminAnalytics() {
                     Month
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Revenue
+                    Revenue (USD)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Revenue (PHP)
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Hours
@@ -644,7 +640,10 @@ export default function AdminAnalytics() {
                       {month.month}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                      ${month.revenue.toFixed(2)}
+                      ${month.revenueUSD.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                      ₱{month.revenuePHP.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                       {month.hours.toFixed(2)}
