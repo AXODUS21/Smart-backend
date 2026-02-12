@@ -30,6 +30,8 @@ export default function TutorProfile() {
     gcash_name: "",
   });
   const [isEditingPaymentInfo, setIsEditingPaymentInfo] = useState(false);
+  const [stripeStatus, setStripeStatus] = useState({ isConnected: false, isOnboarded: false });
+  const [connecting, setConnecting] = useState(false);
 
   // Form state
   const [bio, setBio] = useState("");
@@ -213,6 +215,57 @@ export default function TutorProfile() {
       fetchBalance();
     }
   }, [user, tutorData]);
+
+  // Check Stripe Status
+  useEffect(() => {
+    async function checkStripeStatus() {
+        if (!user) return;
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) return;
+
+            const res = await fetch('/api/stripe/status', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setStripeStatus({
+                    isConnected: data.isConnected,
+                    isOnboarded: data.isOnboarded
+                });
+            }
+        } catch (e) {
+            console.error("Failed to check stripe status", e);
+        }
+    }
+    checkStripeStatus();
+  }, [user]);
+
+  const handleConnectStripe = async () => {
+    try {
+        setConnecting(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        const res = await fetch('/api/stripe/connect', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            alert("Failed to get onboarding link: " + (data.error || "Unknown error"));
+        }
+    } catch (e) {
+        console.error("Connect error:", e);
+        alert("Connection failed");
+    } finally {
+        setConnecting(false);
+    }
+  };
 
   // Handle cash out
   // Cash out removed; payouts are automatic now.
@@ -643,6 +696,58 @@ export default function TutorProfile() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Payout Settings Section */}
+          <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+               <Wallet className="text-purple-600" size={20} />
+               <h3 className="text-lg font-semibold text-slate-900">Payout Settings</h3>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 mb-2">
+                  {stripeStatus && stripeStatus.isOnboarded 
+                    ? "Your account is connected and ready to receive automatic payouts."
+                    : "Connect your Stripe account to receive automatic payouts directly to your bank."}
+                </p>
+                {stripeStatus && stripeStatus.isOnboarded ? (
+                  <div className="flex items-center gap-2 text-emerald-600 font-medium">
+                    <CheckCircle size={20} />
+                    <span>Payouts Enabled</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-amber-600 font-medium">
+                     {stripeStatus && stripeStatus.isConnected ? (
+                         <span>Setup Incomplete</span>
+                     ) : (
+                         <span className="text-slate-500">Not Connected</span>
+                     )}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleConnectStripe}
+                disabled={connecting || (stripeStatus && stripeStatus.isOnboarded)}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  stripeStatus && stripeStatus.isOnboarded
+                    ? "bg-slate-100 text-slate-500 cursor-default"
+                    : "bg-[#635BFF] text-white hover:bg-[#5851E1]"
+                }`}
+              >
+                {connecting ? (
+                    "Loading..." 
+                ) : (stripeStatus && stripeStatus.isOnboarded) ? (
+                    "Connected"
+                ) : (
+                    <>
+                        <span>Connect with</span>
+                        <span className="font-bold">Stripe</span>
+                    </>
+                )}
+              </button>
             </div>
           </div>
 

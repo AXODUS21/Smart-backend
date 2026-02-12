@@ -86,3 +86,30 @@ export async function GET(request) {
   }
 }
 
+// DELETE /api/superadmin/payout-reports - Delete a report
+export async function DELETE(request) {
+  try {
+    const supabase = getSupabaseClient();
+    const { searchParams } = new URL(request.url);
+    const reportId = searchParams.get('id');
+
+    if (!reportId) {
+       return NextResponse.json({ error: 'Report ID is required' }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from('PayoutReports')
+      .delete()
+      .eq('id', reportId);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting payout report:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete report' },
+      { status: 500 }
+    );
+  }
+}

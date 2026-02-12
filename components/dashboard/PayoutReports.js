@@ -17,6 +17,7 @@ import {
   AlertCircle,
   RefreshCcw,
   Eye,
+  CreditCard,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -38,6 +39,9 @@ export default function PayoutReports() {
   const [error, setError] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const [showReportDetails, setShowReportDetails] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generateLoading, setGenerateLoading] = useState(false);
+  const [manualDates, setManualDates] = useState({ start: "", end: "" });
 
   const getAccessToken = async () => {
     const {
@@ -94,6 +98,44 @@ export default function PayoutReports() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const handleGenerateReport = async () => {
+    setGenerateLoading(true);
+    setError("");
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Authentication expired");
+
+      const body = {};
+      
+      if (!manualDates.start || !manualDates.end) {
+        throw new Error("Please select both start and end dates.");
+      }
+      body.start = manualDates.start;
+      body.end = manualDates.end;
+
+      const response = await fetch("/api/cron/process-payouts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to generate report");
+      
+      setShowGenerateModal(false);
+      loadReports(); // Refresh list
+      alert(`Report generated: ${data.message}`);
+    } catch (err) {
+      console.error("Error generating report:", err);
+      setError(err.message || "Failed to generate report");
+    } finally {
+      setGenerateLoading(false);
+    }
   };
 
   const exportToExcel = (report) => {
@@ -284,13 +326,22 @@ export default function PayoutReports() {
             View and export automatic payout reports
           </p>
         </div>
-        <button
-          onClick={loadReports}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <RefreshCcw size={18} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadReports}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <RefreshCcw size={18} />
+            Refresh
+          </button>
+          <button
+            onClick={() => setShowGenerateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <CreditCard size={18} />
+            Generate Report
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -395,9 +446,9 @@ export default function PayoutReports() {
 
       {/* Report Details Modal */}
       {showReportDetails && selectedReport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-200">
+        <div className="fixed inset-0 bg-gray-900/80 bg-opacity-70 flex items-center justify-center z-50 p-0 md:p-6">
+          <div className="bg-white md:rounded-xl shadow-2xl w-full h-full md:max-h-full flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-slate-200 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-semibold text-slate-900">
                   Report Details - #{selectedReport.id}
@@ -410,10 +461,10 @@ export default function PayoutReports() {
                 </button>
               </div>
             </div>
-            <div className="p-6">
+            <div className="p-6 flex-1 overflow-y-auto">
               <ReportDetailsView report={selectedReport} formatDateTime={formatDateTime} formatDate={formatDate} />
             </div>
-            <div className="p-6 border-t border-slate-200 flex gap-3 justify-end">
+            <div className="p-6 border-t border-slate-200 flex flex-shrink-0 gap-3 justify-end">
               <button
                 onClick={() => exportToExcel(selectedReport)}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
@@ -428,6 +479,57 @@ export default function PayoutReports() {
                 <FileType size={18} />
                 Export to PDF
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate Report Modal */}
+      {showGenerateModal && (
+        <div className="fixed inset-0 bg-gray-900/80 bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Generate Custom Payout Report</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Generate a report for a specific custom date range. Standard payouts (15th & 30th) are generated automatically.
+            </p>
+            
+            <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">Start Date</label>
+                        <input 
+                            type="date" 
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={manualDates.start}
+                            onChange={(e) => setManualDates(d => ({...d, start: e.target.value}))}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">End Date</label>
+                        <input 
+                            type="date" 
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={manualDates.end}
+                            onChange={(e) => setManualDates(d => ({...d, end: e.target.value}))}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowGenerateModal(false)}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleGenerateReport}
+                  disabled={generateLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {generateLoading ? "Generating..." : "Generate"}
+                </button>
             </div>
           </div>
         </div>
@@ -474,48 +576,114 @@ function ReportDetailsView({ report, formatDateTime, formatDate }) {
         </div>
       </div>
 
-      {/* Withdrawals Table */}
+      {/* Withdrawals List (Card View) */}
       {withdrawals.length > 0 && (
         <div>
           <h4 className="text-lg font-semibold text-slate-900 mb-4">Individual Payouts</h4>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Tutor</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Credits</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Requested</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                {withdrawals.map((w) => (
-                  <tr key={w.withdrawal_id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 text-sm font-mono text-slate-900">{w.withdrawal_id}</td>
-                    <td className="px-4 py-3 text-sm text-slate-900">
-                      <div>{w.tutor_name || "N/A"}</div>
-                      <div className="text-xs text-slate-500">{w.tutor_email || ""}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                      ₱{parseFloat(w.amount || 0).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-900">{w.credits || 0}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[w.status] || STATUS_COLORS.pending}`}
-                      >
-                        {w.status?.toUpperCase() || "PENDING"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-900">
-                      {formatDateTime(w.requested_at)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {withdrawals.map((w) => {
+               // Helper to format payment details
+               const getPaymentDetailsCallback = (withdrawal) => {
+                 if (withdrawal.payment_method === "bank") {
+                   return {
+                     method: "Bank Transfer",
+                     details: [
+                       { label: "Bank", value: withdrawal.bank_name },
+                       { label: "Account Name", value: withdrawal.bank_account_name },
+                       { label: "Account Number", value: withdrawal.bank_account_number },
+                       { label: "Branch", value: withdrawal.bank_branch || "N/A" },
+                     ],
+                   };
+                 } else if (withdrawal.payment_method === "paypal") {
+                   return {
+                     method: "PayPal",
+                     details: [{ label: "Email", value: withdrawal.paypal_email }],
+                   };
+                 } else if (withdrawal.payment_method === "gcash") {
+                   return {
+                     method: "GCash",
+                     details: [
+                       { label: "Account Name", value: withdrawal.gcash_name },
+                       { label: "Mobile Number", value: withdrawal.gcash_number },
+                     ],
+                   };
+                 }
+                 return { method: withdrawal.payment_method || "Unknown", details: [] };
+               };
+
+               const paymentDetails = getPaymentDetailsCallback(w);
+
+               return (
+                <div
+                  key={w.withdrawal_id}
+                  className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden"
+                >
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold text-slate-900">
+                            {w.tutor_name || "Unknown Tutor"}
+                          </h3>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[w.status] || STATUS_COLORS.pending}`}
+                          >
+                            {w.status?.toUpperCase() || "PENDING"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-600 mb-1">
+                          {w.tutor_email}
+                        </p>
+                        <div className="flex items-center gap-4 mt-3">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="text-emerald-600" size={18} />
+                            <span className="text-xl font-bold text-slate-900">
+                              ₱{parseFloat(w.amount || 0).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            Credits: {w.credits}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right text-sm text-slate-500">
+                         {formatDateTime(w.requested_at)}
+                      </div>
+                    </div>
+
+                    {/* Payment Information */}
+                    {paymentDetails && (
+                      <div className="mb-4 p-4 bg-slate-50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CreditCard className="text-blue-600" size={18} />
+                          <span className="font-medium text-slate-900">
+                            {paymentDetails.method}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {paymentDetails.details.map((detail, idx) => (
+                            <div key={idx}>
+                              <span className="text-slate-600">{detail.label}:</span>{" "}
+                              <span className="font-medium text-slate-900">
+                                {detail.value || "N/A"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Note if available */}
+                    {w.note && (
+                        <div className="mt-4 pt-4 border-t border-slate-200 text-sm">
+                           <span className="text-slate-600">Note:</span>{" "}
+                           <span className="text-slate-900">{w.note}</span>
+                        </div>
+                    )}
+                  </div>
+                </div>
+               );
+            })}
           </div>
         </div>
       )}

@@ -24,9 +24,13 @@ export default function AdminDashboard() {
     totalBookings: 0,
     pendingBookings: 0,
     confirmedBookings: 0,
-    totalRevenue: 0,
-    tutorEarnings: 0,
-    companyShare: 0,
+    completedBookings: 0,
+    revenueUSD: 0,
+    revenuePHP: 0,
+    tutorPayUSD: 0,
+    tutorPayPHP: 0,
+    companyShareUSD: 0,
+    companySharePHP: 0,
   });
   const [newStudents, setNewStudents] = useState([]);
   const [expiringCredits, setExpiringCredits] = useState([]);
@@ -34,6 +38,7 @@ export default function AdminDashboard() {
   const [showAllStudents, setShowAllStudents] = useState(false);
   const [userTypeFilter, setUserTypeFilter] = useState("all"); // "all", "student", "principal"
   const [allBookings, setAllBookings] = useState([]); // Store all bookings for filtering
+  const [allTransactions, setAllTransactions] = useState([]); // Store all transactions
 
   useEffect(() => {
     fetchDashboardData();
@@ -55,6 +60,7 @@ export default function AdminDashboard() {
         adminsData,
         bookingsData,
         schedulesData,
+        transactionsData,
       ] = await Promise.all([
         supabase
           .from("Students")
@@ -66,7 +72,10 @@ export default function AdminDashboard() {
           .select("id, status, credits_required, principal_user_id", { count: "exact" }),
         supabase
           .from("Schedules")
-          .select("id, status, credits_required, start_time_utc, principal_user_id"),
+          .select("id, status, credits_required, start_time_utc, duration_min, principal_user_id, Tutors(region)"),
+        supabase
+          .from("transactions")
+          .select("amount, currency, created_at"),
       ]);
 
       // Check for errors
@@ -90,14 +99,19 @@ export default function AdminDashboard() {
         console.error("Error fetching schedules:", schedulesData.error);
         throw schedulesData.error;
       }
+      if (transactionsData.error) {
+        console.error("Error fetching transactions:", transactionsData.error);
+      }
 
       const students = studentsData.data || [];
       const tutors = tutorsData.data || [];
       const admins = adminsData.data || [];
       const bookings = schedulesData.data || [];
+      const transactions = transactionsData.data || [];
 
-      // Store all bookings for filtering
+      // Store all data for filtering
       setAllBookings(bookings);
+      setAllTransactions(transactions);
 
       // Calculate base stats (not filtered)
       const totalStudents = studentsData.count || 0;
@@ -105,7 +119,7 @@ export default function AdminDashboard() {
       const totalAdmins = adminsData.count || 0;
 
       // Calculate filtered stats based on current filter
-      calculateFilteredStats(bookings);
+      calculateFilteredStats(bookings, transactions);
 
       // Get newly enrolled students (last 7 days)
       const sevenDaysAgo = new Date();
@@ -168,42 +182,71 @@ export default function AdminDashboard() {
     }
   };
 
-  const calculateFilteredStats = (bookingsToFilter = allBookings) => {
+  const calculateFilteredStats = (bookingsToFilter = allBookings, transactionsToUse = allTransactions) => {
     // Filter bookings based on userTypeFilter
     let filteredBookings = bookingsToFilter;
     if (userTypeFilter === "student") {
-      // Only show bookings from regular students (no principal_user_id)
       filteredBookings = bookingsToFilter.filter((b) => !b.principal_user_id);
     } else if (userTypeFilter === "principal") {
-      // Only show bookings from principals (has principal_user_id)
       filteredBookings = bookingsToFilter.filter((b) => b.principal_user_id);
     }
 
-    // Calculate stats from filtered bookings
+    // --- BOOKING STATS ---
     const totalBookings = filteredBookings.length;
     const pendingBookings = filteredBookings.filter(
-      (b) => b.status === "pending"
+      (b) => b.status === "pending" || b.status === "awaiting_approval"
     ).length;
     const confirmedBookings = filteredBookings.filter(
       (b) => b.status === "confirmed"
     ).length;
+    const completedStatuses = ["completed", "successful", "student-no-show"];
+    const completedBookings = filteredBookings.filter(
+      (b) => completedStatuses.includes(b.status)
+    ).length;
 
-    // Calculate revenue (assuming 1 credit = $10, 70% to tutor, 30% to company)
-    const totalCreditsUsed = filteredBookings
-      .filter((b) => b.status === "confirmed")
-      .reduce((sum, b) => sum + (parseFloat(b.credits_required) || 0), 0);
-    const totalRevenue = totalCreditsUsed * 10;
-    const tutorEarnings = totalRevenue * 0.7;
-    const companyShare = totalRevenue * 0.3;
+    // --- REVENUE (from transactions table) ---
+    let revenueUSD = 0;
+    let revenuePHP = 0;
+    transactionsToUse.forEach((t) => {
+      const amount = parseFloat(t.amount) || 0;
+      const currency = (t.currency || "usd").toLowerCase();
+      if (currency === "php") {
+        revenuePHP += amount;
+      } else {
+        revenueUSD += amount;
+      }
+    });
+
+    // --- TUTOR PAY (region-based from completed bookings) ---
+    let tutorPayUSD = 0;
+    let tutorPayPHP = 0;
+    const completedSessions = filteredBookings.filter((b) => completedStatuses.includes(b.status));
+    completedSessions.forEach((b) => {
+      const durationHours = (parseFloat(b.duration_min) || 0) / 60;
+      const region = b.Tutors?.region || "US";
+      if (region === "PH") {
+        tutorPayPHP += durationHours * 180; // ₱180/hr
+      } else {
+        tutorPayUSD += durationHours * 3; // $3/hr
+      }
+    });
+
+    // --- NET PROFIT ---
+    const companyShareUSD = revenueUSD - tutorPayUSD;
+    const companySharePHP = revenuePHP - tutorPayPHP;
 
     setStats((prev) => ({
       ...prev,
       totalBookings,
       pendingBookings,
       confirmedBookings,
-      totalRevenue,
-      tutorEarnings,
-      companyShare,
+      completedBookings,
+      revenueUSD,
+      revenuePHP,
+      tutorPayUSD,
+      tutorPayPHP,
+      companyShareUSD,
+      companySharePHP,
     }));
   };
 
@@ -236,20 +279,23 @@ export default function AdminDashboard() {
 
   const revenueData = [
     {
-      title: "Total Revenue",
-      value: `$${stats.totalRevenue.toFixed(2)}`,
+      title: "Revenue (USD)",
+      value: `$${stats.revenueUSD.toFixed(2)}`,
+      subValue: `₱${stats.revenuePHP.toFixed(2)} PHP`,
       icon: DollarSign,
       bgColor: "bg-emerald-500",
     },
     {
-      title: "Company Share",
-      value: `$${stats.companyShare.toFixed(2)}`,
+      title: "Net Profit (USD)",
+      value: `$${stats.companyShareUSD.toFixed(2)}`,
+      subValue: `₱${stats.companySharePHP.toFixed(2)} PHP`,
       icon: TrendingUp,
       bgColor: "bg-blue-500",
     },
     {
-      title: "Tutor Earnings",
-      value: `$${stats.tutorEarnings.toFixed(2)}`,
+      title: "Tutor Pay (USD)",
+      value: `$${stats.tutorPayUSD.toFixed(2)}`,
+      subValue: `₱${stats.tutorPayPHP.toFixed(2)} PHP`,
       icon: Users,
       bgColor: "bg-purple-500",
     },
@@ -332,6 +378,9 @@ export default function AdminDashboard() {
                 {metric.title}
               </p>
               <p className="text-2xl font-bold">{metric.value}</p>
+              {metric.subValue && (
+                <p className="text-white/70 text-sm mt-1">{metric.subValue}</p>
+              )}
             </div>
           );
         })}

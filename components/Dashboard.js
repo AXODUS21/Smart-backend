@@ -457,7 +457,6 @@ export default function Dashboard() {
     { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
     { id: "voucher-requests", label: "Voucher Requests", icon: Ticket },
-    { id: "withdrawals", label: "Withdrawals", icon: Wallet },
     { id: "payout-reports", label: "Payout Reports", icon: FileText },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },

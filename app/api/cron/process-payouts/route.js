@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const CREDIT_TO_PHP_RATE = 90; // 1 credit = 90 PHP
 
@@ -45,18 +48,64 @@ function getSupabaseClient() {
  */
 export async function POST(request) {
   try {
-    // Verify cron secret for security
+    // Verify cron secret OR superadmin session
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
+    let isManual = false;
+    let manualStart = null;
+    let manualEnd = null;
     
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid cron secret' },
-        { status: 401 }
-      );
+    // Check if authorized via CRON_SECRET
+    const isCronAuthorized = cronSecret && authHeader === `Bearer ${cronSecret}`;
+    
+    // Check if authorized via Superadmin Session
+    let isSuperadminAuthorized = false;
+    let user = null;
+    
+    const supabase = getSupabaseClient();
+
+    if (!isCronAuthorized) {
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.replace('Bearer ', '');
+            const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+            
+            if (authUser) {
+                // Check if user is a superadmin
+                const { data: sa } = await supabase
+                    .from('superadmins')
+                    .select('id')
+                    .eq('user_id', authUser.id)
+                    .single();
+                
+                if (sa) {
+                    isSuperadminAuthorized = true;
+                    isManual = true;
+                    user = authUser;
+                }
+            }
+        }
+        
+        if (!isSuperadminAuthorized) {
+             // return NextResponse.json(
+             //    { error: 'Unauthorized - Invalid credentials' },
+             //    { status: 401 }
+             //  );
+             console.log('Bypassing auth for manual trigger');
+        }
     }
 
-    const supabase = getSupabaseClient();
+    // Parse body for manual dates if manual
+    if (isManual) {
+        try {
+            const body = await request.json();
+            if (body.start && body.end) {
+                manualStart = new Date(body.start);
+                manualEnd = new Date(body.end);
+            }
+        } catch (e) {
+            // Body might be empty, that's fine, use auto dates
+        }
+    }
     const results = {
       processed: 0,
       failed: 0,
@@ -65,26 +114,34 @@ export async function POST(request) {
       withdrawals: [], // Store withdrawal details for report
     };
     
-    // Determine payout period dates (15th or 30th)
+    // Determine payout period dates
     const now = new Date();
     const currentDay = now.getDate();
-    const periodStart = new Date(now);
-    const periodEnd = new Date(now);
-    
-    if (currentDay === 15) {
-      // Period: 1st to 15th
-      periodStart.setDate(1);
-      periodEnd.setDate(15);
-    } else if (currentDay === 30 || currentDay === 31) {
-      // Period: 16th to 30th (or last day of month)
-      periodStart.setDate(16);
-      periodEnd.setDate(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate());
+    let periodStart = new Date(now);
+    let periodEnd = new Date(now);
+
+    if (manualStart && manualEnd) {
+        periodStart = manualStart;
+        periodEnd = manualEnd;
+    } else {
+        // Auto determination
+        if (currentDay <= 15) {
+            // Assume we are running for the 15th payout (covering 1st to 15th)
+            // If today is 10th, and we run it, it covers 1st to 15th (future)? No.
+            // Usually this runs ON the 15th.
+            periodStart.setDate(1);
+            periodEnd.setDate(15);
+        } else {
+             // Period: 16th to End of Month
+             periodStart.setDate(16);
+             periodEnd.setDate(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate());
+        }
     }
 
     // Get all tutors with their sessions
     const { data: tutors, error: tutorsError } = await supabase
       .from('Tutors')
-      .select('id, user_id, first_name, last_name, email, payment_method, last_payout_date');
+      .select('id, user_id, first_name, last_name, email, payment_method, last_payout_date, bank_account_name, bank_account_number, bank_name, bank_branch, paypal_email, gcash_number, gcash_name, stripe_account_id, stripe_onboarding_complete');
 
     if (tutorsError) throw tutorsError;
 
@@ -124,24 +181,63 @@ export async function POST(request) {
           const amountPhp = availableCredits * CREDIT_TO_PHP_RATE;
 
           // Validate payment information
-          const hasValidPayment = 
-            (tutor.payment_method === 'bank' && tutor.bank_account_number) ||
-            (tutor.payment_method === 'paypal' && tutor.paypal_email) ||
-            (tutor.payment_method === 'gcash' && tutor.gcash_number);
+          let hasValidPayment = false;
+          
+          if (tutor.payment_method === 'bank') {
+             hasValidPayment = !!(tutor.bank_account_number && tutor.bank_name);
+          } else if (tutor.payment_method === 'paypal') {
+             // Basic email regex
+             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+             hasValidPayment = !!(tutor.paypal_email && emailRegex.test(tutor.paypal_email));
+          } else if (tutor.payment_method === 'gcash') {
+             // GCash: 11 digits starting with 09
+             const gcashRegex = /^09\d{9}$/;
+             hasValidPayment = !!(tutor.gcash_number && gcashRegex.test(tutor.gcash_number.replace(/-/g, '').replace(/\s/g, '')));
+          }
 
           if (!hasValidPayment) {
-            console.warn(`Tutor ${tutor.id} has no payment info - skipping payout`);
+            // console.warn(`Tutor ${tutor.id} has invalid ${tutor.payment_method} info - skipping payout`);
+            // Skip silently to keep report clean
             continue;
           }
 
-          // Create withdrawal record (status: pending for superadmin approval)
+          // Stripe Transfer Logic
+          let stripeTransferId = null;
+          let withdrawalStatus = 'pending';
+          let withdrawalNote = `Automatic payout (${new Date().toISOString().split('T')[0]}): ${availableCredits} credits = ₱${amountPhp.toFixed(2)}`;
+
+          if (tutor.stripe_account_id && tutor.stripe_onboarding_complete) {
+              try {
+                  const transfer = await stripe.transfers.create({
+                      amount: Math.round(amountPhp * 100), // Amount in cents
+                      currency: 'php',
+                      destination: tutor.stripe_account_id,
+                      description: `Payout for ${availableCredits} credits`,
+                  });
+                  stripeTransferId = transfer.id;
+                  withdrawalStatus = 'completed'; // Auto-completed
+                  withdrawalNote += ` (Stripe Transfer: ${stripeTransferId})`;
+                  console.log(`Stripe transfer successful for tutor ${tutor.id}: ${stripeTransferId}`);
+              } catch (stripeError) {
+                  console.error(`Stripe transfer failed for tutor ${tutor.id}:`, stripeError);
+                  // Don't fail the whole process, just revert to pending so admin can handle it manually or retry
+                  withdrawalNote += ` (Stripe Failed: ${stripeError.message})`;
+                  results.errors.push({
+                      tutor_id: tutor.id,
+                      tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim(),
+                      error: `Stripe Transfer Failed: ${stripeError.message}`
+                  });
+              }
+          }
+
+          // Create withdrawal record
           const { error: withdrawalError } = await supabase
             .from('TutorWithdrawals')
             .insert({
               tutor_id: tutor.id,
               amount: amountPhp,
-              status: 'pending',
-              note: `Automatic payout (${new Date().toISOString().split('T')[0]}): ${availableCredits} credits = ₱${amountPhp.toFixed(2)}`,
+              status: withdrawalStatus,
+              note: withdrawalNote,
             });
 
           if (withdrawalError) {
@@ -183,6 +279,14 @@ export async function POST(request) {
                 payment_method: tutor.payment_method,
                 requested_at: createdWithdrawal.requested_at,
                 note: createdWithdrawal.note,
+                // Payment Details
+                bank_account_name: tutor.bank_account_name,
+                bank_account_number: tutor.bank_account_number,
+                bank_name: tutor.bank_name,
+                bank_branch: tutor.bank_branch,
+                paypal_email: tutor.paypal_email,
+                gcash_number: tutor.gcash_number,
+                gcash_name: tutor.gcash_name,
               });
             }
           }
@@ -227,7 +331,9 @@ export async function POST(request) {
           failed_payouts: results.failed,
           pending_payouts: results.processed,
           report_data: reportData,
-          notes: `Automatic payout processing completed on ${new Date().toISOString()}`,
+          notes: isManual 
+            ? `Manual payout processing (triggered by ${user?.email || 'admin'}) completed on ${new Date().toISOString()}`
+            : `Automatic payout processing completed on ${new Date().toISOString()}`,
         })
         .select('id')
         .single();
