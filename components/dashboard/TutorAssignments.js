@@ -77,21 +77,28 @@ export default function TutorAssignments() {
           .from("Students")
           .select("id, name, email, user_id, first_name, last_name, extra_profiles");
 
+        // Get ALL schools
+        const { data: schoolsData, error: schoolsError } = await supabase
+          .from("Schools")
+          .select("id, name, school_type");
+
         if (studentsError) {
           console.error("Error fetching students:", studentsError);
-          setStudents([]);
-          return;
+        }
+        
+        if (schoolsError) {
+          console.error("Error fetching schools:", schoolsError);
         }
 
-        if (studentsData && studentsData.length > 0) {
-          // Filter out students without user_id and map
-          const mappedStudents = [];
+        const allRecipients = [];
 
+        // Process Students
+        if (studentsData && studentsData.length > 0) {
           studentsData
             .filter((s) => s.user_id)
             .forEach((s) => {
               const baseName = buildPrimaryProfileName(s);
-              mappedStudents.push({
+              allRecipients.push({
                 key: `${s.id}::${DEFAULT_PROFILE_ID}`,
                 studentRecordId: s.id,
                 userId: s.user_id,
@@ -103,7 +110,7 @@ export default function TutorAssignments() {
 
               if (Array.isArray(s.extra_profiles)) {
                 s.extra_profiles.forEach((profile) => {
-                  mappedStudents.push({
+                  allRecipients.push({
                     key: `${s.id}::${profile.id}`,
                     studentRecordId: s.id,
                     userId: s.user_id,
@@ -115,15 +122,33 @@ export default function TutorAssignments() {
                 });
               }
             });
+        }
 
-          mappedStudents.sort((a, b) =>
+        // Process Schools
+        if (schoolsData && schoolsData.length > 0) {
+          schoolsData.forEach((school) => {
+            allRecipients.push({
+              key: `school_${school.id}`,
+              studentRecordId: school.id,
+              userId: null,
+              profileId: null,
+              profileName: school.name,
+              displayName: `${school.name} (${school.school_type || 'School'})`,
+              email: "School Account",
+              isSchool: true,
+            });
+          });
+        }
+
+        if (allRecipients.length > 0) {
+          allRecipients.sort((a, b) =>
             a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
           );
 
-          console.log("Fetched students:", mappedStudents.length, mappedStudents);
-          setStudents(mappedStudents);
+          console.log("Fetched recipients:", allRecipients.length);
+          setStudents(allRecipients);
         } else {
-          console.log("No students found in database. Data:", studentsData);
+          console.log("No recipients found.");
           setStudents([]);
         }
       } catch (error) {
@@ -252,13 +277,9 @@ export default function TutorAssignments() {
       }
 
       // Create assignment
-      const { error: insertError } = await supabase
-        .from("Assignments")
-        .insert({
+      // Create assignment
+      const insertPayload = {
           tutor_id: tutorId,
-          student_id: selectedStudent.studentRecordId,
-          profile_id: selectedStudent.profileId,
-          profile_name: selectedStudent.profileName,
           title: formData.title,
           description: formData.description || null,
           subject: formData.subject || null,
@@ -266,7 +287,22 @@ export default function TutorAssignments() {
           max_points: formData.max_points ? parseFloat(formData.max_points) : null,
           file_url: fileUrl,
           status: "assigned",
-        });
+      };
+
+      if (selectedStudent.isSchool) {
+          insertPayload.school_id = selectedStudent.studentRecordId;
+          insertPayload.student_id = null; // Ensure this is handled if column is nullable
+          insertPayload.profile_id = null;
+          insertPayload.profile_name = selectedStudent.profileName;
+      } else {
+          insertPayload.student_id = selectedStudent.studentRecordId;
+          insertPayload.profile_id = selectedStudent.profileId;
+          insertPayload.profile_name = selectedStudent.profileName;
+      }
+
+      const { error: insertError } = await supabase
+        .from("Assignments")
+        .insert(insertPayload);
 
       if (insertError) throw insertError;
 

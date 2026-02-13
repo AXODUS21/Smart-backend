@@ -363,7 +363,8 @@ export default function BookSession({ overrideStudentId }) {
     
     // We need to reconstruct the UTC date for the selected slot start
     // The minutes from selectedSlot are relative to the day start
-    const slotStartUTC = new Date(Date.UTC(
+    // IMPORTANT: Create LOCAL date for this time slot to match getAvailableTimeSlots logic
+    const slotStartUTC = new Date(
         parseInt(year),
         parseInt(month) - 1,
         parseInt(day),
@@ -371,7 +372,7 @@ export default function BookSession({ overrideStudentId }) {
         selectedSlot.minutes % 60,
         0,
         0
-    ));
+    );
 
     const availableDurations = [];
 
@@ -557,7 +558,7 @@ export default function BookSession({ overrideStudentId }) {
         .select("id, start_time_utc, end_time_utc, status")
         .eq("tutor_id", tutorData.id)
         .in("status", ["pending", "confirmed"])
-        .or(`and(start_time_utc.lte.${endTime.toISOString()},end_time_utc.gte.${startTimeUTC.toISOString()})`);
+        .or(`and(start_time_utc.lt.${endTime.toISOString()},end_time_utc.gt.${startTimeUTC.toISOString()})`);
 
       if (tutorSessionCheckError) throw tutorSessionCheckError;
 
