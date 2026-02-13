@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Calendar, Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_PROFILE_ID, getActiveProfile } from "@/lib/studentProfiles";
 
 export default function SessionManagement({ overrideStudentId }) {
   const { user } = useAuth();
@@ -14,6 +15,8 @@ export default function SessionManagement({ overrideStudentId }) {
     cancellation_notice_hours: 24,
     rescheduling_notice_hours: 24,
   });
+  const [studentRecord, setStudentRecord] = useState(null);
+  const [isSchoolView, setIsSchoolView] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   const [actionType, setActionType] = useState(null); // 'cancel' or 'reschedule'
   const [cancellationReason, setCancellationReason] = useState("");
@@ -35,7 +38,7 @@ export default function SessionManagement({ overrideStudentId }) {
     try {
       let studentData = null;
       let schoolId = null;
-      let isSchoolView = false;
+      let _isSchoolView = false;
       
       if (overrideStudentId) {
         // overrideStudentId might be a school ID when principal views as school
@@ -48,13 +51,13 @@ export default function SessionManagement({ overrideStudentId }) {
 
         if (schoolData) {
           // Treat school as student - use school_id column for querying
-          isSchoolView = true;
+          _isSchoolView = true;
           schoolId = schoolData.id;
         } else {
           // Not a school, try as student ID
           const { data, error } = await supabase
             .from("Students")
-            .select("id")
+            .select("id, active_profile_id, extra_profiles")
             .eq("id", overrideStudentId)
             .single();
           studentData = data;
@@ -66,7 +69,7 @@ export default function SessionManagement({ overrideStudentId }) {
       } else {
         const { data, error } = await supabase
           .from("Students")
-          .select("id")
+          .select("id, active_profile_id, extra_profiles")
           .eq("user_id", user.id)
           .single();
         studentData = data;
@@ -97,11 +100,14 @@ export default function SessionManagement({ overrideStudentId }) {
         );
       
       // Filter by school_id or student_id
-      if (isSchoolView) {
+      if (_isSchoolView) {
         query = query.eq("school_id", schoolId);
       } else {
         query = query.eq("student_id", studentData.id);
       }
+      
+      setIsSchoolView(_isSchoolView);
+      if (studentData) setStudentRecord(studentData);
       
       // Fetch upcoming sessions (confirmed and pending that can be managed)
       const { data: sessionsData, error: sessionsError } = await query
@@ -112,8 +118,23 @@ export default function SessionManagement({ overrideStudentId }) {
       if (sessionsError) {
         console.error("Error fetching sessions:", sessionsError);
       } else {
-        console.log("Fetched sessions:", sessionsData);
-        setSessions(sessionsData || []);
+        // Filter by active profile
+        const activeProfileId = studentData?.active_profile_id;
+        const profileIdFilter = _isSchoolView
+          ? null
+          : activeProfileId || DEFAULT_PROFILE_ID;
+        
+        const filteredSessions = _isSchoolView
+          ? (sessionsData || [])
+          : (sessionsData || []).filter((session) => {
+              if (!session.profile_id) {
+                return profileIdFilter === DEFAULT_PROFILE_ID;
+              }
+              return session.profile_id === profileIdFilter;
+            });
+
+        console.log("Fetched sessions:", filteredSessions);
+        setSessions(filteredSessions);
       }
 
       // Fetch platform settings
@@ -516,6 +537,18 @@ export default function SessionManagement({ overrideStudentId }) {
         <h2 className="text-2xl font-semibold text-slate-900 mb-2">
           Manage Sessions
         </h2>
+        {/* Profile Indicator */}
+        {studentRecord && !isSchoolView && (() => {
+          const ap = getActiveProfile(studentRecord);
+          if (ap) {
+            return (
+              <p className="text-sm text-blue-600 font-medium mb-1">
+                Viewing for profile: {ap.name}
+              </p>
+            );
+          }
+          return null;
+        })()}
         <p className="text-slate-500">
           Cancel or reschedule your upcoming sessions
         </p>

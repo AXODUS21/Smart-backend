@@ -326,7 +326,7 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
       )}
       <div>
         <h2 className="text-2xl font-semibold text-slate-900 mb-2">
-          Welcome Back, {studentName || user?.email}
+          Welcome Back, {activeProfileName || studentName || user?.email}
         </h2>
         <p className="text-slate-500">{getCurrentDate()}</p>
         {activeProfileName && (

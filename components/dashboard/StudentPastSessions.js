@@ -5,6 +5,7 @@ import { AlertCircle, X, MessageSquare, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { handleNoShow } from "@/lib/sessionPolicies";
+import { DEFAULT_PROFILE_ID, getActiveProfile } from "@/lib/studentProfiles";
 
 export default function StudentPastSessions({ overrideStudentId }) {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function StudentPastSessions({ overrideStudentId }) {
   const [reportMessage, setReportMessage] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [studentRecord, setStudentRecord] = useState(null);
 
   // Fetch past sessions for the student
   useEffect(() => {
@@ -27,6 +29,7 @@ export default function StudentPastSessions({ overrideStudentId }) {
         let studentId = null;
         let schoolId = null;
         let isSchoolView = false;
+        let activeProfileId = null;
         
         if (overrideStudentId) {
           // overrideStudentId might be a school ID when principal views as school
@@ -41,17 +44,31 @@ export default function StudentPastSessions({ overrideStudentId }) {
             // Treat school as student - use school_id column for querying
             isSchoolView = true;
             schoolId = schoolData.id;
+            setStudentRecord({ id: schoolData.id, isSchool: true });
           } else {
             // Fallback: use as student ID
-            studentId = overrideStudentId;
+            const { data: stData } = await supabase
+              .from("Students")
+              .select("id, first_name, last_name, extra_profiles, active_profile_id")
+              .eq("id", overrideStudentId)
+              .single();
+            if (stData) {
+              studentId = stData.id;
+              activeProfileId = stData.active_profile_id;
+              setStudentRecord(stData);
+            } else {
+              studentId = overrideStudentId;
+            }
           }
         } else {
           const { data: studentData } = await supabase
             .from("Students")
-            .select("id")
+            .select("id, first_name, last_name, extra_profiles, active_profile_id")
             .eq("user_id", user.id)
             .single();
           studentId = studentData?.id;
+          activeProfileId = studentData?.active_profile_id;
+          if (studentData) setStudentRecord(studentData);
         }
 
         if (!studentId && !schoolId) return;
@@ -87,7 +104,21 @@ export default function StudentPastSessions({ overrideStudentId }) {
         if (error) {
           console.error("Error fetching past sessions:", error);
         } else {
-          const transformedSessions = (data || []).map((session) => ({
+          // Filter by active profile
+          const profileIdFilter = isSchoolView
+            ? null
+            : activeProfileId || DEFAULT_PROFILE_ID;
+
+          const profileFiltered = isSchoolView
+            ? (data || [])
+            : (data || []).filter((session) => {
+                if (!session.profile_id) {
+                  return profileIdFilter === DEFAULT_PROFILE_ID;
+                }
+                return session.profile_id === profileIdFilter;
+              });
+
+          const transformedSessions = profileFiltered.map((session) => ({
             id: session.id,
             tutor:
               session.tutor?.name ||
@@ -329,6 +360,14 @@ export default function StudentPastSessions({ overrideStudentId }) {
         <p className="text-sm text-slate-500">
           Review your completed sessions and mark tutors as no-show if they didn't attend
         </p>
+        {studentRecord && !studentRecord.isSchool && (() => {
+          const ap = getActiveProfile(studentRecord);
+          return ap ? (
+            <p className="text-xs text-slate-500 mt-1">
+              Showing sessions for <span className="font-medium">{ap.name}</span>. Switch profiles in Student Settings.
+            </p>
+          ) : null;
+        })()}
       </div>
 
       {/* Date Range Filter */}

@@ -351,21 +351,50 @@ export default function BookSession({ overrideStudentId }) {
 
   // Get available durations based on selected time
   const getAvailableDurations = () => {
-    if (!selectedTime) return durations;
+    if (!selectedTime || !selectedDate) return durations;
 
     const timeSlots = getAvailableTimeSlots();
     const selectedSlot = timeSlots.find((slot) => slot.time === selectedTime);
 
     if (!selectedSlot) return durations;
 
-    const remainingMinutes = selectedSlot.endMinutes - selectedSlot.minutes;
+    // Calculate start time for the selected slot
+    const [year, month, day] = selectedDate.split("-");
+    
+    // We need to reconstruct the UTC date for the selected slot start
+    // The minutes from selectedSlot are relative to the day start
+    const slotStartUTC = new Date(Date.UTC(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        Math.floor(selectedSlot.minutes / 60),
+        selectedSlot.minutes % 60,
+        0,
+        0
+    ));
+
     const availableDurations = [];
 
     durations.forEach((duration) => {
       const durationMinutes = duration === "30 mins" ? 30 : 60;
-
-      if (durationMinutes <= remainingMinutes) {
-        availableDurations.push(duration);
+      
+      // Check if duration fits in availability window
+      if (selectedSlot.minutes + durationMinutes <= selectedSlot.endMinutes) {
+         // Check for overlap with existing bookings
+         const slotEndUTC = new Date(slotStartUTC.getTime() + durationMinutes * 60 * 1000);
+         
+         const isBooked = tutorBookings.some((booking) => {
+            const bookingStart = new Date(booking.start_time_utc);
+            const bookingEnd = new Date(booking.end_time_utc);
+            
+            // Check for any overlap
+            // A duration is invalid if it overlaps with an existing booking
+            return slotStartUTC < bookingEnd && slotEndUTC > bookingStart;
+         });
+         
+         if (!isBooked) {
+             availableDurations.push(duration);
+         }
       }
     });
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { parseMeetingLink } from "@/lib/meetingLinks";
+import { DEFAULT_PROFILE_ID } from "@/lib/studentProfiles";
 import {
   Video,
   Calendar,
@@ -84,15 +85,18 @@ export default function Meetings({ overrideStudentId }) {
 
       try {
         let studentId = null;
+        let activeProfileId = null;
+        
         if (overrideStudentId) {
           studentId = overrideStudentId;
         } else {
           const { data: studentData } = await supabase
             .from("Students")
-            .select("id")
+            .select("id, active_profile_id")
             .eq("user_id", user.id)
             .single();
           studentId = studentData?.id;
+          activeProfileId = studentData?.active_profile_id;
         }
 
         if (!studentId) return;
@@ -116,7 +120,22 @@ export default function Meetings({ overrideStudentId }) {
         if (error) {
           console.error("Error fetching meetings:", error);
         } else {
-          setScheduledMeetings(data || []);
+          // Filter by active profile
+          // If overrideStudentId (school view), show all. Otherwise filter.
+          const profileIdFilter = overrideStudentId 
+            ? null 
+            : activeProfileId || DEFAULT_PROFILE_ID;
+            
+          const filteredMeetings = overrideStudentId
+            ? (data || [])
+            : (data || []).filter((meeting) => {
+                if (!meeting.profile_id) {
+                  return profileIdFilter === DEFAULT_PROFILE_ID;
+                }
+                return meeting.profile_id === profileIdFilter;
+              });
+              
+          setScheduledMeetings(filteredMeetings);
         }
       } catch (error) {
         console.error("Error:", error);
