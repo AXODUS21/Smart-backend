@@ -86,9 +86,22 @@ export default function Meetings({ overrideStudentId }) {
       try {
         let studentId = null;
         let activeProfileId = null;
+        let isSchoolView = false;
         
         if (overrideStudentId) {
-          studentId = overrideStudentId;
+          // Check if overrideStudentId is a school
+          const { data: schoolData } = await supabase
+            .from("Schools")
+            .select("id, name")
+            .eq("id", overrideStudentId)
+            .single();
+
+          if (schoolData) {
+            isSchoolView = true;
+            studentId = schoolData.id;
+          } else {
+            studentId = overrideStudentId;
+          }
         } else {
           const { data: studentData } = await supabase
             .from("Students")
@@ -101,7 +114,7 @@ export default function Meetings({ overrideStudentId }) {
 
         if (!studentId) return;
 
-        const { data, error } = await supabase
+        let query = supabase
           .from("Schedules")
           .select(
             `
@@ -113,8 +126,16 @@ export default function Meetings({ overrideStudentId }) {
               email
             )
           `
-          )
-          .eq("student_id", studentId)
+          );
+
+        // Query by school_id for schools, student_id for students
+        if (isSchoolView) {
+          query = query.eq("school_id", studentId);
+        } else {
+          query = query.eq("student_id", studentId);
+        }
+
+        const { data, error } = await query
           .order("start_time_utc", { ascending: true });
 
         if (error) {
