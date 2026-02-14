@@ -137,7 +137,6 @@ export async function POST(request) {
     // Process payout via Stripe
     if (usedSource === 'stripe') {
       try {
-        const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
         if (stripeSecretKey) {
           const stripe = new Stripe(stripeSecretKey);
           
@@ -146,22 +145,26 @@ export async function POST(request) {
           const amountUsd = amountPhp / usdToPhpRate;
           const amountInCents = Math.round(amountUsd * 100);
 
-          // TODO: In production, use Stripe Connect or Payouts API
-          // For now, we'll just mark it as processed
-          // Example Stripe Connect payout:
-          // const transfer = await stripe.transfers.create({
-          //   amount: amountInCents,
-          //   currency: 'usd',
-          //   destination: tutorData.stripe_account_id, // Stripe Connect account ID
-          // });
+          if (!tutorData.stripe_account_id) {
+             throw new Error("Tutor has not connected their Stripe account.");
+          }
+
+          // Execute Stripe Transfer
+          const transfer = await stripe.transfers.create({
+            amount: amountInCents,
+            currency: 'usd',
+            destination: tutorData.stripe_account_id,
+            description: `Payout for Withdrawal #${withdrawalId}`,
+          });
 
           payoutProvider = 'stripe';
-          transactionId = `stripe_${withdrawalId}_${Date.now()}`;
+          transactionId = transfer.id;
           payoutResult = {
             provider: 'stripe',
-            status: 'processing',
+            status: 'processing', // Transfers are usually instant, but we can mark as processing or completed
             amountUsd,
-            note: 'Stripe payout initiated. In production, integrate with Stripe Connect or Payouts API.',
+            transferId: transfer.id,
+            destination: tutorData.stripe_account_id,
           };
         }
       } catch (error) {

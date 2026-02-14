@@ -61,7 +61,7 @@ export async function GET(request) {
     const { data: reports, error, count } = await supabase
       .from('PayoutReports')
       .select('*', { count: 'exact' })
-      .order('generation_date', { ascending: false })
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {

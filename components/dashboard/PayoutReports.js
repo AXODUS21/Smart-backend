@@ -607,9 +607,17 @@ function ReportDetailsView({ report, formatDateTime, formatDate }) {
                        { label: "Mobile Number", value: withdrawal.gcash_number },
                      ],
                    };
-                 }
-                 return { method: withdrawal.payment_method || "Unknown", details: [] };
-               };
+                 } else if (withdrawal.payment_method === "stripe" || withdrawal.payment_method === "card") {
+                    return {
+                      method: "Stripe Connect",
+                      details: [
+                        { label: "Account ID", value: withdrawal.stripe_account_id || "Linked Account" },
+                        { label: "Status", value: "Transferred" },
+                      ],
+                    };
+                  }
+                  return { method: withdrawal.payment_method || "Unknown", details: [] };
+                };
 
                const paymentDetails = getPaymentDetailsCallback(w);
 

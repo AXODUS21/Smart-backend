@@ -242,6 +242,23 @@ export default function TutorProfile() {
     checkStripeStatus();
   }, [user]);
 
+  // Check for Stripe redirect parameters
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("success") === "true") {
+        setSuccess("Stripe account connected successfully!");
+        setTimeout(() => setSuccess(""), 5000);
+        // Clear the URL params without refreshing
+        window.history.replaceState({}, document.title, window.location.pathname + "?tab=profile");
+      } else if (params.get("refresh") === "true") {
+        setError("Stripe onboarding was not completed. Please try again.");
+        setTimeout(() => setError(""), 5000);
+        window.history.replaceState({}, document.title, window.location.pathname + "?tab=profile");
+      }
+    }
+  }, []);
+
   const handleConnectStripe = async () => {
     try {
         setConnecting(true);
@@ -653,12 +670,14 @@ export default function TutorProfile() {
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg border border-emerald-200">
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Available Credits</p>
-                  <p className="text-3xl font-bold text-slate-900">{credits.toFixed(2)}</p>
+                  <p className="text-3xl font-bold text-slate-900">
+                    {balanceInfo?.credits !== undefined ? balanceInfo.credits.toFixed(2) : credits.toFixed(2)}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-slate-600 mb-1">Equivalent in PHP</p>
                   <p className="text-2xl font-bold text-emerald-600">
-                    ₱{(credits * 90).toFixed(2)}
+                    ₱{balanceInfo?.credits !== undefined ? (balanceInfo.credits * 90).toFixed(2) : (credits * 90).toFixed(2)}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">1 credit = 90 PHP</p>
                 </div>
@@ -672,30 +691,12 @@ export default function TutorProfile() {
                       Automatic payouts
                     </p>
                     <p className="text-xs text-amber-700">
-                      Payouts are processed automatically twice monthly. Ensure your payment information below is up to date.
+                      Payouts are processed automatically on the 15th and the last day of each month. Ensure your payment information below is up to date.
                     </p>
                   </div>
                 </div>
               </div>
-              {balanceInfo && (
-                <div className="pt-4 border-t border-slate-200">
-                  <p className="text-xs text-slate-500 mb-2">Payment Account Balances:</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-slate-600">Stripe:</span>
-                      <span className="ml-2 font-medium text-slate-900">
-                        ₱{balanceInfo.stripe?.available?.toFixed(2) || "0.00"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-600">PayMongo:</span>
-                      <span className="ml-2 font-medium text-slate-900">
-                        ₱{balanceInfo.paymongo?.balance?.toFixed(2) || "0.00"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Payment Account Balances hidden for tutors */}
             </div>
           </div>
 
@@ -728,7 +729,45 @@ export default function TutorProfile() {
                   </div>
                 )}
               </div>
-              <button
+              <div className="flex gap-2">
+                {stripeStatus && stripeStatus.isOnboarded && (
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm("Are you sure you want to disconnect your Stripe account? You will stop receiving automatic payouts.")) return;
+                      
+                      try {
+                        setConnecting(true);
+                        const { data: { session } } = await supabase.auth.getSession();
+                        const token = session?.access_token;
+                        
+                        const res = await fetch('/api/stripe/disconnect', {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}` }
+                        });
+                        
+                        if (res.ok) {
+                          setSuccess("Stripe account disconnected.");
+                          setStripeStatus({ isConnected: false, isOnboarded: false });
+                          // Update local data if needed
+                          setTimeout(() => setSuccess(""), 3000);
+                        } else {
+                          const data = await res.json();
+                          alert("Failed to disconnect: " + (data.error || "Unknown error"));
+                        }
+                      } catch (e) {
+                        console.error("Disconnect error:", e);
+                        alert("Disconnect failed");
+                      } finally {
+                        setConnecting(false);
+                      }
+                    }}
+                    disabled={connecting}
+                    className="px-4 py-2 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    Disconnect
+                  </button>
+                )}
+                <button
                 onClick={handleConnectStripe}
                 disabled={connecting || (stripeStatus && stripeStatus.isOnboarded)}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
@@ -750,6 +789,7 @@ export default function TutorProfile() {
               </button>
             </div>
           </div>
+        </div>
 
           {/* Payment Information */}
           <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow-sm border border-slate-200">

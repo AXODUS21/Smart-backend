@@ -41,12 +41,23 @@ export async function POST(request) {
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: 'express',
-        country: 'PH', // Defaulting to Philippines based on context
+        country: 'PH',
         email: tutor.email,
         capabilities: {
           transfers: { requested: true },
         },
-        business_type: 'individual',
+        settings: {
+          payouts: {
+            schedule: {
+              interval: 'manual',
+            },
+          },
+        },
+        // 'recipient' is needed for PH
+        tos_acceptance: {
+          service_agreement: 'recipient',
+        },
+        business_type: 'individual', 
         individual: {
             first_name: tutor.first_name,
             last_name: tutor.last_name,
@@ -67,8 +78,8 @@ export async function POST(request) {
     const origin = request.headers.get('origin') || 'http://localhost:3000'; // Fallback for dev
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: `${origin}/tutor/dashboard?refresh=true`,
-      return_url: `${origin}/tutor/dashboard?success=true`,
+      refresh_url: `${origin}/?tab=profile&refresh=true`,
+      return_url: `${origin}/?tab=profile&success=true`,
       type: 'account_onboarding',
     });
 

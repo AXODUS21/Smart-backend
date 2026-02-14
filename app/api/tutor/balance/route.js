@@ -89,45 +89,16 @@ export async function GET(request) {
     const creditToPhpRate = 90; // 1 credit = 90 PHP
     const totalPhp = credits * creditToPhpRate;
 
-    // Check Stripe balance (central account)
-    let stripeBalance = 0;
-    let stripeAvailable = 0;
-    let stripePending = 0;
-    let stripeError = null;
+    // Check Stripe balance (central account) - DISABLED for security/privacy
+    // Tutors should not see the platform's balance.
+    const stripeBalance = 0;
+    const stripeAvailable = 0;
+    const stripePending = 0;
+    const stripeError = null;
 
-    try {
-      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-      if (stripeSecretKey) {
-        const stripe = new Stripe(stripeSecretKey);
-        
-        // Get balance from main Stripe account
-        const balance = await stripe.balance.retrieve();
-
-        stripeAvailable = balance.available[0]?.amount || 0; // In cents
-        stripePending = balance.pending[0]?.amount || 0; // In cents
-        stripeBalance = stripeAvailable + stripePending;
-        
-        // Convert from cents to PHP (assuming USD - may need conversion)
-        // Note: Stripe balances are typically in account's default currency (often USD)
-        const usdToPhpRate = parseFloat(process.env.USD_TO_PHP_RATE || '56');
-        stripeBalance = (stripeBalance / 100) * usdToPhpRate; // Convert cents to dollars, then to PHP
-        stripeAvailable = (stripeAvailable / 100) * usdToPhpRate;
-        stripePending = (stripePending / 100) * usdToPhpRate;
-      }
-    } catch (error) {
-      console.error('Error fetching Stripe balance:', error);
-      stripeError = error.message;
-    }
-
-    // Check PayMongo balance (central account)
-    // Note: PayMongo doesn't have a direct balance API like Stripe
-    // We'll need to track this manually or return a placeholder
-    let paymongoBalance = 0;
-    let paymongoError = null;
-
-    // For PayMongo, you would typically track balance manually via webhooks
-    // or use their payment intent/payout APIs to calculate available balance
-    // For now, we'll return a message indicating manual tracking needed
+    // Check PayMongo balance (central account) - DISABLED
+    const paymongoBalance = 0;
+    const paymongoError = null;
 
     return NextResponse.json({
       credits,
@@ -142,7 +113,7 @@ export async function GET(request) {
       paymongo: {
         balance: paymongoBalance,
         error: paymongoError,
-        note: 'PayMongo balance tracking requires manual implementation via webhooks',
+        note: 'Balance tracking disabled for tutor view',
       },
     });
   } catch (error) {
