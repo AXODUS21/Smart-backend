@@ -230,10 +230,7 @@ export default function TutorProfile() {
             });
             const data = await res.json();
             if (res.ok) {
-                setStripeStatus({
-                    isConnected: data.isConnected,
-                    isOnboarded: data.isOnboarded
-                });
+                setStripeStatus(data);
             }
         } catch (e) {
             console.error("Failed to check stripe status", e);
@@ -720,15 +717,35 @@ export default function TutorProfile() {
                     <span>Payouts Enabled</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-amber-600 font-medium">
+                  <div className="flex flex-col gap-1">
                      {stripeStatus && stripeStatus.isConnected ? (
-                         <span>Setup Incomplete</span>
+                         <>
+                             <div className="flex items-center gap-2 text-amber-600 font-medium">
+                                 <span>Setup Incomplete</span>
+                             </div>
+                         </>
                      ) : (
-                         <span className="text-slate-500">Not Connected</span>
+                         <div className="flex items-center gap-2 text-slate-500 font-medium">
+                            <span>Not Connected</span>
+                         </div>
                      )}
                   </div>
                 )}
               </div>
+
+               {/* Connected Account Details */}
+               {stripeStatus?.externalAccount?.bankName && (
+                   <div className="mt-3 p-3 bg-slate-50 rounded border border-slate-200 text-sm">
+                       <p className="text-slate-500 mb-1">Connected Payout Account:</p>
+                       <div className="flex items-center gap-2 font-medium text-slate-700">
+                           <div className="capitalize">{stripeStatus.externalAccount.bankName}</div>
+                           <div>•••• {stripeStatus.externalAccount.last4}</div>
+                           <div className="text-xs px-1.5 py-0.5 bg-slate-200 rounded text-slate-600 uppercase">
+                               {stripeStatus.externalAccount.currency}
+                           </div>
+                       </div>
+                   </div>
+               )}
               <div className="flex gap-2">
                 {stripeStatus && stripeStatus.isOnboarded && (
                   <button

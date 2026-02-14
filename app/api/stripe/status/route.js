@@ -60,13 +60,32 @@ export async function GET(request) {
             .eq('id', tutor.id);
     }
 
+    // Extract external account details (Bank/Card)
+    const externalAccounts = account.external_accounts?.data || [];
+    const defaultExternalAccount = externalAccounts.find(ea => ea.default_for_currency) || externalAccounts[0];
+    
+    let bankName = null;
+    let last4 = null;
+    let currency = null;
+
+    if (defaultExternalAccount) {
+        bankName = defaultExternalAccount.bank_name || defaultExternalAccount.brand; // Bank Name or Card Brand
+        last4 = defaultExternalAccount.last4;
+        currency = defaultExternalAccount.currency;
+    }
+
     return NextResponse.json({
         isConnected: true,
         isOnboarded: isOnboarded,
         detailsSubmitted: detailsSubmitted,
         payoutsEnabled: isPayoutsEnabled,
         chargesEnabled: isChargesEnabled,
-        accountId: tutor.stripe_account_id
+        accountId: tutor.stripe_account_id,
+        externalAccount: {
+            bankName,
+            last4,
+            currency
+        }
     });
 
   } catch (error) {
