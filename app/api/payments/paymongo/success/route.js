@@ -15,12 +15,24 @@ export async function GET(request) {
     const planId = searchParams.get('planId');
     const credits = parseInt(searchParams.get('credits'));
     const userId = searchParams.get('userId');
+    const checkoutSessionId = searchParams.get('checkout_session_id');
+    const ref = searchParams.get('ref');
+
+    console.log('Payment Success Route Hit:', {
+      paymentIntentId,
+      planId,
+      credits,
+      userId,
+      checkoutSessionId, // This might be null if using ref approach
+      ref
+    });
 
     // Get base URL from request
     const url = new URL(request.url);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${url.protocol}//${url.host}`;
 
-    if (!paymentIntentId) {
+    if (!paymentIntentId && !checkoutSessionId && !ref) {
+      console.error('Missing payment identifier');
       return NextResponse.redirect(
         `${baseUrl}/?tab=credits&error=missing_payment_intent`
       );
@@ -35,26 +47,119 @@ export async function GET(request) {
       );
     }
 
-    // Retrieve payment intent to check status
-    const retrieveResponse = await fetch(
-      `${PAYMONGO_BASE_URL}/payment_intents/${paymentIntentId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Basic ${Buffer.from(paymongoSecretKey + ':').toString('base64')}`,
-        },
-      }
-    );
+    let status;
+    let finalPaymentIntentId = paymentIntentId;
+    let effectiveCheckoutSessionId = checkoutSessionId;
 
-    if (!retrieveResponse.ok) {
-      return NextResponse.redirect(
-        `${baseUrl}/?tab=credits&error=retrieve_error`
-      );
+    // If we have a reference but no session ID, look it up in user metadata
+    if (!effectiveCheckoutSessionId && ref && userId) {
+        console.log('Looking up session ID from user metadata using ref:', ref);
+        const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+        
+        if (userError || !userData.user) {
+            console.error('Failed to fetch user data for session lookup:', userError);
+        } else {
+            const meta = userData.user.user_metadata || {};
+            if (meta.paymongo_pending_ref === ref) {
+                effectiveCheckoutSessionId = meta.paymongo_pending_session_id;
+                console.log('Found session ID in metadata:', effectiveCheckoutSessionId);
+                
+                // Optional: Clear the metadata to prevent replay (maybe do this after success?)
+                // keeping it for now in case of refresh
+            } else {
+                console.warn('Reference mismatch or not found in metadata:', {
+                    expected: ref,
+                    actual: meta.paymongo_pending_ref
+                });
+            }
+        }
     }
 
-    const paymentData = await retrieveResponse.json();
-    const status = paymentData.data.attributes.status;
+    if (effectiveCheckoutSessionId) {
+      console.log('Retrieving Checkout Session:', effectiveCheckoutSessionId);
+      // Retrieve checkout session
+      const sessionResponse = await fetch(
+        `${PAYMONGO_BASE_URL}/checkout_sessions/${effectiveCheckoutSessionId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Basic ${Buffer.from(paymongoSecretKey + ':').toString('base64')}`,
+          },
+        }
+      );
+
+      if (!sessionResponse.ok) {
+        console.error('Failed to retrieve checkout session', await sessionResponse.text());
+        return NextResponse.redirect(
+          `${baseUrl}/?tab=credits&error=retrieve_session_error`
+        );
+      }
+
+      const sessionData = await sessionResponse.json();
+      console.log('Checkout Session Data:', JSON.stringify(sessionData, null, 2));
+      const session = sessionData.data.attributes;
+      
+      // Get payment intent from session
+      const paymentIntentIdFromSession = session.payment_intent?.id;
+      if (paymentIntentIdFromSession) {
+         finalPaymentIntentId = paymentIntentIdFromSession;
+         console.log('Found Payment Intent from Session:', finalPaymentIntentId);
+         
+         const piResponse = await fetch(
+            `${PAYMONGO_BASE_URL}/payment_intents/${paymentIntentIdFromSession}`,
+            {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'Authorization': `Basic ${Buffer.from(paymongoSecretKey + ':').toString('base64')}`,
+              },
+            }
+          );
+          if (piResponse.ok) {
+             const piData = await piResponse.json();
+             status = piData.data.attributes.status;
+             console.log('Payment Intent Status:', status);
+          } else {
+             console.error('Failed to retrieve payment intent details');
+          }
+      } else {
+        // If no payment intent is attached yet, check session status directly (e.g., if it's paid)
+        console.log('No Payment Intent attached to session yet. Checking session payment intent object.');
+         if (session.payment_intent) {
+             status = session.payment_intent.attributes.status;
+             console.log('Payment Intent Status from Session Object:', status);
+         } else {
+             console.log('No payment intent info found in session attributes');
+         }
+      }
+    } else {
+        console.log('Retrieving Payment Intent directly:', paymentIntentId);
+        // Retrieve payment intent directly
+        const retrieveResponse = await fetch(
+        `${PAYMONGO_BASE_URL}/payment_intents/${paymentIntentId}`,
+        {
+            method: 'GET',
+            headers: {
+            'Accept': 'application/json',
+            'Authorization': `Basic ${Buffer.from(paymongoSecretKey + ':').toString('base64')}`,
+            },
+        }
+        );
+
+        if (!retrieveResponse.ok) {
+        console.error('Failed to retrieve payment intent');
+        return NextResponse.redirect(
+            `${baseUrl}/?tab=credits&error=retrieve_error`
+        );
+        }
+
+        const paymentData = await retrieveResponse.json();
+        status = paymentData.data.attributes.status;
+        console.log('Direct Payment Intent Status:', status);
+    }
+
+    console.log('Processing credit update...', { status, credits, userId });
 
     // If payment succeeded and we haven't updated credits yet, update them
     if (status === 'succeeded' && credits > 0 && userId) {
@@ -78,6 +183,8 @@ export async function GET(request) {
         }
       }
 
+      console.log('Is Family Pack:', isFamilyPack);
+
       // Credit Principals first (principal buys in Add Credits); else Students
       const { data: principalData } = await supabase
         .from('Principals')
@@ -85,13 +192,18 @@ export async function GET(request) {
         .eq('user_id', userId)
         .maybeSingle();
 
+      console.log('Principal Data Found:', !!principalData);
+
       if (principalData) {
         const currentCredits = principalData.credits || 0;
         const newCredits = currentCredits + credits;
-        await supabase
+        const { error: updateError } = await supabase
           .from('Principals')
           .update({ credits: newCredits })
           .eq('user_id', userId);
+        
+        if (updateError) console.error('Error updating principal credits:', updateError);
+        else console.log('Principal credits updated to:', newCredits);
 
         // If this is a family pack purchase, set has_family_pack for all students under this principal
         if (isFamilyPack) {
@@ -112,6 +224,7 @@ export async function GET(request) {
                   .from('Students')
                   .update({ has_family_pack: true })
                   .in('id', studentIds);
+                console.log('Updated family pack for students:', studentIds);
               }
             }
           } catch (err) {
@@ -127,6 +240,7 @@ export async function GET(request) {
 
         if (!fetchError) {
           if (!currentData) {
+            console.log('Creating new student record');
             // Create student record if it doesn't exist
             await supabase
               .from('Students')
@@ -136,6 +250,7 @@ export async function GET(request) {
                 has_family_pack: isFamilyPack,
               });
           } else {
+            console.log('Updating existing student record');
             const currentCredits = currentData?.credits || 0;
             const newCredits = currentCredits + credits;
             const updateData = { credits: newCredits };
@@ -150,8 +265,16 @@ export async function GET(request) {
               .update(updateData)
               .eq('user_id', userId);
           }
+        } else {
+            console.error('Error fetching student data:', fetchError);
         }
       }
+    } else {
+        console.warn('Skipping credit update. Conditions not met:', {
+            statusSucceeded: status === 'succeeded',
+            creditsValid: credits > 0,
+            hasUserId: !!userId
+        });
     }
 
     // Redirect based on payment status
@@ -162,7 +285,7 @@ export async function GET(request) {
     } else if (status === 'awaiting_payment_method' || status === 'awaiting_next_action') {
       // Payment requires 3DS or additional action
       return NextResponse.redirect(
-        `${baseUrl}/?tab=credits&payment_pending=true&paymentIntentId=${paymentIntentId}`
+        `${baseUrl}/?tab=credits&payment_pending=true&paymentIntentId=${finalPaymentIntentId || ''}`
       );
     } else {
       return NextResponse.redirect(
