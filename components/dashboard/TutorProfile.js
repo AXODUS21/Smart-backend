@@ -173,7 +173,10 @@ export default function TutorProfile() {
 
               // Net credits = earned - withdrawn
               const netCredits = totalCreditsEarned - totalWithdrawnCredits;
-              setCredits(Math.max(0, netCredits)); // Ensure non-negative
+              
+              // Add manual credits from profile
+              const manualCredits = parseFloat(tutorData.credits || 0);
+              setCredits(Math.max(0, netCredits) + manualCredits);
             } else {
               // Fallback to stored credits if session fetch fails
               setCredits(parseFloat(tutorData?.credits || 0));

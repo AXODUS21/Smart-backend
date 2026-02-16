@@ -42,7 +42,7 @@ export async function GET(request) {
     // Get tutor data
     const { data: tutorData, error: tutorError } = await supabase
       .from('Tutors')
-      .select('id, stripe_account_id, paymongo_account_id')
+      .select('id, stripe_account_id, paymongo_account_id, credits')
       .eq('user_id', userId)
       .single();
 
@@ -82,7 +82,9 @@ export async function GET(request) {
           ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 90, 0)
           : 0;
 
-        credits = Math.max(0, totalCreditsEarned - totalWithdrawnCredits);
+        // Add manual credits (from Tutors table) to the calculated net credits
+        const manualCredits = parseFloat(tutorData.credits || 0);
+        credits = Math.max(0, totalCreditsEarned - totalWithdrawnCredits) + manualCredits;
       }
     }
 

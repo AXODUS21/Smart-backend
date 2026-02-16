@@ -17,6 +17,10 @@ export default function AdminUsers() {
   const [sortField, setSortField] = useState("name");
   const [sortDirection, setSortDirection] = useState("asc");
   const [viewingUser, setViewingUser] = useState(null);
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditType, setCreditType] = useState("add"); // 'add' or 'remove'
+  const [isUpdatingCredits, setIsUpdatingCredits] = useState(false);
+  const [creditMessage, setCreditMessage] = useState(null);
 
   
   useEffect(() => {
@@ -320,9 +324,127 @@ export default function AdminUsers() {
   };
 
   const viewUserDashboard = async (user) => {
-    // For now, we'll just show user details
-    // In a real implementation, you might want to navigate to a view-only version of their dashboard
+    // If user is a tutor, fetch their payment details
+    if (user.role === 'tutor') {
+      try {
+        setLoading(true);
+        // Try to find the tutor entry
+        // We might have user_id (from auth) or id (from Tutors table)
+        // The list already has mixed IDs depending on source, but let's try to be robust
+        
+        let tutorQuery = supabase.from('Tutors').select('*');
+        
+        if (user.id && user.role === 'tutor') {
+           // If we have the direct ID from the Tutors table (which mapUser tries to ensure for direct queries)
+           // But remember mapUser sets id = u.id. 
+           // If fetched from Tutors table directly, id is the UUID from Tutors table.
+           // If fetched via RPC/Users, it might be the user_id. 
+           // Let's rely on user_id if present, or id.
+           
+           if (user.user_id) {
+             tutorQuery = tutorQuery.eq('user_id', user.user_id);
+           } else {
+             tutorQuery = tutorQuery.eq('id', user.id);
+           }
+        }
+        
+        const { data: tutorData, error } = await tutorQuery.single();
+        
+        if (!error && tutorData) {
+            // Merge payment details into the user object for viewing
+            const enrichedUser = {
+                ...user,
+                payment_method: tutorData.payment_method,
+                bank_account_name: tutorData.bank_account_name,
+                bank_account_number: tutorData.bank_account_number,
+                bank_name: tutorData.bank_name,
+                bank_branch: tutorData.bank_branch,
+                paypal_email: tutorData.paypal_email,
+                gcash_number: tutorData.gcash_number,
+                gcash_name: tutorData.gcash_name
+            };
+            setViewingUser(enrichedUser);
+            setLoading(false);
+            return;
+        }
+      } catch (err) {
+        console.error("Error fetching tutor details:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
     setViewingUser(user);
+    setCreditAmount("");
+    setCreditMessage(null);
+  };
+
+  const handleCreditUpdate = async () => {
+    if (!creditAmount || isNaN(creditAmount) || Number(creditAmount) <= 0) {
+      setCreditMessage({ type: 'error', text: 'Please enter a valid amount greater than 0.' });
+      return;
+    }
+
+    setIsUpdatingCredits(true);
+    setCreditMessage(null);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const response = await fetch('/api/admin/credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: viewingUser.user_id, // Use user_id for auth consistency
+          role: viewingUser.role,
+          amount: Number(creditAmount),
+          type: creditType,
+          adminId: user.id
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update credits');
+      }
+
+      // Update local state
+      const updatedUser = { ...viewingUser, credits: data.newCredits };
+      setViewingUser(updatedUser);
+      
+      // Update the main list as well so it reflects without refresh
+      setUsers(prev => {
+        const roleKey = viewingUser.role + 's'; // simple pluralization: students, tutors...
+        // But role key mapping in state is: students, tutors, principals, admins
+        let stateKey = '';
+        if (viewingUser.role === 'student') stateKey = 'students';
+        else if (viewingUser.role === 'tutor') stateKey = 'tutors';
+        else if (viewingUser.role === 'principal') stateKey = 'principals';
+        
+        if (stateKey && prev[stateKey]) {
+           const newList = prev[stateKey].map(u => 
+             u.user_id === viewingUser.user_id ? { ...u, credits: data.newCredits } : u
+           );
+           return { ...prev, [stateKey]: newList };
+        }
+        return prev;
+      });
+
+      setCreditMessage({ type: 'success', text: `Successfully ${creditType === 'add' ? 'added' : 'removed'} ${creditAmount} credits.` });
+      setCreditAmount(""); // Clear input on success
+      
+      // Auto-dismiss message after 3 seconds
+      setTimeout(() => {
+        setCreditMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error("Credit update error:", error);
+      setCreditMessage({ type: 'error', text: error.message || "Failed to update credits." });
+    } finally {
+      setIsUpdatingCredits(false);
+    }
   };
 
   const userStatsData = [
@@ -546,12 +668,70 @@ export default function AdminUsers() {
                   {new Date(viewingUser.created_at).toLocaleString()}
                 </p>
               </div>
-              {(viewingUser.role === "student" || viewingUser.role === "principal") && (
+              {(viewingUser.role === "student" || viewingUser.role === "principal" || viewingUser.role === "tutor") && (
                 <div>
                   <p className="text-sm font-medium text-slate-500">Credits</p>
                   <p className="text-lg text-slate-900">
                     {parseFloat(viewingUser.credits || 0).toFixed(0)}
                   </p>
+                </div>
+              )}
+              
+              {/* Credit Management UI for Students, Tutors, and Principals */}
+              {['student', 'tutor', 'principal'].includes(viewingUser.role) && (
+                <div className="pt-4 mt-4 border-t border-slate-100">
+                   <h3 className="text-md font-semibold text-slate-900 mb-3">Manage Credits</h3>
+                   <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                      
+                      {creditMessage && (
+                        <div className={`p-3 rounded text-sm ${creditMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {creditMessage.text}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCreditType('add')}
+                          className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${creditType === 'add' 
+                            ? 'bg-green-100 text-green-700 border border-green-200' 
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
+                        >
+                          Add Credits
+                        </button>
+                        <button
+                          onClick={() => setCreditType('remove')}
+                          className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${creditType === 'remove' 
+                            ? 'bg-red-100 text-red-700 border border-red-200' 
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
+                        >
+                          Remove Credits
+                        </button>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Amount"
+                          value={creditAmount}
+                          onChange={(e) => setCreditAmount(e.target.value)}
+                          min="1"
+                          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        />
+                        <button
+                          onClick={handleCreditUpdate}
+                          disabled={isUpdatingCredits || !creditAmount}
+                          className={`px-4 py-2 rounded-lg text-white font-medium text-sm transition-colors ${
+                             isUpdatingCredits || !creditAmount
+                               ? 'bg-slate-400 cursor-not-allowed'
+                               : creditType === 'add' 
+                                 ? 'bg-green-600 hover:bg-green-700'
+                                 : 'bg-red-600 hover:bg-red-700'
+                          }`}
+                        >
+                          {isUpdatingCredits ? 'Updating...' : creditType === 'add' ? 'Add' : 'Remove'}
+                        </button>
+                      </div>
+                   </div>
                 </div>
               )}
               {viewingUser.role === "principal" && (
@@ -592,6 +772,72 @@ export default function AdminUsers() {
                       <p className="text-lg text-slate-900">{viewingUser.bio}</p>
                     </div>
                   )}
+
+                  <div className="pt-4 mt-4 border-t border-slate-100">
+                    <h3 className="text-md font-semibold text-slate-900 mb-3">Payment Information</h3>
+                    
+                    {viewingUser.payment_method ? (
+                      <div className="space-y-3 bg-slate-50 p-4 rounded-lg">
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Method</p>
+                          <p className="text-base font-medium text-slate-900 capitalized">
+                            {viewingUser.payment_method === 'bank' ? 'Bank Transfer' : 
+                             viewingUser.payment_method === 'gcash' ? 'GCash' : 
+                             viewingUser.payment_method === 'paypal' ? 'PayPal' : viewingUser.payment_method}
+                          </p>
+                        </div>
+
+                        {viewingUser.payment_method === 'bank' && (
+                          <>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Bank Name</p>
+                                <p className="text-sm text-slate-900">{viewingUser.bank_name || '-'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Branch</p>
+                                <p className="text-sm text-slate-900">{viewingUser.bank_branch || '-'}</p>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Account Name</p>
+                              <p className="text-sm text-slate-900">{viewingUser.bank_account_name || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Account Number</p>
+                              <p className="font-mono text-sm text-slate-700 bg-white px-2 py-1 rounded border border-slate-200 inline-block">
+                                {viewingUser.bank_account_number || '-'}
+                              </p>
+                            </div>
+                          </>
+                        )}
+
+                        {viewingUser.payment_method === 'paypal' && (
+                          <div>
+                            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">PayPal Email</p>
+                            <p className="text-sm text-slate-900">{viewingUser.paypal_email || '-'}</p>
+                          </div>
+                        )}
+
+                        {viewingUser.payment_method === 'gcash' && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">GCash Name</p>
+                              <p className="text-sm text-slate-900">{viewingUser.gcash_name || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">GCash Number</p>
+                              <p className="font-mono text-sm text-slate-700 bg-white px-2 py-1 rounded border border-slate-200 inline-block">
+                                {viewingUser.gcash_number || '-'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500 italic">No payment information set.</p>
+                    )}
+                  </div>
                 </>
               )}
             </div>
