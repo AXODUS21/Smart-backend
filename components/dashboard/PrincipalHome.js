@@ -129,24 +129,6 @@ export default function PrincipalHome({ setActiveTab }) {
         })}
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">
-          Quick Actions
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={() => setActiveTab("schools")}
-            className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-left"
-          >
-            <Building2 className="w-5 h-5 text-blue-600" />
-            <div>
-              <p className="font-medium text-slate-900">Manage Schools</p>
-              <p className="text-sm text-slate-500">Add or remove schools</p>
-            </div>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
