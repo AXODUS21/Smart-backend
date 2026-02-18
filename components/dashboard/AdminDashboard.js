@@ -25,12 +25,6 @@ export default function AdminDashboard() {
     pendingBookings: 0,
     confirmedBookings: 0,
     completedBookings: 0,
-    revenueUSD: 0,
-    revenuePHP: 0,
-    tutorPayUSD: 0,
-    tutorPayPHP: 0,
-    companyShareUSD: 0,
-    companySharePHP: 0,
   });
   const [newStudents, setNewStudents] = useState([]);
   const [expiringCredits, setExpiringCredits] = useState([]);
@@ -204,49 +198,12 @@ export default function AdminDashboard() {
       (b) => completedStatuses.includes(b.status)
     ).length;
 
-    // --- REVENUE (from transactions table) ---
-    let revenueUSD = 0;
-    let revenuePHP = 0;
-    transactionsToUse.forEach((t) => {
-      const amount = parseFloat(t.amount) || 0;
-      const currency = (t.currency || "usd").toLowerCase();
-      if (currency === "php") {
-        revenuePHP += amount;
-      } else {
-        revenueUSD += amount;
-      }
-    });
-
-    // --- TUTOR PAY (region-based from completed bookings) ---
-    let tutorPayUSD = 0;
-    let tutorPayPHP = 0;
-    const completedSessions = filteredBookings.filter((b) => completedStatuses.includes(b.status));
-    completedSessions.forEach((b) => {
-      const durationHours = (parseFloat(b.duration_min) || 0) / 60;
-      const region = b.Tutors?.region || "US";
-      if (region === "PH") {
-        tutorPayPHP += durationHours * 180; // ₱180/hr
-      } else {
-        tutorPayUSD += durationHours * 3; // $3/hr
-      }
-    });
-
-    // --- NET PROFIT ---
-    const companyShareUSD = revenueUSD - tutorPayUSD;
-    const companySharePHP = revenuePHP - tutorPayPHP;
-
     setStats((prev) => ({
       ...prev,
       totalBookings,
       pendingBookings,
       confirmedBookings,
       completedBookings,
-      revenueUSD,
-      revenuePHP,
-      tutorPayUSD,
-      tutorPayPHP,
-      companyShareUSD,
-      companySharePHP,
     }));
   };
 
@@ -277,29 +234,7 @@ export default function AdminDashboard() {
     },
   ];
 
-  const revenueData = [
-    {
-      title: "Revenue (USD)",
-      value: `$${stats.revenueUSD.toFixed(2)}`,
-      subValue: `₱${stats.revenuePHP.toFixed(2)} PHP`,
-      icon: DollarSign,
-      bgColor: "bg-emerald-500",
-    },
-    {
-      title: "Net Profit (USD)",
-      value: `$${stats.companyShareUSD.toFixed(2)}`,
-      subValue: `₱${stats.companySharePHP.toFixed(2)} PHP`,
-      icon: TrendingUp,
-      bgColor: "bg-blue-500",
-    },
-    {
-      title: "Tutor Pay (USD)",
-      value: `$${stats.tutorPayUSD.toFixed(2)}`,
-      subValue: `₱${stats.tutorPayPHP.toFixed(2)} PHP`,
-      icon: Users,
-      bgColor: "bg-purple-500",
-    },
-  ];
+
 
   if (loading) {
     return (
@@ -360,31 +295,6 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      {/* Revenue Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {revenueData.map((metric, index) => {
-          const Icon = metric.icon;
-          return (
-            <div
-              key={index}
-              className={`${metric.bgColor} rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="bg-white/20 p-3 rounded-lg">
-                  <Icon size={24} className="text-white" />
-                </div>
-              </div>
-              <p className="text-white/80 text-sm font-medium mb-1">
-                {metric.title}
-              </p>
-              <p className="text-2xl font-bold">{metric.value}</p>
-              {metric.subValue && (
-                <p className="text-white/70 text-sm mt-1">{metric.subValue}</p>
-              )}
-            </div>
-          );
-        })}
-      </div>
 
       {/* New Students and Expiring Credits */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
