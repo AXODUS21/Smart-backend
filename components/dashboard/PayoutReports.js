@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 const STATUS_COLORS = {
   pending: "bg-amber-100 text-amber-700 border-amber-300",
@@ -141,165 +141,243 @@ export default function PayoutReports() {
   const exportToExcel = (report) => {
     if (!report || !report.report_data) return;
 
-    const { withdrawals = [], summary = {} } = report.report_data;
+    try {
+      const { withdrawals = [], summary = {} } = report.report_data;
+      const wb = XLSX.utils.book_new();
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
+      const uniqueTutors = new Set(withdrawals.map(w => w.tutor_id)).size;
 
-    // Summary sheet
-    const summaryData = [
-      ["Payout Report Summary"],
-      [],
-      ["Report ID", report.id],
-      ["Report Period", `${formatDate(report.report_period_start)} - ${formatDate(report.report_period_end)}`],
-      ["Generation Date", formatDateTime(report.generation_date)],
-      ["Report Type", report.report_type === "automatic_payout" ? "Automatic Payout" : "Manual Payout"],
-      [],
-      ["Summary Statistics"],
-      ["Total Payouts", summary.total_payouts || 0],
-      ["Successful Payouts", summary.successful_payouts || 0],
-      ["Failed Payouts", summary.failed_payouts || 0],
-      ["Pending Payouts", summary.pending_payouts || 0],
-      ["Total Amount (PHP)", `₱${(summary.total_amount || 0).toFixed(2)}`],
-      ["Credit Rate", `₱${summary.credit_rate || 90} per credit`],
-    ];
+      // Summary data with better formatting
+      const summaryData = [
+        ["SMART BRAIN PAYOUT REPORT"],
+        [`Report ID: ${report.id}`],
+        [`Period: ${formatDate(report.report_period_start)} - ${formatDate(report.report_period_end)}`],
+        [`Generated: ${formatDateTime(report.generation_date)}`],
+        [`Type: ${report.report_type === "automatic_payout" ? "Automatic Payout" : "Manual Payout"}`],
+        [],
+        ["SUMMARY STATISTICS"],
+        ["Total Payouts", summary.total_payouts || 0],
+        ["Unique Tutors", uniqueTutors],
+        ["Successful", summary.successful_payouts || 0],
+        ["Failed", summary.failed_payouts || 0],
+        ["Pending", summary.pending_payouts || 0],
+        ["Total Amount", summary.total_amount || 0],
+        ["Currency", "PHP"],
+        ["Credit Rate", summary.credit_rate || 90],
+        [],
+        ["TUTORS PAID IN THIS CYCLE"],
+        ["Tutor Name", "Amount Paid (PHP)"],
+        ...withdrawals.map(w => [
+          w.tutor_name || (w.first_name && w.last_name ? `${w.first_name} ${w.last_name}` : null) || w.tutor_email || "N/A",
+          w.amount || 0
+        ])
+      ];
 
-    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+      const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // Basic column widths for summary
+      summaryWs["!cols"] = [{ wch: 20 }, { wch: 30 }];
+      
+      XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
 
-    // Withdrawals sheet
-    const withdrawalsData = [
-      [
+      // Withdrawals data
+      const withdrawalsHeaders = [
         "Withdrawal ID",
         "Tutor Name",
         "Tutor Email",
         "Amount (PHP)",
         "Credits",
         "Status",
-        "Payment Method",
-        "Requested Date",
-        "Note",
-      ],
-    ];
-
-    withdrawals.forEach((w) => {
-      withdrawalsData.push([
-        w.withdrawal_id,
-        w.tutor_name || "N/A",
-        w.tutor_email || "N/A",
-        w.amount || 0,
-        w.credits || 0,
-        w.status || "pending",
-        w.payment_method || "N/A",
-        formatDateTime(w.requested_at),
-        w.note || "",
-      ]);
-    });
-
-    const withdrawalsWs = XLSX.utils.aoa_to_sheet(withdrawalsData);
-    XLSX.utils.book_append_sheet(wb, withdrawalsWs, "Withdrawals");
-
-    // Errors sheet (if any)
-    if (report.report_data.errors && report.report_data.errors.length > 0) {
-      const errorsData = [
-        ["Tutor ID", "Tutor Name", "Error Message"],
-        ...report.report_data.errors.map((e) => [
-          e.tutor_id || "N/A",
-          e.tutor_name || "N/A",
-          e.error || "Unknown error",
-        ]),
+        "Method",
+        "Account Details",
+        "Requested At",
+        "Notes"
       ];
 
-      const errorsWs = XLSX.utils.aoa_to_sheet(errorsData);
-      XLSX.utils.book_append_sheet(wb, errorsWs, "Errors");
-    }
+      const withdrawalsRows = withdrawals.map(w => {
+        let details = "";
+        if (w.payment_method === "bank") {
+          details = `${w.bank_name || ""} - ${w.bank_account_number || ""}`;
+        } else if (w.payment_method === "gcash") {
+          details = `GCash: ${w.gcash_number || ""}`;
+        } else if (w.payment_method === "paypal") {
+          details = `PayPal: ${w.paypal_email || ""}`;
+        } else if (w.payment_method === "stripe" || w.payment_method === "card") {
+          details = `Stripe: ${w.stripe_account_id || "Connected"}`;
+        }
 
-    // Generate filename
-    const filename = `Payout_Report_${report.report_period_start}_${report.report_period_end}.xlsx`;
-    XLSX.writeFile(wb, filename);
+        // Fallback for tutor name if missing
+        const tutorName = w.tutor_name || (w.first_name && w.last_name ? `${w.first_name} ${w.last_name}` : null) || w.tutor_email || "N/A";
+
+        return [
+          w.withdrawal_id,
+          tutorName,
+          w.tutor_email || "N/A",
+          w.amount || 0,
+          w.credits || 0,
+          (w.status || "pending").toUpperCase(),
+          w.payment_method || "N/A",
+          details,
+          formatDateTime(w.requested_at),
+          w.note || ""
+        ];
+      });
+
+      const withdrawalsWs = XLSX.utils.aoa_to_sheet([withdrawalsHeaders, ...withdrawalsRows]);
+      
+      // Auto-size columns for withdrawals
+      const colWidths = withdrawalsHeaders.map((h, i) => {
+        let maxLen = h.length;
+        withdrawalsRows.forEach(row => {
+          const val = row[i] ? String(row[i]).length : 0;
+          if (val > maxLen) maxLen = val;
+        });
+        return { wch: Math.min(maxLen + 2, 50) };
+      });
+      withdrawalsWs["!cols"] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, withdrawalsWs, "Tutor Payouts");
+
+      // Errors sheet
+      if (report.report_data.errors && report.report_data.errors.length > 0) {
+        const errorsData = [
+          ["Tutor ID", "Tutor Name", "Error Message"],
+          ...report.report_data.errors.map(e => [
+            e.tutor_id || "N/A",
+            e.tutor_name || "N/A",
+            e.error || "Unknown error"
+          ])
+        ];
+        const errorsWs = XLSX.utils.aoa_to_sheet(errorsData);
+        errorsWs["!cols"] = [{ wch: 15 }, { wch: 25 }, { wch: 50 }];
+        XLSX.utils.book_append_sheet(wb, errorsWs, "Errors");
+      }
+
+      const filename = `SmartBrain_Payout_Report_${report.id}_${new Date().getTime()}.xlsx`;
+      XLSX.writeFile(wb, filename);
+    } catch (err) {
+      console.error("Excel Export Error:", err);
+      alert("Failed to export Excel report. Please check the console for details.");
+    }
   };
 
   const exportToPDF = (report) => {
     if (!report || !report.report_data) return;
 
-    const { withdrawals = [], summary = {} } = report.report_data;
-    const doc = new jsPDF();
+    try {
+      const { withdrawals = [], summary = {} } = report.report_data;
+      const doc = new jsPDF();
+      
+      // Premium Branding Header
+      doc.setFillColor(30, 41, 59); // dark slate
+      doc.rect(0, 0, 210, 40, "F");
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text("SMART BRAIN", 15, 22);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("PAYOUT SETTLEMENT REPORT", 15, 30);
+      
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Report ID: #${report.id}`, 195, 22, { align: "right" });
+      doc.text(`Generated: ${formatDate(new Date())}`, 195, 30, { align: "right" });
 
-    // Report title
-    doc.setFontSize(18);
-    doc.text("Payout Report", 14, 20);
-
-    // Report details
-    doc.setFontSize(10);
-    let yPos = 35;
-    doc.text(`Report ID: ${report.id}`, 14, yPos);
-    yPos += 7;
-    doc.text(
-      `Period: ${formatDate(report.report_period_start)} - ${formatDate(report.report_period_end)}`,
-      14,
-      yPos
-    );
-    yPos += 7;
-    doc.text(`Generated: ${formatDateTime(report.generation_date)}`, 14, yPos);
-    yPos += 7;
-    doc.text(`Type: ${report.report_type === "automatic_payout" ? "Automatic Payout" : "Manual Payout"}`, 14, yPos);
-    yPos += 12;
-
-    // Summary statistics
-    doc.setFontSize(12);
-    doc.text("Summary Statistics", 14, yPos);
-    yPos += 8;
-
-    doc.setFontSize(10);
-    const summaryData = [
-      ["Metric", "Value"],
-      ["Total Payouts", summary.total_payouts || 0],
-      ["Successful Payouts", summary.successful_payouts || 0],
-      ["Failed Payouts", summary.failed_payouts || 0],
-      ["Pending Payouts", summary.pending_payouts || 0],
-      ["Total Amount (PHP)", `₱${(summary.total_amount || 0).toFixed(2)}`],
-      ["Credit Rate", `₱${summary.credit_rate || 90} per credit`],
-    ];
-
-    doc.autoTable({
-      startY: yPos,
-      head: [summaryData[0]],
-      body: summaryData.slice(1),
-      theme: "striped",
-      headStyles: { fillColor: [59, 130, 246] },
-    });
-
-    yPos = doc.lastAutoTable.finalY + 15;
-
-    // Withdrawals table
-    if (withdrawals.length > 0) {
+      let yPos = 50;
+      
+      // Main Info Section
+      doc.setTextColor(30, 41, 59);
       doc.setFontSize(12);
-      doc.text("Individual Payouts", 14, yPos);
+      doc.setFont("helvetica", "bold");
+      doc.text("Report Information", 15, yPos);
+      yPos += 8;
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Period: ${formatDate(report.report_period_start)} to ${formatDate(report.report_period_end)}`, 15, yPos);
+      yPos += 6;
+      doc.text(`Type: ${report.report_type === "automatic_payout" ? "Scheduled Cycle" : "Manual Distribution"}`, 15, yPos);
+      yPos += 15;
+
+      // Summary Stats Dashboard
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Executive Summary", 15, yPos);
       yPos += 8;
 
-      const withdrawalsData = withdrawals.map((w) => [
-        w.withdrawal_id || "N/A",
+      const uniqueTutors = new Set(withdrawals.map(w => w.tutor_id)).size;
+
+      const summaryRows = [
+        ["Total Amount Disbursed", `PHP ${parseFloat(summary.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+        ["Total Payout Count", summary.total_payouts || 0],
+        ["Unique Tutors Involved", uniqueTutors],
+        ["Successful Transactions", summary.successful_payouts || 0],
+        ["Failed / Blocked", summary.failed_payouts || 0],
+        ["Current Credit Rate", `PHP ${summary.credit_rate || 90.00} / Credit`]
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        body: summaryRows,
+        theme: "plain",
+        styles: { fontSize: 10, cellPadding: 2 },
+        columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 }, 1: { cellWidth: 100 } },
+      });
+
+      yPos = doc.lastAutoTable.finalY + 15;
+
+      // Withdrawals Table
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Transaction Breakdown", 15, yPos);
+      yPos += 6;
+
+      const tableData = withdrawals.map(w => [
         w.tutor_name || "N/A",
-        `₱${(w.amount || 0).toFixed(2)}`,
-        w.credits || 0,
-        w.status || "pending",
-        formatDateTime(w.requested_at),
+        w.tutor_email || "N/A",
+        `PHP ${parseFloat(w.amount || 0).toFixed(2)}`,
+        w.payment_method?.toUpperCase() || "N/A",
+        (w.status || "pending").toUpperCase()
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPos,
-        head: [["ID", "Tutor", "Amount", "Credits", "Status", "Requested"]],
-        body: withdrawalsData,
+        head: [["TUTOR NAME", "EMAIL", "AMOUNT", "METHOD", "STATUS"]],
+        body: tableData,
         theme: "striped",
-        headStyles: { fillColor: [59, 130, 246] },
-        styles: { fontSize: 8 },
+        headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: "bold" },
+        styles: { fontSize: 7 }, // slightly smaller to fit email
+        columnStyles: {
+          2: { halign: "right" },
+          4: { fontStyle: "bold" }
+        },
+        margin: { top: 10, bottom: 20 }
       });
-    }
 
-    // Generate filename
-    const filename = `Payout_Report_${report.report_period_start}_${report.report_period_end}.pdf`;
-    doc.save(filename);
+      // Footer
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(
+          `Smart Brain Internal Financial Document | Page ${i} of ${pageCount} | Generated at ${formatDateTime(new Date())}`,
+          105, 
+          285, 
+          { align: "center" }
+        );
+      }
+
+      const filename = `SmartBrain_Payout_Report_${report.id}.pdf`;
+      doc.save(filename);
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+      alert("Failed to export PDF report. Please check the console for details.");
+    }
   };
+
 
   const viewReportDetails = (report) => {
     setSelectedReport(report);
