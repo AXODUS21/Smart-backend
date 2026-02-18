@@ -48,6 +48,10 @@ function getSupabaseClient() {
  */
 export async function POST(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const dryRun = searchParams.get('dryRun') === 'true';
+    const force = searchParams.get('force') === 'true';
+    
     // Verify cron secret OR superadmin session
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
@@ -86,25 +90,38 @@ export async function POST(request) {
         }
         
         if (!isSuperadminAuthorized) {
-             // return NextResponse.json(
-             //    { error: 'Unauthorized - Invalid credentials' },
-             //    { status: 401 }
-             //  );
-             console.log('Bypassing auth for manual trigger');
+             return NextResponse.json(
+                { error: 'Unauthorized - Invalid credentials' },
+                { status: 401 }
+              );
         }
     }
+
+    // Check date logic (15th or Last Day) unless force or manual dates
+    const today = new Date();
+    const day = today.getDate();
+    const is15th = day === 15;
+    
+    // efficient last day check: tomorrow is 1st
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isLastDay = tomorrow.getDate() === 1;
 
     // Parse body for manual dates if manual
     if (isManual) {
         try {
-            const body = await request.json();
+            const body = await request.clone().json().catch(() => ({}));
             if (body.start && body.end) {
                 manualStart = new Date(body.start);
                 manualEnd = new Date(body.end);
             }
         } catch (e) {
-            // Body might be empty, that's fine, use auto dates
+            // Body might be empty or not JSON, that's fine
         }
+    }
+
+    if (!is15th && !isLastDay && !force && !manualStart) {
+        return NextResponse.json({ message: 'Not payout day' }, { status: 200 });
     }
     const results = {
       processed: 0,
@@ -207,88 +224,102 @@ export async function POST(request) {
           let withdrawalNote = `Automatic payout (${new Date().toISOString().split('T')[0]}): ${availableCredits} credits = ₱${amountPhp.toFixed(2)}`;
 
           if (tutor.stripe_account_id && tutor.stripe_onboarding_complete) {
-              try {
-                  const transfer = await stripe.transfers.create({
-                      amount: Math.round(amountPhp * 100), // Amount in cents
-                      currency: 'php',
-                      destination: tutor.stripe_account_id,
-                      description: `Payout for ${availableCredits} credits`,
-                  });
-                  stripeTransferId = transfer.id;
-                  withdrawalStatus = 'completed'; // Auto-completed
-                  withdrawalNote += ` (Stripe Transfer: ${stripeTransferId})`;
-                  console.log(`Stripe transfer successful for tutor ${tutor.id}: ${stripeTransferId}`);
-              } catch (stripeError) {
-                  console.error(`Stripe transfer failed for tutor ${tutor.id}:`, stripeError);
-                  // Don't fail the whole process, just revert to pending so admin can handle it manually or retry
-                  withdrawalNote += ` (Stripe Failed: ${stripeError.message})`;
-                  results.errors.push({
-                      tutor_id: tutor.id,
-                      tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim(),
-                      error: `Stripe Transfer Failed: ${stripeError.message}`
-                  });
+              if (dryRun) {
+                  withdrawalStatus = 'completed'; // Simulate completion
+                  withdrawalNote += ` (DRY RUN - Stripe Transfer Simulated)`;
+                  console.log(`[DRY RUN] Stripe transfer simulated for tutor ${tutor.id}`);
+              } else {
+                  try {
+                      const transfer = await stripe.transfers.create({
+                          amount: Math.round(amountPhp * 100), // Amount in cents
+                          currency: 'php',
+                          destination: tutor.stripe_account_id,
+                          description: `Payout for ${availableCredits} credits`,
+                      });
+                      stripeTransferId = transfer.id;
+                      withdrawalStatus = 'completed'; // Auto-completed
+                      withdrawalNote += ` (Stripe Transfer: ${stripeTransferId})`;
+                      console.log(`Stripe transfer successful for tutor ${tutor.id}: ${stripeTransferId}`);
+                  } catch (stripeError) {
+                      console.error(`Stripe transfer failed for tutor ${tutor.id}:`, stripeError);
+                      // Don't fail the whole process, just revert to pending so admin can handle it manually or retry
+                      withdrawalNote += ` (Stripe Failed: ${stripeError.message})`;
+                      results.errors.push({
+                          tutor_id: tutor.id,
+                          tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim(),
+                          error: `Stripe Transfer Failed: ${stripeError.message}`
+                      });
+                  }
               }
           }
 
           // Create withdrawal record
-          const { error: withdrawalError } = await supabase
-            .from('TutorWithdrawals')
-            .insert({
-              tutor_id: tutor.id,
-              amount: amountPhp,
-              status: withdrawalStatus,
-              note: withdrawalNote,
-            });
-
-          if (withdrawalError) {
-            results.errors.push({
-              tutor_id: tutor.id,
-              tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim() || tutor.email,
-              error: withdrawalError.message,
-            });
-            results.failed++;
+          let createdWithdrawal = null;
+          if (dryRun) {
+              createdWithdrawal = {
+                  id: 'DRY-RUN-' + Math.random().toString(36).substr(2, 9),
+                  tutor_id: tutor.id,
+                  amount: amountPhp,
+                  status: withdrawalStatus,
+                  requested_at: new Date().toISOString(),
+                  note: withdrawalNote
+              };
+              console.log(`[DRY RUN] Withdrawal record simulated for tutor ${tutor.id}`);
           } else {
-            // Get the created withdrawal record with tutor details
-            const { data: createdWithdrawal } = await supabase
-              .from('TutorWithdrawals')
-              .select('id, tutor_id, amount, status, requested_at, note')
-              .eq('tutor_id', tutor.id)
-              .order('requested_at', { ascending: false })
-              .limit(1)
-              .single();
+              const { data: withdrawalData, error: withdrawalError } = await supabase
+                .from('TutorWithdrawals')
+                .insert({
+                  tutor_id: tutor.id,
+                  amount: amountPhp,
+                  status: withdrawalStatus,
+                  note: withdrawalNote,
+                })
+                .select('id, tutor_id, amount, status, requested_at, note')
+                .single();
 
-            // Update last_payout_date
-            await supabase
-              .from('Tutors')
-              .update({ last_payout_date: new Date().toISOString() })
-              .eq('id', tutor.id);
+              if (withdrawalError) {
+                results.errors.push({
+                  tutor_id: tutor.id,
+                  tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim() || tutor.email,
+                  error: withdrawalError.message,
+                });
+                results.failed++;
+                continue; // Skip further processing for this tutor
+              }
+              createdWithdrawal = withdrawalData;
 
+              // Update last_payout_date
+              await supabase
+                .from('Tutors')
+                .update({ last_payout_date: new Date().toISOString() })
+                .eq('id', tutor.id);
+          }
+
+          if (createdWithdrawal) {
             results.processed++;
             results.totalAmount += amountPhp;
             
             // Store withdrawal details for report
-            if (createdWithdrawal) {
-              results.withdrawals.push({
-                withdrawal_id: createdWithdrawal.id,
-                tutor_id: tutor.id,
-                tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim() || tutor.email,
-                tutor_email: tutor.email,
-                amount: amountPhp,
-                credits: availableCredits,
-                status: createdWithdrawal.status,
-                payment_method: tutor.payment_method,
-                requested_at: createdWithdrawal.requested_at,
-                note: createdWithdrawal.note,
-                // Payment Details
-                bank_account_name: tutor.bank_account_name,
-                bank_account_number: tutor.bank_account_number,
-                bank_name: tutor.bank_name,
-                bank_branch: tutor.bank_branch,
-                paypal_email: tutor.paypal_email,
-                gcash_number: tutor.gcash_number,
-                gcash_name: tutor.gcash_name,
-              });
-            }
+            results.withdrawals.push({
+              withdrawal_id: createdWithdrawal.id,
+              tutor_id: tutor.id,
+              tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim() || tutor.email,
+              tutor_email: tutor.email,
+              amount: amountPhp,
+              credits: availableCredits,
+              status: createdWithdrawal.status,
+              payment_method: tutor.payment_method,
+              requested_at: createdWithdrawal.requested_at,
+              note: createdWithdrawal.note,
+              // Payment Details
+              bank_account_name: tutor.bank_account_name,
+              bank_account_number: tutor.bank_account_number,
+              bank_name: tutor.bank_name,
+              bank_branch: tutor.bank_branch,
+              paypal_email: tutor.paypal_email,
+              gcash_number: tutor.gcash_number,
+              gcash_name: tutor.gcash_name,
+            });
           }
         }
       } catch (tutorError) {
@@ -319,24 +350,26 @@ export async function POST(request) {
         },
       };
 
-      const { data: report, error: reportError } = await supabase
-        .from('PayoutReports')
-        .insert({
-          report_period_start: periodStart.toISOString().split('T')[0],
-          report_period_end: periodEnd.toISOString().split('T')[0],
-          report_type: 'automatic_payout',
-          total_payouts: results.processed + results.failed,
-          total_amount: results.totalAmount,
-          successful_payouts: results.processed,
-          failed_payouts: results.failed,
-          pending_payouts: results.processed,
-          report_data: reportData,
-          notes: isManual 
-            ? `Manual payout processing (triggered by ${user?.email || 'admin'}) completed on ${new Date().toISOString()}`
-            : `Automatic payout processing completed on ${new Date().toISOString()}`,
-        })
-        .select('id')
-        .single();
+      const { data: report, error: reportError } = dryRun 
+        ? { data: { id: 'DRY-RUN-REPORT' }, error: null }
+        : await supabase
+            .from('PayoutReports')
+            .insert({
+              report_period_start: periodStart.toISOString().split('T')[0],
+              report_period_end: periodEnd.toISOString().split('T')[0],
+              report_type: 'automatic_payout',
+              total_payouts: results.processed + results.failed,
+              total_amount: results.totalAmount,
+              successful_payouts: results.processed,
+              failed_payouts: results.failed,
+              pending_payouts: results.processed,
+              report_data: reportData,
+              notes: isManual 
+                ? `Manual payout processing (triggered by ${user?.email || 'admin'}) completed on ${new Date().toISOString()}${dryRun ? ' [DRY RUN]' : ''}`
+                : `Automatic payout processing completed on ${new Date().toISOString()}${dryRun ? ' [DRY RUN]' : ''}`,
+            })
+            .select('id')
+            .single();
 
       if (!reportError && report) {
         reportId = report.id;

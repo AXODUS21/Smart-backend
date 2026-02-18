@@ -57,9 +57,9 @@ curl -X POST https://your-domain.com/api/cron/process-payouts \
 ```
 
 ## Credit Conversion Rate
-- 1 credit = 180 PHP
-- 30 minutes session = 1 credit = ₱180
-- 1 hour session = 2 credits = ₱360
+- 1 credit = 90 PHP
+- 30 minutes session = 1 credit = ₱90
+- 1 hour session = 2 credits = ₱180
 
 ## Payout Flow
 

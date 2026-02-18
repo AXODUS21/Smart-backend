@@ -5,7 +5,7 @@
 This document explains how tutors receive money when they cash out their credits. The system now includes:
 
 1. **Payment Information Management** - Tutors can add their bank, PayPal, or GCash details
-2. **Cash Out Flow** - Tutors automatically receive payout requests every 15 days (15th and 30th of each month). Credits are converted to PHP (1 credit = 180 PHP)
+2. **Cash Out Flow** - Tutors automatically receive payout requests every 15 days (15th and 30th of each month). Credits are converted to PHP (1 credit = 90 PHP)
 3. **Payment Processing** - System validates payment info and processes payouts
 
 ## Current Implementation
