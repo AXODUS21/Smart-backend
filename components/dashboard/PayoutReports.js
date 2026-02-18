@@ -384,7 +384,6 @@ export default function PayoutReports() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <DollarSign className="text-emerald-600" size={18} />
                       <div>
                         <p className="text-xs text-slate-500">Total Amount</p>
                         <p className="text-sm font-medium text-slate-900">
@@ -644,7 +643,6 @@ function ReportDetailsView({ report, formatDateTime, formatDate }) {
                         </p>
                         <div className="flex items-center gap-4 mt-3">
                           <div className="flex items-center gap-2">
-                            <DollarSign className="text-emerald-600" size={18} />
                             <span className="text-xl font-bold text-slate-900">
                               ₱{parseFloat(w.amount || 0).toFixed(2)}
                             </span>
