@@ -35,139 +35,29 @@ export default function AdminUsers() {
 
       if (allUsersError) {
         console.error("Error fetching all users:", allUsersError);
-
-        // Check current user role for debugging RLS
-        const { data: { user } } = await supabase.auth.getUser();
-        console.log("Current Auth User ID:", user?.id);
-        
-        if (user) {
-          const [adminCheck, superAdminCheck] = await Promise.all([
-            supabase.from('admins').select('id').eq('user_id', user.id),
-            supabase.from('superadmins').select('id').eq('user_id', user.id)
-          ]);
-          
-          console.log("Is in 'admins' table?", adminCheck.data?.length > 0);
-          console.log("Is in 'superadmins' table?", superAdminCheck.data?.length > 0);
-        }
-
-        console.log("Falling back to direct table queries...");
-        
-        // Fetch principals separately first to see the exact error
-        console.log("Attempting to fetch Principals table...");
-        const principalsTest = await supabase.from("Principals").select("*").order("created_at", { ascending: false });
-        console.log("Principals fetch result:", {
-          data: principalsTest.data,
-          error: principalsTest.error,
-          count: principalsTest.data?.length || 0
-        });
-        
-        // Fallback to old method if function doesn't exist
-        const [studentsData, tutorsData, adminsData, principalsData, schoolsData] = await Promise.all([
-          supabase.from("Students").select("*").order("created_at", { ascending: false }),
-          supabase.from("Tutors").select("*").order("created_at", { ascending: false }),
-          supabase.from("admins").select("*").order("created_at", { ascending: false }),
-          supabase.from("Principals").select("*").order("created_at", { ascending: false }),
-          supabase.from("Schools").select("principal_id"),
-        ]);
-
-        console.log("Direct query results:");
-        console.log("  Students:", studentsData.data?.length || 0);
-        console.log("  Tutors:", tutorsData.data?.length || 0);
-        console.log("  Admins:", adminsData.data?.length || 0);
-        console.log("  Principals:", principalsData.data?.length || 0);
-
-        if (studentsData.error) throw studentsData.error;
-        if (tutorsData.error) throw tutorsData.error;
-        if (adminsData.error) throw adminsData.error;
-        
-        // Process principals with school counts
-        const allSchools = schoolsData.data || [];
-        const principals = (principalsData.data || []).map(p => {
-            const schoolCount = allSchools.filter(s => s.principal_id === p.user_id).length;
-            
-            // Construct principal object matching the structure
-            let displayName = p.first_name || p.email;
-            if (p.first_name && p.last_name) {
-                displayName = `${p.first_name} ${p.last_name}`;
-            } else if (p.district_school_name) {
-                displayName = p.district_school_name;
-            }
-
-            return {
-                id: p.id,
-                user_id: p.user_id,
-                email: p.email,
-                name: displayName, // Use name or district name
-                created_at: p.created_at,
-                role: 'principal',
-                has_profile: true,
-                credits: p.credits,
-                contact_number: p.contact_number,
-                address: p.address,
-                district_school_name: p.district_school_name,
-                type_of_school: p.type_of_school,
-                school_count: schoolCount
-            };
-        });
-
-        // Map other users
-        const mapUser = (u, role) => ({
-            id: u.id,
-            user_id: u.user_id,
-            email: u.email,
-            name: (u.first_name && u.last_name) ? `${u.first_name} ${u.last_name}` : (u.name || u.email),
-            created_at: u.created_at,
-            first_name: u.first_name,
-            last_name: u.last_name,
-            role: role,
-            has_profile: true, // Assuming direct table fetch means they have a profile
-            credits: u.credits,
-            students: u.students, // for students/principals if applicable
-            district_school_name: u.district_school_name,
-            subjects: u.subjects, // for tutors
-            bio: u.bio // for tutors
-        });
-
-        setUsers({
-          students: (studentsData.data || []).map(u => mapUser(u, 'student')),
-          tutors: (tutorsData.data || []).map(u => mapUser(u, 'tutor')),
-          admins: (adminsData.data || []).map(u => mapUser(u, 'admin')),
-          principals: principals,
-        });
+        // Fallback to direct table queries could go here if needed
       } else {
-        // Transform the function result into the expected format
         const students = [];
         const tutors = [];
         const admins = [];
         const principals = [];
         
         (allUsersData || []).forEach(user => {
-          // Construct name from first_name and last_name if available
-          let displayName = user.name;
-          if (!displayName && (user.first_name || user.last_name)) {
-            displayName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-          }
-          if (!displayName) {
-            displayName = user.email;
-          }
-          
           const userObj = {
             id: user.id,
             user_id: user.id,
             email: user.email,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            name: displayName,
+            name: user.name || user.email,
             created_at: user.created_at,
             role: user.role,
             has_profile: user.has_profile,
             credits: user.credits,
-            students: user.students,
             // Principal specific fields
             district_school_name: user.district_school_name,
             type_of_school: user.type_of_school,
             contact_number: user.contact_number,
             address: user.address,
+            school_count: parseInt(user.school_count || 0),
             // Tutor specific fields
             subjects: user.subjects,
             bio: user.bio,
@@ -180,13 +70,8 @@ export default function AdminUsers() {
           } else if (user.role === 'admin' || user.role === 'superadmin') {
             admins.push(userObj);
           } else if (user.role === 'principal') {
-            // For principals, prioritize school name as display name
-            if (user.district_school_name) {
-              userObj.name = user.district_school_name;
-            }
             principals.push(userObj);
           } else if (user.role === 'pending') {
-            // Add pending users to students list with a note
             students.push({ ...userObj, role: 'pending' });
           }
         });
@@ -198,7 +83,7 @@ export default function AdminUsers() {
           principals,
         });
         
-        console.log("Fetched principals (RPC):", principals.length, principals);
+        console.log("AdminUsers: Fetched Principals with counts:", principals.length);
       }
     } catch (error) {
       console.error("Error fetching users:", error);
