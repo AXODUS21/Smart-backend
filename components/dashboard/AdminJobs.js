@@ -593,13 +593,9 @@ export default function AdminJobs() {
             >
               <option value="newest">Sort: Newest First</option>
               <option value="oldest">Sort: Oldest First</option>
-              <option value="date">Sort: By Date</option>
-              <option value="student">Sort: By Student</option>
-              <option value="tutor">Sort: By Tutor</option>
               <option value="subject">Sort: By Subject</option>
               <option value="status">Sort: By Status</option>
               <option value="credits">Sort: By Credits</option>
-              <option value="duration">Sort: By Duration</option>
             </select>
             <select
               value={sortDirection}
