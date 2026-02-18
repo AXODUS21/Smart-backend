@@ -741,7 +741,7 @@ export default function Dashboard() {
 
         <div className="p-4 border-t border-gray-200">
           <div className="mb-3 px-4 py-2 text-sm text-gray-600">
-            {sidebarOpen && <div className="truncate">{user?.email}</div>}
+            {sidebarOpen && <div className="truncate">{userName || user?.email}</div>}
           </div>
           <button
             onClick={signOut}

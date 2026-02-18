@@ -145,7 +145,7 @@ export default function TutorHome() {
         // Get tutor info (single query to get all needed data)
         const { data: tutorData, error: tutorError } = await supabase
           .from("Tutors")
-          .select("id, name, subjects")
+          .select("id, first_name, last_name, subjects")
           .eq("user_id", user.id)
           .single();
 
