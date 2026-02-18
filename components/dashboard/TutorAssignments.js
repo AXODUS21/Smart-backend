@@ -283,7 +283,7 @@ export default function TutorAssignments() {
           title: formData.title,
           description: formData.description || null,
           subject: formData.subject || null,
-          due_date: formData.due_date || null,
+          due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
           max_points: formData.max_points ? parseFloat(formData.max_points) : null,
           file_url: fileUrl,
           status: "assigned",
