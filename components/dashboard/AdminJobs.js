@@ -39,6 +39,8 @@ export default function AdminJobs() {
           student:student_id (
             id,
             name,
+            first_name,
+            last_name,
             email
           ),
           tutor:tutor_id (
@@ -152,9 +154,9 @@ export default function AdminJobs() {
     if (searchTerm) {
       filtered = filtered.filter(
         (b) =>
-          b.student?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          getStudentDisplayName(b).toLowerCase().includes(searchTerm.toLowerCase()) ||
           b.student?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          b.tutor?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          getTutorDisplayName(b.tutor).toLowerCase().includes(searchTerm.toLowerCase()) ||
           b.tutor?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           b.subject?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -180,7 +182,7 @@ export default function AdminJobs() {
     // Student filter
     if (studentFilter) {
       filtered = filtered.filter((b) => {
-        const name = b.student?.name || "";
+        const name = getStudentDisplayName(b);
         return name.toLowerCase().includes(studentFilter.toLowerCase());
       });
     }
@@ -237,12 +239,12 @@ export default function AdminJobs() {
           bValue = new Date(b.start_time_utc || 0).getTime();
           break;
         case "student":
-          aValue = (a.student?.name || a.student?.email || "").toLowerCase();
-          bValue = (b.student?.name || b.student?.email || "").toLowerCase();
+          aValue = getStudentDisplayName(a).toLowerCase();
+          bValue = getStudentDisplayName(b).toLowerCase();
           break;
         case "tutor":
-          aValue = (a.tutor?.name || a.tutor?.email || "").toLowerCase();
-          bValue = (b.tutor?.name || b.tutor?.email || "").toLowerCase();
+          aValue = getTutorDisplayName(a.tutor).toLowerCase();
+          bValue = getTutorDisplayName(b.tutor).toLowerCase();
           break;
         case "subject":
           aValue = (a.subject || "").toLowerCase();
@@ -324,6 +326,30 @@ export default function AdminJobs() {
     return n.trim();
   };
 
+  const getStudentDisplayName = (booking) => {
+    if (!booking) return "Unknown";
+    const s = booking.student;
+    
+    // 1. Try profile_name from Schedules table first (most specific)
+    if (booking.profile_name && booking.profile_name.trim()) {
+      return booking.profile_name.trim();
+    }
+    
+    if (!s) return "Unknown";
+    
+    // 2. Try Students.name
+    if (s.name && s.name.trim()) return s.name.trim();
+    
+    // 3. Try Students.first_name + last_name
+    let n = `${s.first_name || ""} ${s.last_name || ""}`.trim();
+    if (n) return n;
+    
+    // 4. Fallback to email if name is missing
+    if (s.email) return s.email;
+    
+    return "Unknown";
+  };
+
   const getUniqueTutors = () => {
     const tutors = bookings
       .map((b) => getTutorDisplayName(b.tutor))
@@ -335,7 +361,7 @@ export default function AdminJobs() {
 
   const getUniqueStudents = () => {
     const students = bookings
-      .map((b) => b.student?.name)
+      .map((b) => getStudentDisplayName(b))
       .filter((name) => name && name.trim() !== "" && name !== "Unknown")
       .filter((value, index, self) => self.indexOf(value) === index)
       .sort((a, b) => a.localeCompare(b));
@@ -402,7 +428,7 @@ export default function AdminJobs() {
           onClick={() => {
             const dataToExport = filteredBookings().map(b => ({
               "Booking ID": b.id,
-              "Student Name": b.student?.name || "Unknown",
+              "Student Name": getStudentDisplayName(b),
               "Student Email": b.student?.email || "",
               "Tutor Name": getTutorDisplayName(b.tutor),
               "Tutor Email": b.tutor?.email || "",
@@ -437,7 +463,7 @@ export default function AdminJobs() {
             const tableColumn = ["ID", "Student", "Tutor", "Subject", "Date", "Time", "Status"];
             const tableRows = filteredBookings().map(b => [
               b.id,
-              b.student?.name || "Unknown",
+              getStudentDisplayName(b),
               getTutorDisplayName(b.tutor),
               b.subject || "N/A",
               new Date(b.start_time_utc).toLocaleDateString(),
@@ -753,7 +779,7 @@ export default function AdminJobs() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-slate-900">
-                      {booking.student?.name || "Unknown"}
+                      {getStudentDisplayName(booking)}
                     </div>
                     <div className="text-sm text-slate-500">{booking.student?.email || ""}</div>
                   </td>
