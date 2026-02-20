@@ -107,29 +107,43 @@ export default function PayoutReports() {
       const token = await getAccessToken();
       if (!token) throw new Error("Authentication expired");
 
-      const body = {};
-      
       if (!manualDates.start || !manualDates.end) {
         throw new Error("Please select both start and end dates.");
       }
-      body.start = manualDates.start;
-      body.end = manualDates.end;
 
-      const response = await fetch("/api/cron/process-payouts", {
-        method: "POST",
+      const response = await fetch(`/api/superadmin/payout-stats?start=${manualDates.start}&end=${manualDates.end}`, {
+        method: "GET",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(body),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to generate report");
       
+      // Create a temporary report object for display
+      const tempReport = {
+        id: "PREVIEW",
+        report_period_start: manualDates.start,
+        report_period_end: manualDates.end,
+        generation_date: new Date().toISOString(),
+        report_type: "custom_range_preview",
+        total_payouts: data.summary.total_payouts,
+        total_amount: data.summary.total_amount,
+        successful_payouts: data.summary.successful_payouts,
+        failed_payouts: data.summary.failed_payouts,
+        pending_payouts: data.summary.pending_payouts,
+        report_data: {
+          withdrawals: data.withdrawals,
+          summary: data.summary,
+          errors: data.errors || []
+        }
+      };
+
       setShowGenerateModal(false);
-      loadReports(); // Refresh list
-      alert(`Report generated: ${data.message}`);
+      setSelectedReport(tempReport);
+      setShowReportDetails(true);
+      
     } catch (err) {
       console.error("Error generating report:", err);
       setError(err.message || "Failed to generate report");

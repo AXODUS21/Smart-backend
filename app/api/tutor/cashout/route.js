@@ -171,6 +171,7 @@ export async function POST(request) {
         tutor_id: tutorData.id,
         amount: amountPhp,
         status: 'pending', // Will remain pending until superadmin approves
+        payment_method: tutorData.payment_method,
         note: `Cash out request: ${credits} credits = ₱${amountPhp.toFixed(2)} via ${tutorData.payment_method}`,
       })
       .select()

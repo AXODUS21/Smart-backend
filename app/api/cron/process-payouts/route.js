@@ -272,6 +272,7 @@ export async function POST(request) {
                   tutor_id: tutor.id,
                   amount: amountPhp,
                   status: withdrawalStatus,
+                  payment_method: tutor.payment_method,
                   note: withdrawalNote,
                 })
                 .select('id, tutor_id, amount, status, requested_at, note')
