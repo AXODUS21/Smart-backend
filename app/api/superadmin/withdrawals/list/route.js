@@ -95,6 +95,7 @@ export async function GET(request) {
           first_name,
           last_name,
           email,
+          pricing_region,
           payment_method,
           bank_account_name,
           bank_account_number,

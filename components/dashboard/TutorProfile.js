@@ -684,11 +684,23 @@ export default function TutorProfile() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-slate-600 mb-1">Equivalent in PHP</p>
-                  <p className="text-2xl font-bold text-emerald-600">
-                    ₱{balanceInfo?.credits !== undefined ? (balanceInfo.credits * 90).toFixed(2) : (credits * 90).toFixed(2)}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">1 credit = 90 PHP</p>
+                  {tutorData?.pricing_region === 'PH' ? (
+                    <>
+                      <p className="text-sm text-slate-600 mb-1">Equivalent in PHP</p>
+                      <p className="text-2xl font-bold text-emerald-600">
+                        ₱{balanceInfo?.credits !== undefined ? (balanceInfo.credits * 90).toFixed(2) : (credits * 90).toFixed(2)}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">1 credit = ₱90 PHP</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-600 mb-1">Equivalent in USD</p>
+                      <p className="text-2xl font-bold text-emerald-600">
+                        ${balanceInfo?.credits !== undefined ? (balanceInfo.credits * 1.5).toFixed(2) : (credits * 1.5).toFixed(2)}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">1 credit = $1.50 USD</p>
+                    </>
+                  )}
                 </div>
               </div>
               {/* Note about automatic payouts */}

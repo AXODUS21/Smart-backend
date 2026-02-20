@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const CREDIT_TO_PHP_RATE = 90;
+const CREDIT_TO_USD_RATE = 1.5; // 1 credit = $1.50 USD for international tutors
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -46,7 +47,7 @@ export async function GET(request) {
     // Fetch withdrawals within range, including Tutor details
     const { data: withdrawalsData, error } = await supabase
       .from('TutorWithdrawals')
-      .select('*, Tutors(first_name, last_name, email, payment_method, bank_account_name, bank_account_number, bank_name, bank_branch, paypal_email, gcash_number, gcash_name, stripe_account_id)')
+      .select('*, Tutors(first_name, last_name, email, pricing_region, payment_method, bank_account_name, bank_account_number, bank_name, bank_branch, paypal_email, gcash_number, gcash_name, stripe_account_id)')
       .gte('requested_at', startDate.toISOString())
       .lte('requested_at', endDate.toISOString())
       .order('requested_at', { ascending: false });
@@ -62,17 +63,21 @@ export async function GET(request) {
         ? `${tutor.first_name} ${tutor.last_name}`.trim()
         : (tutor.email || 'Unknown');
 
+      const isInternational = tutor.pricing_region !== 'PH';
+      const credits = isInternational
+        ? Math.round((w.amount || 0) / CREDIT_TO_USD_RATE)
+        : Math.round((w.amount || 0) / CREDIT_TO_PHP_RATE);
+
       return {
         withdrawal_id: w.id,
         tutor_id: w.tutor_id,
         tutor_name: tutorName,
         tutor_email: tutor.email,
+        pricing_region: tutor.pricing_region || 'US',
+        is_international: isInternational,
         amount: w.amount,
-        credits: Math.round((w.amount || 0) / CREDIT_TO_PHP_RATE), // Approximate credits if not stored, though usually 'credits' might be good to have. 
-        // Wait, TutorWithdrawals might not have 'credits' column. Check process-payouts. 
-        // process-payouts CALCULATES credits from available sessions, and creates withdrawal with just amount.
-        // It DOES NOT save 'credits' to TutorWithdrawals table in the INSERT.
-        // So we must reverse calculate or just leave as is.
+        amount_usd: isInternational ? parseFloat(w.amount || 0) : null,
+        credits,
         status: w.status,
         payment_method: w.payment_method || tutor.payment_method || 'manual', // Fallback to tutor profile if not in record
         requested_at: w.requested_at,

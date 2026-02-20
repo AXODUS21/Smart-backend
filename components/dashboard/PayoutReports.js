@@ -180,11 +180,15 @@ export default function PayoutReports() {
         ["Credit Rate", summary.credit_rate || 90],
         [],
         ["TUTORS PAID IN THIS CYCLE"],
-        ["Tutor Name", "Amount Paid (PHP)"],
-        ...withdrawals.map(w => [
-          w.tutor_name || (w.first_name && w.last_name ? `${w.first_name} ${w.last_name}` : null) || w.tutor_email || "N/A",
-          w.amount || 0
-        ])
+        ["Tutor Name", "Region", "Amount"],
+        ...withdrawals.map(w => {
+          const isIntl = w.pricing_region !== 'PH' && w.is_international !== false;
+          return [
+            w.tutor_name || (w.first_name && w.last_name ? `${w.first_name} ${w.last_name}` : null) || w.tutor_email || "N/A",
+            isIntl ? 'International' : 'Philippines',
+            isIntl ? `$${parseFloat(w.amount || 0).toFixed(2)} USD` : `PHP ${parseFloat(w.amount || 0).toFixed(2)}`
+          ];
+        })
       ];
 
       const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
@@ -199,7 +203,8 @@ export default function PayoutReports() {
         "Withdrawal ID",
         "Tutor Name",
         "Tutor Email",
-        "Amount (PHP)",
+        "Region",
+        "Amount",
         "Credits",
         "Status",
         "Method",
@@ -223,11 +228,13 @@ export default function PayoutReports() {
         // Fallback for tutor name if missing
         const tutorName = w.tutor_name || (w.first_name && w.last_name ? `${w.first_name} ${w.last_name}` : null) || w.tutor_email || "N/A";
 
+        const isIntl = w.pricing_region !== 'PH' && w.is_international !== false;
         return [
           w.withdrawal_id,
           tutorName,
           w.tutor_email || "N/A",
-          w.amount || 0,
+          isIntl ? 'International' : 'Philippines',
+          isIntl ? `$${parseFloat(w.amount || 0).toFixed(2)} USD` : parseFloat(w.amount || 0).toFixed(2),
           w.credits || 0,
           (w.status || "pending").toUpperCase(),
           w.payment_method || "N/A",
@@ -348,13 +355,19 @@ export default function PayoutReports() {
       doc.text("Transaction Breakdown", 15, yPos);
       yPos += 6;
 
-      const tableData = withdrawals.map(w => [
-        w.tutor_name || "N/A",
-        w.tutor_email || "N/A",
-        `PHP ${parseFloat(w.amount || 0).toFixed(2)}`,
-        w.payment_method?.toUpperCase() || "N/A",
-        (w.status || "pending").toUpperCase()
-      ]);
+      const tableData = withdrawals.map(w => {
+        const isIntl = w.pricing_region !== 'PH' && w.is_international !== false;
+        const amountStr = isIntl
+          ? `$${parseFloat(w.amount || 0).toFixed(2)} USD`
+          : `PHP ${parseFloat(w.amount || 0).toFixed(2)}`;
+        return [
+          w.tutor_name || "N/A",
+          w.tutor_email || "N/A",
+          amountStr,
+          w.payment_method?.toUpperCase() || "N/A",
+          (w.status || "pending").toUpperCase()
+        ];
+      });
 
       autoTable(doc, {
         startY: yPos,
@@ -736,7 +749,9 @@ function ReportDetailsView({ report, formatDateTime, formatDate }) {
                         <div className="flex items-center gap-4 mt-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xl font-bold text-slate-900">
-                              ₱{parseFloat(w.amount || 0).toFixed(2)}
+                              {w.pricing_region !== 'PH' && w.is_international !== false
+                              ? `$${parseFloat(w.amount || 0).toFixed(2)} USD`
+                              : `₱${parseFloat(w.amount || 0).toFixed(2)}`}
                             </span>
                           </div>
                           <div className="text-sm text-slate-500">

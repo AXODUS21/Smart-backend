@@ -31,6 +31,7 @@ export default function TutorHome() {
   const [students, setStudents] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [tutorId, setTutorId] = useState(null);
+  const [tutorRegion, setTutorRegion] = useState('US'); // 'US' = international, 'PH' = Philippines
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [allSessions, setAllSessions] = useState([]);
@@ -52,8 +53,10 @@ export default function TutorHome() {
     },
 
     {
-      title: "Credits Earned",
-      value: metrics.creditsEarned.toString(),
+      title: tutorRegion === 'PH' ? "Credits Earned" : "Earnings (USD)",
+      value: tutorRegion === 'PH'
+        ? metrics.creditsEarned.toString()
+        : `$${(metrics.creditsEarned * 1.5).toFixed(2)}`,
       icon: TrendingUp,
       bgColor: "bg-orange-500",
       lightBg: "bg-orange-50",
@@ -145,7 +148,7 @@ export default function TutorHome() {
         // Get tutor info (single query to get all needed data)
         const { data: tutorData, error: tutorError } = await supabase
           .from("Tutors")
-          .select("id, first_name, last_name, subjects")
+          .select("id, first_name, last_name, subjects, pricing_region")
           .eq("user_id", user.id)
           .single();
 
@@ -160,8 +163,9 @@ export default function TutorHome() {
           return;
         }
 
-        // Store tutor ID for other queries
+        // Store tutor ID and region
         setTutorId(tutorData.id);
+        setTutorRegion(tutorData.pricing_region || 'US');
         const fullName = `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim();
         setTutorName(fullName || user.email);
         

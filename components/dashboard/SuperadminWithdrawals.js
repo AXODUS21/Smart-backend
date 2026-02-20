@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
@@ -257,6 +257,22 @@ export default function SuperadminWithdrawals() {
     return { method: "Unknown", details: [] };
   };
 
+  // Format amount based on tutor's region
+  const formatAmount = (tutor, amount) => {
+    const tutorData = Array.isArray(tutor) ? tutor[0] : tutor;
+    const isInternational = tutorData?.pricing_region !== 'PH';
+    const value = parseFloat(amount || 0);
+    if (isInternational) {
+      return `$${value.toFixed(2)} USD`;
+    }
+    return `₱${value.toFixed(2)}`;
+  };
+
+  const isInternationalTutor = (tutor) => {
+    const tutorData = Array.isArray(tutor) ? tutor[0] : tutor;
+    return tutorData?.pricing_region !== 'PH';
+  };
+
   const exportToExcel = () => {
     if (!filteredWithdrawals.length) return;
 
@@ -274,7 +290,8 @@ export default function SuperadminWithdrawals() {
         "Request ID": w.id,
         "Tutor Name": tutor ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() : "Unknown",
         "Tutor Email": tutor?.email || "N/A",
-        "Amount (PHP)": parseFloat(w.amount || 0).toFixed(2),
+        "Region": tutor?.pricing_region === 'PH' ? 'Philippines' : 'International',
+        [tutor?.pricing_region === 'PH' ? "Amount (PHP)" : "Amount (USD)"]: parseFloat(w.amount || 0).toFixed(2),
         "Status": w.status || "pending",
         "Requested Date": formatDate(w.requested_at),
         "Processed Date": w.processed_at ? formatDate(w.processed_at) : "N/A",
@@ -490,7 +507,7 @@ export default function SuperadminWithdrawals() {
                         <div className="flex items-center gap-2">
                           <DollarSign className="text-emerald-600" size={18} />
                           <span className="text-xl font-bold text-slate-900">
-                            ₱{parseFloat(withdrawal.amount || 0).toFixed(2)}
+                            {formatAmount(tutor, withdrawal.amount)}
                           </span>
                         </div>
                         <div className="text-sm text-slate-500">
@@ -691,4 +708,5 @@ export default function SuperadminWithdrawals() {
     </div>
   );
 }
+
 
