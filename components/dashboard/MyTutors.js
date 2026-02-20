@@ -54,7 +54,7 @@ export default function MyTutors() {
         const tutorIds = acceptedTutors.map(tutor => tutor.tutor_id);
         const { data, error } = await supabase
           .from('Tutors')
-          .select('user_id, name, email, subjects, availability')
+          .select('user_id, name, subjects, availability')
           .in('user_id', tutorIds);
 
         if (error) {

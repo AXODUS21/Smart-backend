@@ -69,8 +69,7 @@ export default function StudentFeedback({ overrideStudentId }) {
             `
             *,
             tutor:tutor_id (
-              name,
-              email
+              name
             )
           `
           );
@@ -99,7 +98,7 @@ export default function StudentFeedback({ overrideStudentId }) {
           });
           const transformedFeedback = filteredSessions.map((session) => ({
             id: session.id,
-            tutor: session.tutor?.name || session.tutor?.email || "Tutor",
+            tutor: session.tutor?.name || "Tutor",
             subject: session.subject || "Tutoring Session",
             date: formatDate(session.start_time_utc),
             feedback: session.tutor_review || "",

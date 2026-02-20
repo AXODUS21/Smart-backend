@@ -81,7 +81,6 @@ export default function StudentPastSessions({ overrideStudentId }) {
             *,
             tutor:tutor_id (
               name,
-              email,
               first_name,
               last_name
             )
@@ -123,7 +122,6 @@ export default function StudentPastSessions({ overrideStudentId }) {
             tutor:
               session.tutor?.name ||
               `${session.tutor?.first_name || ""} ${session.tutor?.last_name || ""}`.trim() ||
-              session.tutor?.email ||
               "Tutor",
             subject: session.subject || "Tutoring Session",
             date: formatDate(session.start_time_utc),
