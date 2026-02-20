@@ -1174,19 +1174,20 @@ export default function Meetings({ overrideStudentId }) {
   // Filter out past pending bookings (they should have been auto-rejected)
   const pendingBookings = tutorBookings.filter(
     (booking) =>
-      booking.status === "pending" && !isPastBooking(booking.start_time_utc)
+      booking.status === "pending"
   );
-  // Filter out past confirmed/cancelled bookings
+  // Filter out confirmed bookings (include past ones)
   const confirmedBookings = tutorBookings.filter(
     (booking) =>
-      booking.status === "confirmed" &&
-      !isPastBooking(booking.start_time_utc)
-  );
-  // Filter out past rejected bookings
+      booking.status === "confirmed"
+  ).sort((a, b) => new Date(b.start_time_utc) - new Date(a.start_time_utc));
+
+  // Filter out rejected bookings (include past ones)
   const rejectedBookings = tutorBookings.filter(
     (booking) =>
-      booking.status === "rejected" && !isPastBooking(booking.start_time_utc)
-  );
+      booking.status === "rejected"
+  ).sort((a, b) => new Date(b.start_time_utc) - new Date(a.start_time_utc));
+
   // Filter out cancelled bookings specifically for the Cancelled tab
   const cancelledBookings = tutorBookings.filter(
     (booking) =>
