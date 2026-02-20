@@ -15,6 +15,7 @@ export default function TutorSignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [location, setLocation] = useState('US');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -73,7 +74,9 @@ export default function TutorSignupPage() {
 
       if (authData.user) {
         try {
-          await ensureUserProfile(authData.user.id, firstName, lastName, email, 'tutor');
+          await ensureUserProfile(authData.user.id, firstName, lastName, email, 'tutor', {
+            pricing_region: location === 'PH' ? 'PH' : 'US'
+          });
         } catch (profileError) {
           console.error('Profile creation failed:', profileError);
         }
@@ -91,6 +94,7 @@ export default function TutorSignupPage() {
         setEmail('');
         setPassword('');
         setConfirmPassword('');
+        setLocation('US');
       }
     } catch (err) {
       setError(err.message || 'Unable to create account. Please try again.');
@@ -228,6 +232,25 @@ export default function TutorSignupPage() {
               {confirmPassword && password !== confirmPassword && (
                 <p className="text-sm text-red-600 mt-1">Passwords do not match</p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="location" className="text-sm font-medium text-gray-700">
+                Location <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="US">International</option>
+                <option value="PH">Philippines</option>
+              </select>
+              <p className="text-xs text-gray-500">
+                This determines your currency and payout options.
+              </p>
             </div>
 
             <button

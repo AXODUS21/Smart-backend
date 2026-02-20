@@ -657,6 +657,15 @@ export default function TutorProfile() {
                   ? `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim() || user?.email || "Tutor"
                   : user?.email || "Tutor"}
               </h3>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  tutorData?.pricing_region === 'PH' 
+                    ? 'bg-blue-100 text-blue-800' 
+                    : 'bg-purple-100 text-purple-800'
+                }`}>
+                  {tutorData?.pricing_region === 'PH' ? '🇵🇭 Philippines' : '🌐 International'}
+                </span>
+              </div>
             </div>
           </div>
 
