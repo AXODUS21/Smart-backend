@@ -63,6 +63,7 @@ export default function PastSessions() {
             time: formatTime(session.start_time_utc, session.end_time_utc),
             status: session.session_status || "completed",
             action: session.session_action || null,
+            no_show_type: session.no_show_type || null,
             credits_required: session.credits_required || 0,
             student_id: session.student_id,
             review: session.tutor_review || null,
@@ -273,17 +274,17 @@ export default function PastSessions() {
       await handleNoShow(id, type);
 
       // Update local state
-      setSessions(
-        sessions.map((session) =>
-          session.id === id
-            ? {
-                ...session,
-                status: type === "student-no-show" ? "student-no-show" : "tutor-no-show",
-                action: type,
-              }
-            : session
-        )
-      );
+      const updater = (session) =>
+        session.id === id
+          ? {
+              ...session,
+              status: type,
+              action: type,
+              no_show_type: type,
+            }
+          : session;
+      setSessions(sessions.map(updater));
+      setAllSessions(allSessions.map(updater));
 
       setShowNoShowModal(null);
       alert(
@@ -423,14 +424,20 @@ export default function PastSessions() {
                 </div>
                 <span
                   className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
-                    session.status === "completed"
+                    session.no_show_type
+                      ? "bg-red-100 text-red-700"
+                      : session.status === "completed"
                       ? "bg-blue-100 text-blue-700"
                       : session.status === "successful"
                       ? "bg-green-100 text-green-700"
                       : "bg-red-100 text-red-700"
                   }`}
                 >
-                  {session.status === "completed"
+                  {session.no_show_type
+                    ? session.no_show_type === "student-no-show"
+                      ? "Student No Show"
+                      : "No Show"
+                    : session.status === "completed"
                     ? "Pending"
                     : session.status === "successful"
                     ? "Successful"
@@ -479,7 +486,7 @@ export default function PastSessions() {
                 </div>
               )}
 
-              {session.status === "completed" && !showReview && (
+              {session.status === "completed" && !showReview && !session.no_show_type && (
                 <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => handleWriteReview(session.id)}
@@ -498,7 +505,7 @@ export default function PastSessions() {
                 </div>
               )}
 
-              {session.status === "successful" && (
+              {session.status === "successful" && !session.no_show_type && (
                 <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
                   <p className="text-xs text-green-700 font-medium">
                     Session marked as successful. Credits earned!
@@ -508,6 +515,14 @@ export default function PastSessions() {
                       Review: "{session.review}"
                     </p>
                   )}
+                </div>
+              )}
+
+              {session.no_show_type === "student-no-show" && (
+                <div className="mt-2 p-2 bg-orange-50 rounded-lg border border-orange-200">
+                  <p className="text-xs text-orange-700 font-medium">
+                    Student did not show up. Credits earned for this session.
+                  </p>
                 </div>
               )}
             </div>

@@ -438,7 +438,9 @@ export default function StudentPastSessions({ overrideStudentId }) {
                 </div>
                 <span
                   className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
-                    session.status === "completed" || session.status === "successful"
+                    session.no_show_type === "student-no-show"
+                      ? "bg-orange-100 text-orange-700"
+                      : session.status === "completed" || session.status === "successful"
                       ? "bg-green-100 text-green-700"
                       : session.no_show_type === "tutor-no-show"
                       ? "bg-red-100 text-red-700"
@@ -447,7 +449,9 @@ export default function StudentPastSessions({ overrideStudentId }) {
                       : "bg-blue-100 text-blue-700"
                   }`}
                 >
-                  {session.no_show_type === "tutor-no-show"
+                  {session.no_show_type === "student-no-show"
+                    ? "No Show"
+                    : session.no_show_type === "tutor-no-show"
                     ? "Tutor No-Show"
                     : session.status === "successful"
                     ? "Successful"
@@ -459,9 +463,20 @@ export default function StudentPastSessions({ overrideStudentId }) {
                 </span>
               </div>
 
+              {/* Student no-show info */}
+              {session.no_show_type === "student-no-show" && (
+                <div className="mt-2 pt-2 border-t border-slate-200">
+                  <div className="p-2 bg-orange-50 rounded-lg border border-orange-200">
+                    <p className="text-xs text-orange-700 font-medium">
+                      You were marked as no-show for this session by the tutor.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Actions based on session status */}
               {/* If successful, show Report Issue (conflict prevention) */}
-              {session.status === "successful" && (
+              {!session.no_show_type && session.status === "successful" && (
                 <div className="mt-2 pt-2 border-t border-slate-200">
                   <button
                     onClick={() => setReportModal({ isOpen: true, sessionId: session.id })}

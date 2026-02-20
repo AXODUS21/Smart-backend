@@ -611,6 +611,44 @@ export default function Meetings({ overrideStudentId }) {
     }
   };
 
+  // [TESTING] Backdate a confirmed booking to make it a past session
+  const handleBackdateBooking = async (bookingId) => {
+    if (!confirm("⚠️ TESTING ONLY: Move this booking 7 days into the past?")) return;
+    
+    setProcessing((prev) => ({ ...prev, [bookingId]: "backdating" }));
+    try {
+      // Get the booking
+      const { data: booking, error: fetchError } = await supabase
+        .from("Schedules")
+        .select("start_time_utc, end_time_utc")
+        .eq("id", bookingId)
+        .single();
+
+      if (fetchError || !booking) throw new Error("Booking not found");
+
+      const newStart = new Date(new Date(booking.start_time_utc).getTime() - 7 * 24 * 60 * 60 * 1000);
+      const newEnd = new Date(new Date(booking.end_time_utc).getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      const { error: updateError } = await supabase
+        .from("Schedules")
+        .update({
+          start_time_utc: newStart.toISOString(),
+          end_time_utc: newEnd.toISOString(),
+        })
+        .eq("id", bookingId);
+
+      if (updateError) throw updateError;
+
+      alert(`✅ Booking moved to past! New date: ${newStart.toLocaleDateString()}`);
+      await fetchTutorBookings();
+    } catch (error) {
+      console.error("Error backdating booking:", error);
+      alert("Failed to backdate booking: " + error.message);
+    } finally {
+      setProcessing((prev) => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
@@ -1410,6 +1448,20 @@ export default function Meetings({ overrideStudentId }) {
                                 <Link className="h-3 w-3" />
                                 {joinLabel}
                               </>
+                            )}
+                          </button>
+                        )}
+                        {/* [TESTING] Backdate button - only for future confirmed bookings */}
+                        {!isPastBooking(booking.start_time_utc) && booking.status === "confirmed" && (
+                          <button
+                            onClick={() => handleBackdateBooking(booking.id)}
+                            disabled={processing[booking.id]}
+                            className="inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-800 mt-1 disabled:opacity-70 border border-dashed border-orange-300 px-2 py-0.5 rounded"
+                          >
+                            {processing[booking.id] === "backdating" ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-orange-600"></div>
+                            ) : (
+                              "⏪ Move to Past (Test)"
                             )}
                           </button>
                         )}
