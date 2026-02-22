@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { Users, GraduationCap, BookOpen, Shield, Search, Eye, ArrowUpDown } from "lucide-react";
+import { Users, GraduationCap, BookOpen, Shield, Search, Eye, ArrowUpDown, FileSpreadsheet, FileType } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState({
@@ -178,6 +181,99 @@ export default function AdminUsers() {
 
     return allUsers;
   }, [users.students, users.tutors, users.admins, users.principals, searchTerm, filterRole, sortField, sortDirection]);
+  
+  const exportToExcel = () => {
+    if (!filteredUsers.length) return;
+
+    const headers = [
+      "ID",
+      "Full Name",
+      "Email",
+      "Role",
+      "Joined Date",
+      "Credits",
+      "Profile Status",
+      "District/School",
+      "School Type",
+      "Contact",
+      "Address",
+      "School Count"
+    ];
+
+    const rows = filteredUsers.map((u) => [
+      u.id || u.user_id,
+      u.name || "Unknown",
+      u.email || "N/A",
+      u.role || "N/A",
+      new Date(u.created_at).toLocaleDateString(),
+      u.credits || 0,
+      u.has_profile ? "Complete" : "Incomplete",
+      u.district_school_name || "N/A",
+      u.type_of_school || "N/A",
+      u.contact_number || "N/A",
+      u.address || "N/A",
+      u.school_count || 0
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    
+    // Add some column widths
+    const wscols = [
+      { wch: 15 }, // ID
+      { wch: 25 }, // Name
+      { wch: 30 }, // Email
+      { wch: 12 }, // Role
+      { wch: 15 }, // Joined
+      { wch: 10 }, // Credits
+      { wch: 15 }, // Profile
+      { wch: 30 }, // District
+      { wch: 15 }, // School Type
+      { wch: 15 }, // Contact
+      { wch: 30 }, // Address
+      { wch: 12 }, // School Count
+    ];
+    ws['!cols'] = wscols;
+
+    XLSX.utils.book_append_sheet(wb, ws, "Users");
+    XLSX.writeFile(wb, `Users_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    if (!filteredUsers.length) return;
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(18);
+    doc.text("User Management Report", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Role Filter: ${filterRole.toUpperCase()}`, 14, 35);
+    
+    if (searchTerm) {
+      doc.text(`Search Term: "${searchTerm}"`, 14, 40);
+    }
+
+    const tableData = filteredUsers.map((u) => [
+      u.name || "Unknown",
+      u.email || "N/A",
+      u.role || "N/A",
+      new Date(u.created_at).toLocaleDateString(),
+      u.credits || 0,
+    ]);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [["Name", "Email", "Role", "Joined", "Credits"]],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [66, 139, 202] },
+    });
+
+    doc.save(`Users_Export_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
 
   const getRoleIcon = (role) => {
     switch (role) {
@@ -404,6 +500,24 @@ export default function AdminUsers() {
               <option value="admin">Admins</option>
               <option value="principal">Principals</option>
             </select>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={exportToExcel}
+              disabled={filteredUsers.length === 0}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileSpreadsheet size={18} />
+              <span className="hidden md:inline">Excel</span>
+            </button>
+            <button
+              onClick={exportToPDF}
+              disabled={filteredUsers.length === 0}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileType size={18} />
+              <span className="hidden md:inline">PDF</span>
+            </button>
           </div>
           <div className="flex gap-2">
             <div className="relative">
