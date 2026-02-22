@@ -142,7 +142,6 @@ export default function AdminJobs() {
       const statusMap = {
         pending: ["pending", "awaiting_approval"],
         confirmed: ["confirmed"],
-        completed: ["completed", "successful", "student-no-show"],
         cancelled: ["cancelled", "tutor-no-show", "rescheduled"],
         rejected: ["rejected"],
       };
@@ -303,7 +302,6 @@ export default function AdminJobs() {
       pending: bookings.filter((b) => ["pending", "awaiting_approval"].includes(b.status)).length,
       confirmed: bookings.filter((b) => b.status === "confirmed").length,
       cancelled: bookings.filter((b) => ["cancelled", "tutor-no-show", "rescheduled"].includes(b.status)).length,
-      completed: bookings.filter((b) => ["completed", "successful", "student-no-show"].includes(b.status)).length,
       rejected: bookings.filter((b) => b.status === "rejected").length,
     };
   };
@@ -493,7 +491,7 @@ export default function AdminJobs() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div
           onClick={() => setStatusFilter("all")}
-          className={`bg-white rounded-lg p-4 shadow-sm border border-slate-200 cursor-pointer transition-all ${
+          className={`bg-white rounded-lg p-4 shadow-sm border border-slate-200 cursor-pointer transition-all lg:col-span-2 ${
             statusFilter === "all" ? "ring-2 ring-blue-500" : ""
           }`}
         >
@@ -526,15 +524,6 @@ export default function AdminJobs() {
         >
           <p className="text-sm font-medium text-slate-600">Cancelled</p>
           <p className="text-2xl font-bold text-slate-900 mt-2">{stats.cancelled}</p>
-        </div>
-        <div
-          onClick={() => setStatusFilter("completed")}
-          className={`bg-white rounded-lg p-4 shadow-sm border border-slate-200 cursor-pointer transition-all ${
-            statusFilter === "completed" ? "ring-2 ring-blue-500" : ""
-          }`}
-        >
-          <p className="text-sm font-medium text-slate-600">Completed</p>
-          <p className="text-2xl font-bold text-slate-900 mt-2">{stats.completed}</p>
         </div>
         <div
           onClick={() => setStatusFilter("rejected")}
