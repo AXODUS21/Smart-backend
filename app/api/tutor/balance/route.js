@@ -53,46 +53,10 @@ export async function GET(request) {
       );
     }
 
-    // Calculate credits dynamically from completed sessions (review submitted)
-    let credits = 0;
-    if (tutorData.id) {
-      const { data: sessions } = await supabase
-        .from('Schedules')
-        .select('credits_required, status, session_status, session_action')
-        .eq('tutor_id', tutorData.id);
-
-      if (sessions) {
-        const totalCreditsEarned = sessions
-          .filter(
-            (s) =>
-              s.status === 'confirmed' &&
-              (s.session_status === 'successful' || s.session_action === 'review-submitted' || s.session_status === 'student-no-show')
-          )
-          .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
-
-        // Get total withdrawals
-        // Include pending since they effectively "reserve" the credits
-        const { data: withdrawals } = await supabase
-          .from('TutorWithdrawals')
-          .select('amount')
-          .eq('tutor_id', tutorData.id)
-          .in('status', ['pending', 'approved', 'processing', 'completed']);
-
-        const creditToPhpRate = 90;
-        const creditToUsdRate = 1.5;
-        const exchangeRate = (tutorData.pricing_region === 'PH') ? creditToPhpRate : creditToUsdRate;
-
-        const totalWithdrawnCredits = withdrawals
-          ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / exchangeRate, 0)
-          : 0;
-
-        // AVAILABLE BALANCE: 
-        // We use Tutors.credits as the base because it is incremented by notifications/Review submissions.
-        // However, we must subtract withdrawals from it.
-        const manualBalance = parseFloat(tutorData.credits || 0);
-        credits = Math.max(0, manualBalance - totalWithdrawnCredits);
-      }
-    }
+    // The Tutors.credits column is the absolute source of truth for the available balance.
+    // It is incremented on session completion and decremented on payout/withdrawal initiation.
+    // If a withdrawal is rejected, it is incremented again.
+    const credits = parseFloat(tutorData.credits || 0);
 
     const creditToPhpRate = 90;
     const creditToUsdRate = 1.5;

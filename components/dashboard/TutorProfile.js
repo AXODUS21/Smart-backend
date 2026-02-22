@@ -144,45 +144,9 @@ export default function TutorProfile() {
 
           // Calculate credits from completed sessions (review submitted)
           if (tutorData?.id) {
-            const { data: sessions, error: sessionsError } = await supabase
-              .from("Schedules")
-              .select("credits_required, status, session_status, session_action")
-              .eq("tutor_id", tutorData.id);
-
-            if (!sessionsError && sessions) {
-              // Calculate total credits from completed sessions (review submitted)
-              const totalCreditsEarned = sessions
-                .filter(
-                  (s) =>
-                    s.status === "confirmed" &&
-                    (s.session_status === "successful" ||
-                      s.session_action === "review-submitted" ||
-                      s.session_status === "student-no-show")
-                )
-                .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
-
-              // Get total amount withdrawn (convert PHP to credits)
-              // Only count approved, processing, or completed withdrawals
-              const { data: withdrawals } = await supabase
-                .from("TutorWithdrawals")
-                .select("amount")
-                .eq("tutor_id", tutorData.id)
-                .in("status", ["pending", "approved", "processing", "completed"]);
-
-              const creditToRate = tutorData.pricing_region === "PH" ? 90 : 1.5;
-              const totalWithdrawnCredits = withdrawals
-                ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / creditToRate, 0)
-                : 0;
-
-              // AVAILABLE BALANCE: 
-              // We use Tutors.credits as the base because it is incremented by notifications/Review submissions.
-              // However, we must subtract withdrawals from it.
-              const manualBalance = parseFloat(tutorData.credits || 0);
-              setCredits(Math.max(0, manualBalance - totalWithdrawnCredits));
-            } else {
-              // Fallback to stored credits if session fetch fails
-              setCredits(parseFloat(tutorData?.credits || 0));
-            }
+            // The Tutors.credits column is the absolute source of truth for the available balance.
+            // It is updated by session completion, payouts, and rejections.
+            setCredits(parseFloat(tutorData.credits || 0));
           } else {
             setCredits(parseFloat(tutorData?.credits || 0));
           }

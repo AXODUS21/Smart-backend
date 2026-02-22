@@ -116,6 +116,30 @@ export async function POST(request) {
         );
       }
 
+      // Refund credits to tutor upon rejection
+      try {
+        const { data: tutor } = await supabase
+          .from('Tutors')
+          .select('credits, id')
+          .eq('id', withdrawal.tutor_id)
+          .single();
+        
+        if (tutor) {
+          const creditRate = 90; // Default PHP rate
+          const creditsToRefund = parseFloat(withdrawal.amount) / creditRate;
+          const newCredits = (parseFloat(tutor.credits) || 0) + creditsToRefund;
+          
+          await supabase
+            .from('Tutors')
+            .update({ credits: newCredits })
+            .eq('id', tutor.id);
+          
+          console.log(`Refunded ${creditsToRefund} credits to tutor ${tutor.id} for rejected withdrawal ${withdrawalId}. New balance: ${newCredits}`);
+        }
+      } catch (refundError) {
+        console.error('Error refunding credits for withdrawal:', refundError);
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Withdrawal rejected successfully',

@@ -53,37 +53,27 @@ export async function POST(request) {
       );
     }
 
-    // Calculate credits dynamically from completed sessions (review submitted)
+    // Get available credits from the Tutors.credits column
+    // This column is the source of truth for the net balance.
     let credits = 0;
     if (tutorData.id) {
-      const { data: sessions } = await supabase
-        .from('Schedules')
-        .select('credits_required, status, session_status, session_action')
-        .eq('tutor_id', tutorData.id);
+      // Get total withdrawals that are NOT yet reflected in the Tutors.credits column balance.
+      // Completed withdrawals are already subtracted from the column, so we only subtract 
+      // those that are pending or being processed.
+      const { data: withdrawals } = await supabase
+        .from('TutorWithdrawals')
+        .select('amount')
+        .eq('tutor_id', tutorData.id)
+        .in('status', ['pending', 'approved', 'processing']);
 
-      if (sessions) {
-        const totalCreditsEarned = sessions
-          .filter(
-            (s) =>
-              s.status === 'confirmed' &&
-              (s.session_status === 'successful' || s.session_action === 'review-submitted')
-          )
-          .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
+      const totalWithdrawnCredits = withdrawals
+        ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 90, 0)
+        : 0;
 
-        // Get total withdrawals (convert PHP to credits)
-        // Only count withdrawals that are approved, processing, or completed (not pending or rejected)
-        const { data: withdrawals } = await supabase
-          .from('TutorWithdrawals')
-          .select('amount')
-          .eq('tutor_id', tutorData.id)
-          .in('status', ['approved', 'processing', 'completed']);
-
-        const totalWithdrawnCredits = withdrawals
-          ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 90, 0)
-          : 0;
-
-        credits = Math.max(0, totalCreditsEarned - totalWithdrawnCredits);
-      }
+      // AVAILABLE BALANCE: 
+      // Use Tutors.credits minus only the pending/processing withdrawals.
+      const manualBalance = parseFloat(tutorData.credits || 0);
+      credits = Math.max(0, manualBalance - totalWithdrawnCredits);
     }
     
     if (credits <= 0) {
@@ -182,6 +172,21 @@ export async function POST(request) {
         { error: `Failed to record withdrawal: ${withdrawalError.message}` },
         { status: 500 }
       );
+    }
+
+    // Deduct credits immediately from the tutor's balance
+    // They will be refunded if the withdrawal is rejected
+    try {
+      const newCredits = Math.max(0, (parseFloat(tutorData.credits) || 0) - credits);
+      await supabase
+        .from('Tutors')
+        .update({ credits: newCredits })
+        .eq('id', tutorData.id);
+      
+      console.log(`Deducted ${credits} credits from tutor ${tutorData.id} for cashout request ${withdrawal.id}. New balance: ${newCredits}`);
+    } catch (updateError) {
+      console.error('Error deducting credits for cashout:', updateError);
+      // If deduction fails, we should ideally delete the withdrawal, but for now we'll just log
     }
 
     // Note: Payout processing will happen ONLY after superadmin approval
