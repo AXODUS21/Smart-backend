@@ -44,6 +44,7 @@ async function checkTutor() {
     console.log(`Stripe Account ID: ${tutor.stripe_account_id}`);
     console.log(`Stripe Onboarding Complete: ${tutor.stripe_onboarding_complete}`);
     console.log(`Payment Method: ${tutor.payment_method}`);
+    console.log(`Manual Credits (Tutors table): ${tutor.credits}`);
     
     // Check credits
     const { data: sessions } = await supabase

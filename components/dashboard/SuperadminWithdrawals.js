@@ -29,6 +29,9 @@ const STATUS_COLORS = {
   failed: "bg-red-100 text-red-700 border-red-300",
 };
 
+const CREDIT_TO_PHP_RATE = 90;
+const CREDIT_TO_USD_RATE = 1.5;
+
 export default function SuperadminWithdrawals() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -276,8 +279,24 @@ export default function SuperadminWithdrawals() {
   const exportToExcel = () => {
     if (!filteredWithdrawals.length) return;
 
-    const exportData = filteredWithdrawals.map((w) => {
-      // Handle Supabase join - tutor might be an object or array
+    const headers = [
+      "Request ID",
+      "Tutor Name",
+      "Tutor Email",
+      "Region",
+      "Amount",
+      "Currency",
+      "Credits",
+      "Status",
+      "Requested Date",
+      "Processed Date",
+      "Payment Method",
+      "Payment Details",
+      "Transaction ID",
+      "Note"
+    ];
+
+    const rows = filteredWithdrawals.map((w) => {
       const tutorRaw = w.tutor;
       const tutor = Array.isArray(tutorRaw) ? tutorRaw[0] : tutorRaw;
       const paymentDetails = getPaymentDetails(tutor);
@@ -286,31 +305,41 @@ export default function SuperadminWithdrawals() {
         .map(d => `${d.label}: ${d.value}`)
         .join("; ");
 
-      return {
-        "Request ID": w.id,
-        "Tutor Name": tutor ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() : "Unknown",
-        "Tutor Email": tutor?.email || "N/A",
-        "Region": tutor?.pricing_region === 'PH' ? 'Philippines' : 'International',
-        [tutor?.pricing_region === 'PH' ? "Amount (PHP)" : "Amount (USD)"]: parseFloat(w.amount || 0).toFixed(2),
-        "Status": w.status || "pending",
-        "Requested Date": formatDate(w.requested_at),
-        "Processed Date": w.processed_at ? formatDate(w.processed_at) : "N/A",
-        "Payment Method": paymentDetails.method,
-        "Payment Details": paymentInfo,
-        "Transaction ID": w.payout_transaction_id || "N/A",
-        "Note": w.note || ""
-      };
+      const isIntl = tutor?.pricing_region !== 'PH';
+      const credits = isIntl
+        ? Math.round((parseFloat(w.amount || 0)) / CREDIT_TO_USD_RATE)
+        : Math.round((parseFloat(w.amount || 0)) / CREDIT_TO_PHP_RATE);
+
+      return [
+        w.id,
+        tutor ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() : "Unknown",
+        tutor?.email || "N/A",
+        tutor?.pricing_region === 'PH' ? 'Philippines' : 'International',
+        parseFloat(w.amount || 0).toFixed(2),
+        tutor?.pricing_region === 'PH' ? 'PHP' : 'USD',
+        credits,
+        w.status || "pending",
+        formatDate(w.requested_at),
+        w.processed_at ? formatDate(w.processed_at) : "N/A",
+        paymentDetails.method,
+        paymentInfo,
+        w.payout_transaction_id || "N/A",
+        w.note || ""
+      ];
     });
 
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     
     // Add some column widths
     const wscols = [
       { wch: 10 }, // ID
       { wch: 20 }, // Name
       { wch: 25 }, // Email
-      { wch: 15 }, // Amount
+      { wch: 15 }, // Region
+      { wch: 12 }, // Amount
+      { wch: 10 }, // Currency
+      { wch: 10 }, // Credits
       { wch: 12 }, // Status
       { wch: 20 }, // Requested
       { wch: 20 }, // Processed
@@ -347,10 +376,16 @@ export default function SuperadminWithdrawals() {
       const tutor = Array.isArray(tutorRaw) ? tutorRaw[0] : tutorRaw;
       const paymentDetails = getPaymentDetails(tutor);
 
+      const isIntl = tutor?.pricing_region !== 'PH';
+      const credits = isIntl
+        ? Math.round((parseFloat(w.amount || 0)) / CREDIT_TO_USD_RATE)
+        : Math.round((parseFloat(w.amount || 0)) / CREDIT_TO_PHP_RATE);
+
       return [
          w.id,
          tutor ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() : "Unknown",
          parseFloat(w.amount || 0).toFixed(2),
+         credits,
          w.status || "pending",
          formatDate(w.requested_at),
          paymentDetails.method,
@@ -359,7 +394,7 @@ export default function SuperadminWithdrawals() {
 
     doc.autoTable({
       startY: 45,
-      head: [["ID", "Tutor", "Amount", "Status", "Requested", "Method"]],
+      head: [["ID", "Tutor", "Amount", "Credits", "Status", "Requested", "Method"]],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [66, 139, 202] },

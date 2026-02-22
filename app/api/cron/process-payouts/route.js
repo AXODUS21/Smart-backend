@@ -5,6 +5,50 @@ import Stripe from 'stripe';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const CREDIT_TO_PHP_RATE = 90; // 1 credit = 90 PHP
+const CREDIT_TO_USD_RATE = 1.5; // 1 credit = 1.5 USD
+
+/**
+ * Fetches the live USD → PHP exchange rate using a waterfall of free APIs.
+ *
+ * Fallback chain:
+ *  1. open.er-api.com   – free, no API key required
+ *  2. frankfurter.app   – free, no API key required
+ *  3. null              – signals the caller to let Stripe handle currency
+ *                         conversion natively via cross-currency transfers
+ */
+async function getLiveUsdToPhpRate() {
+  // --- Source 1: open.er-api.com ---
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const rate = data?.rates?.PHP;
+    if (!rate || typeof rate !== 'number') throw new Error('Invalid rate data');
+    console.log(`[FX] Source 1 (open.er-api.com) USD→PHP rate: ${rate}`);
+    return rate;
+  } catch (err) {
+    console.warn(`[FX] Source 1 failed (${err.message}). Trying fallback API...`);
+  }
+
+  // --- Source 2: frankfurter.app ---
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=PHP', { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const rate = data?.rates?.PHP;
+    if (!rate || typeof rate !== 'number') throw new Error('Invalid rate data');
+    console.log(`[FX] Source 2 (frankfurter.app) USD→PHP rate: ${rate}`);
+    return rate;
+  } catch (err) {
+    console.warn(`[FX] Source 2 failed (${err.message}). Falling back to Stripe native conversion.`);
+  }
+
+  // --- Source 3: Let Stripe handle it ---
+  // Returning null signals the caller to skip manual conversion and send PHP
+  // directly to Stripe, which will auto-convert via its cross-currency transfer feature.
+  console.warn('[FX] All FX APIs unavailable. Will delegate currency conversion to Stripe.');
+  return null;
+}
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -107,13 +151,23 @@ export async function POST(request) {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const isLastDay = tomorrow.getDate() === 1;
 
-    // Parse body for manual dates if manual
-    if (isManual) {
+    // Parse body or query for manual dates if manual or forced
+    if (isManual || force) {
         try {
-            const body = await request.clone().json().catch(() => ({}));
-            if (body.start && body.end) {
-                manualStart = new Date(body.start);
-                manualEnd = new Date(body.end);
+            // Check query params first
+            const startDateParam = searchParams.get('startDate');
+            const endDateParam = searchParams.get('endDate');
+            
+            if (startDateParam && endDateParam) {
+                manualStart = new Date(startDateParam);
+                manualEnd = new Date(endDateParam);
+            } else {
+                // Fallback to body for backward compatibility
+                const body = await request.clone().json().catch(() => ({}));
+                if (body.start && body.end) {
+                    manualStart = new Date(body.start);
+                    manualEnd = new Date(body.end);
+                }
             }
         } catch (e) {
             // Body might be empty or not JSON, that's fine
@@ -126,7 +180,8 @@ export async function POST(request) {
     const results = {
       processed: 0,
       failed: 0,
-      totalAmount: 0,
+      totalAmountPHP: 0,
+      totalAmountUSD: 0,
       errors: [],
       withdrawals: [], // Store withdrawal details for report
     };
@@ -158,49 +213,29 @@ export async function POST(request) {
     // Get all tutors with their sessions
     const { data: tutors, error: tutorsError } = await supabase
       .from('Tutors')
-      .select('id, user_id, first_name, last_name, email, payment_method, last_payout_date, bank_account_name, bank_account_number, bank_name, bank_branch, paypal_email, gcash_number, gcash_name, stripe_account_id, stripe_onboarding_complete');
+      .select('id, user_id, first_name, last_name, email, payment_method, last_payout_date, bank_account_name, bank_account_number, bank_name, bank_branch, paypal_email, gcash_number, gcash_name, stripe_account_id, stripe_onboarding_complete, pricing_region, credits');
 
     if (tutorsError) throw tutorsError;
 
     for (const tutor of tutors || []) {
       try {
-        // Calculate available credits
-        const { data: sessions } = await supabase
-          .from('Schedules')
-          .select('credits_required, status, session_status, session_action')
-          .eq('tutor_id', tutor.id);
-
-        if (!sessions) continue;
-
-        const totalCreditsEarned = sessions
-          .filter(
-            (s) =>
-              s.status === 'confirmed' &&
-              (s.session_status === 'successful' || s.session_action === 'review-submitted')
-          )
-          .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
-
-        // Get total withdrawals
-        const { data: withdrawals } = await supabase
-          .from('TutorWithdrawals')
-          .select('amount')
-          .eq('tutor_id', tutor.id)
-          .in('status', ['pending', 'approved', 'processing', 'completed']);
-
-        const totalWithdrawnCredits = withdrawals
-          ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / CREDIT_TO_PHP_RATE, 0)
-          : 0;
-
-        const availableCredits = totalCreditsEarned - totalWithdrawnCredits;
+        const exchangeRate = (tutor.pricing_region === 'PH') ? CREDIT_TO_PHP_RATE : CREDIT_TO_USD_RATE;
+        const currency = (tutor.pricing_region === 'PH') ? 'PHP' : 'USD';
+        
+        // Use the 'credits' column directly as the available balance.
+        // This includes manually added credits and earned credits.
+        const availableCredits = parseFloat(tutor.credits || 0);
 
         // Only process if tutor has earned credits
         if (availableCredits > 0) {
-          const amountPhp = availableCredits * CREDIT_TO_PHP_RATE;
+          const amount = availableCredits * exchangeRate;
 
           // Validate payment information
           let hasValidPayment = false;
           
-          if (tutor.payment_method === 'bank') {
+          if (tutor.stripe_account_id && tutor.stripe_onboarding_complete) {
+            hasValidPayment = true;
+          } else if (tutor.payment_method === 'bank') {
              hasValidPayment = !!(tutor.bank_account_number && tutor.bank_name);
           } else if (tutor.payment_method === 'paypal') {
              // Basic email regex
@@ -221,7 +256,7 @@ export async function POST(request) {
           // Stripe Transfer Logic
           let stripeTransferId = null;
           let withdrawalStatus = 'pending';
-          let withdrawalNote = `Automatic payout (${new Date().toISOString().split('T')[0]}): ${availableCredits} credits = ₱${amountPhp.toFixed(2)}`;
+          let withdrawalNote = `Automatic payout (${new Date().toISOString().split('T')[0]}): ${availableCredits} credits = ${currency} ${amount.toFixed(2)}`;
 
           if (tutor.stripe_account_id && tutor.stripe_onboarding_complete) {
               if (dryRun) {
@@ -230,11 +265,34 @@ export async function POST(request) {
                   console.log(`[DRY RUN] Stripe transfer simulated for tutor ${tutor.id}`);
               } else {
                   try {
+                      let transferAmount = Math.round(amount * 100); // Default cents
+                      let settlementCurrency = currency.toLowerCase();
+
+                      // If currency is PHP, convert to USD for settlement since platform balance is USD.
+                      // If all FX APIs are unavailable (rate === null), we send PHP directly and
+                      // let Stripe handle the conversion via its cross-currency transfer feature.
+                      if (currency === 'PHP') {
+                          const liveRate = await getLiveUsdToPhpRate();
+                          if (liveRate !== null) {
+                              const amountUsd = amount / liveRate;
+                              transferAmount = Math.round(amountUsd * 100);
+                              settlementCurrency = 'usd';
+                              withdrawalNote += ` (Settled in USD: $${amountUsd.toFixed(2)} @ ${liveRate} PHP/USD)`;
+                              console.log(`[FX] Converting ${amount} PHP → ${amountUsd.toFixed(2)} USD using live rate ${liveRate}.`);
+                          } else {
+                              // All FX sources failed — send PHP amount and let Stripe convert
+                              transferAmount = Math.round(amount * 100);
+                              settlementCurrency = 'php';
+                              withdrawalNote += ` (Stripe native PHP→USD conversion — FX APIs unavailable)`;
+                              console.log(`[FX] No FX rate available. Sending ${amount} PHP directly; Stripe will convert.`);
+                          }
+                      }
+
                       const transfer = await stripe.transfers.create({
-                          amount: Math.round(amountPhp * 100), // Amount in cents
-                          currency: 'php',
+                          amount: transferAmount,
+                          currency: settlementCurrency,
                           destination: tutor.stripe_account_id,
-                          description: `Payout for ${availableCredits} credits`,
+                          description: `Payout for ${availableCredits} credits (${amount} ${currency})`,
                       });
                       stripeTransferId = transfer.id;
                       withdrawalStatus = 'completed'; // Auto-completed
@@ -259,7 +317,7 @@ export async function POST(request) {
               createdWithdrawal = {
                   id: 'DRY-RUN-' + Math.random().toString(36).substr(2, 9),
                   tutor_id: tutor.id,
-                  amount: amountPhp,
+                  amount: amount,
                   status: withdrawalStatus,
                   requested_at: new Date().toISOString(),
                   note: withdrawalNote
@@ -270,7 +328,7 @@ export async function POST(request) {
                 .from('TutorWithdrawals')
                 .insert({
                   tutor_id: tutor.id,
-                  amount: amountPhp,
+                  amount: amount,
                   status: withdrawalStatus,
                   payment_method: tutor.payment_method,
                   note: withdrawalNote,
@@ -289,16 +347,23 @@ export async function POST(request) {
               }
               createdWithdrawal = withdrawalData;
 
-              // Update last_payout_date
+              // Update last_payout_date and deduct credits
               await supabase
                 .from('Tutors')
-                .update({ last_payout_date: new Date().toISOString() })
+                .update({ 
+                    last_payout_date: new Date().toISOString(),
+                    credits: Math.max(0, parseFloat(tutor.credits || 0) - availableCredits)
+                })
                 .eq('id', tutor.id);
           }
 
           if (createdWithdrawal) {
             results.processed++;
-            results.totalAmount += amountPhp;
+            if (currency === 'PHP') {
+                results.totalAmountPHP += amount;
+            } else {
+                results.totalAmountUSD += amount;
+            }
             
             // Store withdrawal details for report
             results.withdrawals.push({
@@ -306,10 +371,12 @@ export async function POST(request) {
               tutor_id: tutor.id,
               tutor_name: `${tutor.first_name || ''} ${tutor.last_name || ''}`.trim() || tutor.email,
               tutor_email: tutor.email,
-              amount: amountPhp,
+              amount: amount,
+              currency: currency,
               credits: availableCredits,
               status: createdWithdrawal.status,
               payment_method: tutor.payment_method,
+              pricing_region: tutor.pricing_region,
               requested_at: createdWithdrawal.requested_at,
               note: createdWithdrawal.note,
               // Payment Details
@@ -344,15 +411,28 @@ export async function POST(request) {
           successful_payouts: results.processed,
           failed_payouts: results.failed,
           pending_payouts: results.processed, // All created withdrawals start as pending
-          total_amount: results.totalAmount,
-          credit_rate: CREDIT_TO_PHP_RATE,
+          total_amount: results.totalAmountPHP, // Keep legacy field as PHP for now or total? Maybe just PHP or 0
+          total_amount_php: results.totalAmountPHP,
+          total_amount_usd: results.totalAmountUSD,
+          credit_rate_php: CREDIT_TO_PHP_RATE,
+          credit_rate_usd: CREDIT_TO_USD_RATE,
           period_start: periodStart.toISOString().split('T')[0],
           period_end: periodEnd.toISOString().split('T')[0],
         },
       };
 
+      // Determine next report number
+      const { data: maxReport } = await supabase
+        .from('PayoutReports')
+        .select('report_number')
+        .order('report_number', { ascending: false })
+        .limit(1)
+        .single();
+      
+      const nextReportNumber = (maxReport?.report_number || 0) + 1;
+
       const { data: report, error: reportError } = dryRun 
-        ? { data: { id: 'DRY-RUN-REPORT' }, error: null }
+        ? { data: { id: 'DRY-RUN-REPORT', report_number: nextReportNumber }, error: null }
         : await supabase
             .from('PayoutReports')
             .insert({
@@ -360,16 +440,17 @@ export async function POST(request) {
               report_period_end: periodEnd.toISOString().split('T')[0],
               report_type: 'automatic_payout',
               total_payouts: results.processed + results.failed,
-              total_amount: results.totalAmount,
+              total_amount: results.totalAmountPHP, // Legacy field, mainly PHP
               successful_payouts: results.processed,
               failed_payouts: results.failed,
               pending_payouts: results.processed,
               report_data: reportData,
+              report_number: nextReportNumber,
               notes: isManual 
                 ? `Manual payout processing (triggered by ${user?.email || 'admin'}) completed on ${new Date().toISOString()}${dryRun ? ' [DRY RUN]' : ''}`
                 : `Automatic payout processing completed on ${new Date().toISOString()}${dryRun ? ' [DRY RUN]' : ''}`,
             })
-            .select('id')
+            .select('id, report_number')
             .single();
 
       if (!reportError && report) {

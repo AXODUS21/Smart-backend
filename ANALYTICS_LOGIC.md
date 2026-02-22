@@ -29,5 +29,5 @@ This document explains the current analytics calculations (Cash-Based Revenue & 
 
 ## 4. Lesson Hours & Bookings
 **Source**: `Schedules` table.
--   **Total Lesson Hours**: Sum of duration (in hours) for all eligible bookings.
--   **Bookings**: Count of bookings by status (Pending, Confirmed, Completed, Cancelled, Rejected).
+-   **Total Lesson Hours**: Sum of duration (in hours) for bookings where `session_status` is `successful`.
+-   **Other Bookings**: Breakdown by status (Pending, Confirmed, Cancelled, Rejected) is still provided for operational tracking.

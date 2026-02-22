@@ -32,6 +32,7 @@ export default function TutorProfile() {
   const [isEditingPaymentInfo, setIsEditingPaymentInfo] = useState(false);
   const [stripeStatus, setStripeStatus] = useState({ isConnected: false, isOnboarded: false });
   const [connecting, setConnecting] = useState(false);
+  const [stripeLoginLoading, setStripeLoginLoading] = useState(false);
 
   // Form state
   const [bio, setBio] = useState("");
@@ -155,28 +156,29 @@ export default function TutorProfile() {
                   (s) =>
                     s.status === "confirmed" &&
                     (s.session_status === "successful" ||
-                      s.session_action === "review-submitted")
+                      s.session_action === "review-submitted" ||
+                      s.session_status === "student-no-show")
                 )
                 .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
 
               // Get total amount withdrawn (convert PHP to credits)
-              // Only count approved, processing, or completed withdrawals (not pending or rejected)
+              // Only count approved, processing, or completed withdrawals
               const { data: withdrawals } = await supabase
                 .from("TutorWithdrawals")
                 .select("amount")
                 .eq("tutor_id", tutorData.id)
-                .in("status", ["approved", "processing", "completed"]);
+                .in("status", ["pending", "approved", "processing", "completed"]);
 
+              const creditToRate = tutorData.pricing_region === "PH" ? 90 : 1.5;
               const totalWithdrawnCredits = withdrawals
-                ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 90, 0) // Convert PHP to credits (1 credit = 90 PHP)
+                ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / creditToRate, 0)
                 : 0;
 
-              // Net credits = earned - withdrawn
-              const netCredits = totalCreditsEarned - totalWithdrawnCredits;
-              
-              // Add manual credits from profile
-              const manualCredits = parseFloat(tutorData.credits || 0);
-              setCredits(Math.max(0, netCredits) + manualCredits);
+              // AVAILABLE BALANCE: 
+              // We use Tutors.credits as the base because it is incremented by notifications/Review submissions.
+              // However, we must subtract withdrawals from it.
+              const manualBalance = parseFloat(tutorData.credits || 0);
+              setCredits(Math.max(0, manualBalance - totalWithdrawnCredits));
             } else {
               // Fallback to stored credits if session fetch fails
               setCredits(parseFloat(tutorData?.credits || 0));
@@ -281,6 +283,30 @@ export default function TutorProfile() {
         alert("Connection failed");
     } finally {
         setConnecting(false);
+    }
+  };
+
+  const handleOpenStripeDashboard = async () => {
+    try {
+      setStripeLoginLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch('/api/stripe/login-link', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      if (data.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer');
+      } else {
+        alert('Failed to open Stripe Dashboard: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      console.error('Stripe login link error:', e);
+      alert('Failed to open Stripe Dashboard');
+    } finally {
+      setStripeLoginLoading(false);
     }
   };
 
@@ -770,7 +796,16 @@ export default function TutorProfile() {
                        </div>
                    </div>
                )}
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                {stripeStatus && stripeStatus.isOnboarded && (
+                  <button
+                    onClick={handleOpenStripeDashboard}
+                    disabled={stripeLoginLoading}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {stripeLoginLoading ? 'Opening...' : 'Open Stripe Dashboard ↗'}
+                  </button>
+                )}
                 {stripeStatus && stripeStatus.isOnboarded && (
                   <button
                     onClick={async () => {
@@ -789,7 +824,6 @@ export default function TutorProfile() {
                         if (res.ok) {
                           setSuccess("Stripe account disconnected.");
                           setStripeStatus({ isConnected: false, isOnboarded: false });
-                          // Update local data if needed
                           setTimeout(() => setSuccess(""), 3000);
                         } else {
                           const data = await res.json();

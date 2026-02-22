@@ -102,12 +102,13 @@ export default function TutorHome() {
       });
     }
 
-    // Calculate metrics
     // Count earnings only after tutor review is submitted (completed sessions)
+    // Also include student-no-show sessions as tutors earn credits for them
     const completedSessions = filteredSessions.filter(
-      (s) =>
-        s.status === "confirmed" &&
-        (s.session_status === "successful" || s.session_action === "review-submitted")
+      (s) => 
+        s.session_status === "successful" || 
+        s.session_action === "review-submitted" ||
+        s.session_status === "student-no-show"
     );
 
     // Total unique students

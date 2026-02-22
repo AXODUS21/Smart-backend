@@ -5,6 +5,25 @@ import { createClient } from '@supabase/supabase-js';
 const PAYMONGO_BASE_URL = 'https://api.paymongo.com/v1';
 const CREDIT_TO_PHP_RATE = 90; // 1 credit = 90 PHP
 
+/**
+ * Fetches the live USD → PHP exchange rate from open.er-api.com (free, no API key).
+ * Falls back to a safe hardcoded rate if the API is unreachable.
+ */
+async function getLiveUsdToPhpRate(fallback = 56) {
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const rate = data?.rates?.PHP;
+    if (!rate || typeof rate !== 'number') throw new Error('Invalid rate data');
+    console.log(`[FX] Live USD→PHP rate: ${rate}`);
+    return rate;
+  } catch (err) {
+    console.warn(`[FX] Failed to fetch live rate (${err.message}), using fallback: ${fallback}`);
+    return fallback;
+  }
+}
+
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -124,7 +143,7 @@ export async function POST(request) {
         const stripe = new Stripe(stripeSecretKey);
         const balance = await stripe.balance.retrieve();
         const stripeAvailable = balance.available[0]?.amount || 0;
-        const usdToPhpRate = parseFloat(process.env.USD_TO_PHP_RATE || '56');
+        const usdToPhpRate = await getLiveUsdToPhpRate(56);
         stripeAvailablePhp = (stripeAvailable / 100) * usdToPhpRate;
       }
     } catch (error) {
@@ -140,10 +159,11 @@ export async function POST(request) {
         if (stripeSecretKey) {
           const stripe = new Stripe(stripeSecretKey);
           
-          // Convert PHP to USD for Stripe
-          const usdToPhpRate = parseFloat(process.env.USD_TO_PHP_RATE || '56');
+          // Convert PHP to USD for Stripe using live exchange rate
+          const usdToPhpRate = await getLiveUsdToPhpRate(56);
           const amountUsd = amountPhp / usdToPhpRate;
           const amountInCents = Math.round(amountUsd * 100);
+          console.log(`[FX] Converting ${amountPhp} PHP → ${amountUsd.toFixed(4)} USD using live rate ${usdToPhpRate}.`);
 
           if (!tutorData.stripe_account_id) {
              throw new Error("Tutor has not connected their Stripe account.");

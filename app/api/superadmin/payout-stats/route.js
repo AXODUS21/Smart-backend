@@ -47,7 +47,7 @@ export async function GET(request) {
     // Fetch withdrawals within range, including Tutor details
     const { data: withdrawalsData, error } = await supabase
       .from('TutorWithdrawals')
-      .select('*, Tutors(first_name, last_name, email, pricing_region, payment_method, bank_account_name, bank_account_number, bank_name, bank_branch, paypal_email, gcash_number, gcash_name, stripe_account_id)')
+      .select('*, Tutors(first_name, last_name, email, pricing_region, payment_method, bank_account_name, bank_account_number, bank_name, bank_branch, paypal_email, gcash_number, gcash_name, stripe_account_id, credits)')
       .gte('requested_at', startDate.toISOString())
       .lte('requested_at', endDate.toISOString())
       .order('requested_at', { ascending: false });
@@ -91,6 +91,7 @@ export async function GET(request) {
         paypal_email: tutor.paypal_email,
         gcash_number: tutor.gcash_number,
         gcash_name: tutor.gcash_name,
+        current_tutor_credits: tutor.credits || 0,
       };
     });
 
@@ -100,8 +101,17 @@ export async function GET(request) {
       successful_payouts: withdrawals.filter(w => w.status === 'completed').length,
       failed_payouts: withdrawals.filter(w => ['failed', 'rejected'].includes(w.status)).length,
       pending_payouts: withdrawals.filter(w => ['pending', 'approved', 'processing'].includes(w.status)).length,
-      total_amount: withdrawals.reduce((sum, w) => sum + (parseFloat(w.amount) || 0), 0),
+      total_amount: withdrawals
+        .filter(w => !w.is_international)
+        .reduce((sum, w) => sum + (parseFloat(w.amount) || 0), 0),
+      total_amount_php: withdrawals
+        .filter(w => !w.is_international)
+        .reduce((sum, w) => sum + (parseFloat(w.amount) || 0), 0),
+      total_amount_usd: withdrawals
+        .filter(w => w.is_international)
+        .reduce((sum, w) => sum + (parseFloat(w.amount) || 0), 0),
       credit_rate: CREDIT_TO_PHP_RATE,
+      credit_rate_usd: CREDIT_TO_USD_RATE,
       period_start: start,
       period_end: end
     };

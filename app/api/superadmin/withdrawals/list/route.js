@@ -103,7 +103,8 @@ export async function GET(request) {
           bank_branch,
           paypal_email,
           gcash_number,
-          gcash_name
+          gcash_name,
+          credits
         )
       `
       )

@@ -538,6 +538,7 @@ export default function BookSession({ overrideStudentId }) {
         .select("id")
         .eq("student_id", studentData.id)
         .eq("profile_id", profileIdForInsert)
+        .eq("status", "confirmed")
         .gte("start_time_utc", new Date(selectedDate).toISOString().split('T')[0])
         .lt("start_time_utc", new Date(new Date(selectedDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 

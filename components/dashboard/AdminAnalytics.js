@@ -23,10 +23,11 @@ export default function AdminAnalytics() {
     tutorSharePHP: 0,
     totalLessonHours: 0,
     totalBookings: 0,
+    successfulBookings: 0,
     confirmedBookings: 0,
     cancelledBookings: 0,
     pendingBookings: 0,
-    completedBookings: 0,
+    pendingBookings: 0,
     rejectedBookings: 0,
   });
   const [monthlyData, setMonthlyData] = useState([]);
@@ -111,7 +112,7 @@ export default function AdminAnalytics() {
 
       // --- EXPENSE CALCULATION (Tutor Pay) ---
       const completedStatuses = ["completed", "successful", "student-no-show"];
-      const expenseBookings = safeBookings.filter(b => completedStatuses.includes(b.status));
+      const expenseBookings = safeBookings.filter(b => completedStatuses.includes(b.session_status));
 
       let totalTutorPayUSD = 0;
       let totalTutorPayPHP = 0;
@@ -141,13 +142,13 @@ export default function AdminAnalytics() {
 
       const pendingCounts = safeBookings.filter(b => pendingStatuses.includes(b.status));
       const confirmedCounts = safeBookings.filter(b => confirmedStatuses.includes(b.status));
-      const completedCounts = safeBookings.filter(b => completedStatuses.includes(b.status));
+      const successfulCounts = safeBookings.filter(b => b.session_status === "successful");
       const cancelledCounts = safeBookings.filter(b => cancelledStatuses.includes(b.status));
       const rejectedCounts = safeBookings.filter(b => rejectedStatuses.includes(b.status));
 
       const totalLessonHours = safeBookings.reduce(
         (sum, b) => {
-            if (confirmedStatuses.includes(b.status) || completedStatuses.includes(b.status)) {
+            if (b.session_status === 'successful') {
                 return sum + (parseFloat(b.duration_min) || 0) / 60;
             }
             return sum;
@@ -169,7 +170,8 @@ export default function AdminAnalytics() {
               revenueUSD: 0, 
               revenuePHP: 0, 
               hours: 0, 
-              bookings: 0 
+              successfulBookings: 0,
+              totalBookings: 0
             };
         }
 
@@ -185,22 +187,25 @@ export default function AdminAnalytics() {
 
       // Process Bookings for Hours and Counts
       safeBookings.forEach(b => {
-        if (confirmedStatuses.includes(b.status) || completedStatuses.includes(b.status)) {
-            const date = new Date(b.start_time_utc);
-            const month = date.toLocaleString("default", { month: "short", year: "numeric" });
-            
-            if (!monthlyMap[month]) {
-                monthlyMap[month] = { 
-                  month, 
-                  revenueUSD: 0, 
-                  revenuePHP: 0, 
-                  hours: 0, 
-                  bookings: 0 
-                };
-            }
+        const date = new Date(b.start_time_utc);
+        const month = date.toLocaleString("default", { month: "short", year: "numeric" });
+        
+        if (!monthlyMap[month]) {
+            monthlyMap[month] = { 
+              month, 
+              revenueUSD: 0, 
+              revenuePHP: 0, 
+              hours: 0, 
+              successfulBookings: 0,
+              totalBookings: 0
+            };
+        }
 
+        monthlyMap[month].totalBookings += 1;
+
+        if (b.session_status === 'successful') {
             monthlyMap[month].hours += (parseFloat(b.duration_min) || 0) / 60;
-            monthlyMap[month].bookings += 1;
+            monthlyMap[month].successfulBookings += 1;
         }
       });
 
@@ -221,10 +226,10 @@ export default function AdminAnalytics() {
         tutorSharePHP: totalTutorPayPHP,
         totalLessonHours,
         totalBookings: safeBookings.length,
+        successfulBookings: successfulCounts.length,
         confirmedBookings: confirmedCounts.length,
         cancelledBookings: cancelledCounts.length,
         pendingBookings: pendingCounts.length,
-        completedBookings: completedCounts.length,
         rejectedBookings: rejectedCounts.length,
       });
 
@@ -243,7 +248,6 @@ export default function AdminAnalytics() {
         confirmedBookings: 0,
         cancelledBookings: 0,
         pendingBookings: 0,
-        completedBookings: 0,
         rejectedBookings: 0,
       });
       setMonthlyData([]);
@@ -266,6 +270,7 @@ export default function AdminAnalytics() {
       ["Tutor Pay", `$${analytics.tutorShareUSD.toFixed(2)}`, `₱${analytics.tutorSharePHP.toFixed(2)}`],
       ["Total Lesson Hours", `${analytics.totalLessonHours.toFixed(2)}`, "-"],
       ["Total Bookings", analytics.totalBookings, "-"],
+      ["Successful Bookings", analytics.successfulBookings, "-"],
       ["Confirmed Bookings", analytics.confirmedBookings, "-"],
       ["Cancelled Bookings", analytics.cancelledBookings, "-"],
       ["Pending Bookings", analytics.pendingBookings, "-"],
@@ -346,15 +351,15 @@ export default function AdminAnalytics() {
               }</td>
             </tr>
             <tr>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Confirmed Bookings</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Successful Bookings</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">${
-                analytics.confirmedBookings
+                analytics.successfulBookings
               }</td>
             </tr>
             <tr>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Completed Bookings</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">Confirmed Bookings</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">${
-                analytics.completedBookings
+                analytics.confirmedBookings
               }</td>
             </tr>
             <tr>
@@ -377,7 +382,8 @@ export default function AdminAnalytics() {
               <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Revenue (USD)</th>
               <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Revenue (PHP)</th>
               <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Hours</th>
-              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Bookings</th>
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Successful Bookings</th>
+              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600;">Total Bookings</th>
             </tr>
             ${monthlyData
               .map(
@@ -390,7 +396,10 @@ export default function AdminAnalytics() {
                     <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">₱${m.revenuePHP.toFixed(2)}</td>
                     <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">${m.hours.toFixed(2)}</td>
                     <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">${
-                      m.bookings
+                      m.successfulBookings
+                    }</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">${
+                      m.totalBookings
                     }</td>
                   </tr>`
               )
@@ -501,8 +510,8 @@ export default function AdminAnalytics() {
       bgColor: "bg-orange-500",
     },
     {
-      title: "Total Bookings",
-      value: analytics.totalBookings,
+      title: "Successful Bookings",
+      value: analytics.successfulBookings,
       icon: Calendar,
       bgColor: "bg-slate-500",
     },
@@ -643,10 +652,16 @@ export default function AdminAnalytics() {
           Booking Statistics
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-            <p className="text-sm font-medium text-slate-600">All</p>
+          <div className="p-4 bg-slate-100 rounded-lg border border-slate-300">
+            <p className="text-sm font-medium text-slate-600">Total (All)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">
               {analytics.totalBookings}
+            </p>
+          </div>
+          <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <p className="text-sm font-medium text-slate-600">Successful</p>
+            <p className="text-2xl font-bold text-slate-900 mt-2">
+              {analytics.successfulBookings}
             </p>
           </div>
           <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
@@ -665,12 +680,6 @@ export default function AdminAnalytics() {
             <p className="text-sm font-medium text-slate-600">Cancelled</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">
               {analytics.cancelledBookings}
-            </p>
-          </div>
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm font-medium text-slate-600">Completed</p>
-            <p className="text-2xl font-bold text-slate-900 mt-2">
-              {analytics.completedBookings}
             </p>
           </div>
           <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
@@ -705,7 +714,10 @@ export default function AdminAnalytics() {
                     Hours
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Bookings
+                    Successful
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Total
                   </th>
                 </tr>
               </thead>
@@ -725,7 +737,10 @@ export default function AdminAnalytics() {
                       {month.hours.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                      {month.bookings}
+                      {month.successfulBookings}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                      {month.totalBookings}
                     </td>
                   </tr>
                 ))}

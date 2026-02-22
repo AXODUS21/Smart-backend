@@ -42,7 +42,7 @@ export async function GET(request) {
     // Get tutor data
     const { data: tutorData, error: tutorError } = await supabase
       .from('Tutors')
-      .select('id, stripe_account_id, paymongo_account_id, credits')
+      .select('id, stripe_account_id, paymongo_account_id, credits, pricing_region')
       .eq('user_id', userId)
       .single();
 
@@ -66,30 +66,39 @@ export async function GET(request) {
           .filter(
             (s) =>
               s.status === 'confirmed' &&
-              (s.session_status === 'successful' || s.session_action === 'review-submitted')
+              (s.session_status === 'successful' || s.session_action === 'review-submitted' || s.session_status === 'student-no-show')
           )
           .reduce((total, session) => total + parseFloat(session.credits_required || 0), 0);
 
-        // Get total withdrawals (convert PHP to credits)
-        // Only count withdrawals that are approved, processing, or completed (not pending or rejected)
+        // Get total withdrawals
+        // Include pending since they effectively "reserve" the credits
         const { data: withdrawals } = await supabase
           .from('TutorWithdrawals')
           .select('amount')
           .eq('tutor_id', tutorData.id)
-          .in('status', ['approved', 'processing', 'completed']);
+          .in('status', ['pending', 'approved', 'processing', 'completed']);
+
+        const creditToPhpRate = 90;
+        const creditToUsdRate = 1.5;
+        const exchangeRate = (tutorData.pricing_region === 'PH') ? creditToPhpRate : creditToUsdRate;
 
         const totalWithdrawnCredits = withdrawals
-          ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / 90, 0)
+          ? withdrawals.reduce((total, w) => total + parseFloat(w.amount || 0) / exchangeRate, 0)
           : 0;
 
-        // Add manual credits (from Tutors table) to the calculated net credits
-        const manualCredits = parseFloat(tutorData.credits || 0);
-        credits = Math.max(0, totalCreditsEarned - totalWithdrawnCredits) + manualCredits;
+        // AVAILABLE BALANCE: 
+        // We use Tutors.credits as the base because it is incremented by notifications/Review submissions.
+        // However, we must subtract withdrawals from it.
+        const manualBalance = parseFloat(tutorData.credits || 0);
+        credits = Math.max(0, manualBalance - totalWithdrawnCredits);
       }
     }
 
-    const creditToPhpRate = 90; // 1 credit = 90 PHP
-    const totalPhp = credits * creditToPhpRate;
+    const creditToPhpRate = 90;
+    const creditToUsdRate = 1.5;
+    const isInternational = tutorData.pricing_region !== 'PH';
+    const totalAmount = credits * (isInternational ? creditToUsdRate : creditToPhpRate);
+    const currency = isInternational ? 'USD' : 'PHP';
 
     // Check Stripe balance (central account) - DISABLED for security/privacy
     // Tutors should not see the platform's balance.
@@ -105,7 +114,10 @@ export async function GET(request) {
     return NextResponse.json({
       credits,
       creditToPhpRate,
-      totalPhp,
+      creditToUsdRate,
+      totalAmount,
+      currency,
+      isInternational,
       stripe: {
         balance: stripeBalance,
         available: stripeAvailable,

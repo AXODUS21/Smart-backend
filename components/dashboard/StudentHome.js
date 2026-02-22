@@ -145,10 +145,7 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
             setUpcomingSessions(upcoming);
 
             const completed = relevantSessions.filter(
-              (s) =>
-                (s.status === "confirmed" || s.status === "successful") &&
-                new Date(s.end_time_utc) < new Date() &&
-                s.no_show_type !== "tutor-no-show" // Exclude sessions where tutor didn't show up
+              (s) => s.session_status === "successful"
             );
             const hoursCompleted = completed.reduce(
               (total, session) => total + (session.duration_min || 0) / 60,

@@ -49,7 +49,7 @@ export async function POST(request) {
         settings: {
           payouts: {
             schedule: {
-              interval: 'manual',
+              interval: 'daily',
             },
           },
         },

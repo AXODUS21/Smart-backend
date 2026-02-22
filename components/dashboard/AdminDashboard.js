@@ -22,6 +22,7 @@ export default function AdminDashboard() {
     totalTutors: 0,
     totalAdmins: 0,
     totalBookings: 0,
+    successfulBookings: 0,
     pendingBookings: 0,
     confirmedBookings: 0,
     completedBookings: 0,
@@ -63,10 +64,10 @@ export default function AdminDashboard() {
         supabase.from("admins").select("id", { count: "exact" }),
         supabase
           .from("Schedules")
-          .select("id, status, credits_required, principal_user_id", { count: "exact" }),
+          .select("id, status, session_status, credits_required, principal_user_id", { count: "exact" }),
         supabase
           .from("Schedules")
-          .select("id, status, credits_required, start_time_utc, duration_min, principal_user_id, Tutors(region)"),
+          .select("id, status, session_status, credits_required, start_time_utc, duration_min, principal_user_id, Tutors(region)"),
         supabase
           .from("transactions")
           .select("amount, currency, created_at"),
@@ -187,6 +188,7 @@ export default function AdminDashboard() {
 
     // --- BOOKING STATS ---
     const totalBookings = filteredBookings.length;
+    const successfulBookings = filteredBookings.filter(b => b.session_status === 'successful').length;
     const pendingBookings = filteredBookings.filter(
       (b) => b.status === "pending" || b.status === "awaiting_approval"
     ).length;
@@ -195,12 +197,13 @@ export default function AdminDashboard() {
     ).length;
     const completedStatuses = ["completed", "successful", "student-no-show"];
     const completedBookings = filteredBookings.filter(
-      (b) => completedStatuses.includes(b.status)
+      (b) => completedStatuses.includes(b.session_status)
     ).length;
 
     setStats((prev) => ({
       ...prev,
       totalBookings,
+      successfulBookings,
       pendingBookings,
       confirmedBookings,
       completedBookings,

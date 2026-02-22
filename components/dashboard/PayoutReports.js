@@ -152,6 +152,43 @@ export default function PayoutReports() {
     }
   };
 
+  const handleProcessPayouts = async () => {
+    if (!window.confirm("Are you sure you want to process actual payouts for this date range? This will trigger real financial transactions.")) {
+        return;
+    }
+    
+    setGenerateLoading(true);
+    setError("");
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Authentication expired");
+
+      if (!manualDates.start || !manualDates.end) {
+        throw new Error("Please select both start and end dates.");
+      }
+
+      const response = await fetch(`/api/cron/process-payouts?force=true&startDate=${manualDates.start}&endDate=${manualDates.end}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to process payouts");
+      
+      alert(data.message || "Payouts processed successfully");
+      setShowGenerateModal(false);
+      loadReports();
+      
+    } catch (err) {
+      console.error("Error processing payouts:", err);
+      setError(err.message || "Failed to process payouts");
+    } finally {
+      setGenerateLoading(false);
+    }
+  };
+
   const exportToExcel = (report) => {
     if (!report || !report.report_data) return;
 
@@ -164,7 +201,7 @@ export default function PayoutReports() {
       // Summary data with better formatting
       const summaryData = [
         ["SMART BRAIN PAYOUT REPORT"],
-        [`Report ID: ${report.id}`],
+        [`Report Number: ${report.report_number || report.id}`],
         [`Period: ${formatDate(report.report_period_start)} - ${formatDate(report.report_period_end)}`],
         [`Generated: ${formatDateTime(report.generation_date)}`],
         [`Type: ${report.report_type === "automatic_payout" ? "Automatic Payout" : "Manual Payout"}`],
@@ -175,19 +212,22 @@ export default function PayoutReports() {
         ["Successful", summary.successful_payouts || 0],
         ["Failed", summary.failed_payouts || 0],
         ["Pending", summary.pending_payouts || 0],
-        ["Total Amount", summary.total_amount || 0],
-        ["Currency", "PHP"],
+        ["Total Amount (PHP)", summary.total_amount_php || summary.total_amount || 0],
+        ["Total Amount (USD)", summary.total_amount_usd || 0],
+        ["Currency", "PHP / USD"],
         ["Credit Rate", summary.credit_rate || 90],
+        ["Total Credits", withdrawals.reduce((sum, w) => sum + (w.credits || 0), 0)],
         [],
         ["TUTORS PAID IN THIS CYCLE"],
-        ["Tutor Name", "Region", "Amount"],
+        ["Tutor Name", "Region", "Amount", "Credits"],
         ...withdrawals.map(w => {
-          const isIntl = w.pricing_region !== 'PH' && w.is_international !== false;
-          return [
-            w.tutor_name || (w.first_name && w.last_name ? `${w.first_name} ${w.last_name}` : null) || w.tutor_email || "N/A",
-            isIntl ? 'International' : 'Philippines',
-            isIntl ? `$${parseFloat(w.amount || 0).toFixed(2)} USD` : `PHP ${parseFloat(w.amount || 0).toFixed(2)}`
-          ];
+            const isIntl = w.currency === 'USD' || (w.pricing_region !== 'PH' && w.is_international !== false && w.currency !== 'PHP');
+            return [
+              w.tutor_name || (w.first_name && w.last_name ? `${w.first_name} ${w.last_name}` : null) || w.tutor_email || "N/A",
+              isIntl ? 'International' : 'Philippines',
+              isIntl ? `$${parseFloat(w.amount || 0).toFixed(2)} USD` : `PHP ${parseFloat(w.amount || 0).toFixed(2)}`,
+              w.credits || 0
+            ];
         })
       ];
 
@@ -206,11 +246,9 @@ export default function PayoutReports() {
         "Region",
         "Amount",
         "Credits",
-        "Status",
         "Method",
-        "Account Details",
-        "Requested At",
-        "Notes"
+        "Status",
+        "Processed At"
       ];
 
       const withdrawalsRows = withdrawals.map(w => {
@@ -228,7 +266,7 @@ export default function PayoutReports() {
         // Fallback for tutor name if missing
         const tutorName = w.tutor_name || (w.first_name && w.last_name ? `${w.first_name} ${w.last_name}` : null) || w.tutor_email || "N/A";
 
-        const isIntl = w.pricing_region !== 'PH' && w.is_international !== false;
+        const isIntl = w.currency === 'USD' || (w.pricing_region !== 'PH' && w.is_international !== false && w.currency !== 'PHP');
         return [
           w.withdrawal_id,
           tutorName,
@@ -236,11 +274,9 @@ export default function PayoutReports() {
           isIntl ? 'International' : 'Philippines',
           isIntl ? `$${parseFloat(w.amount || 0).toFixed(2)} USD` : parseFloat(w.amount || 0).toFixed(2),
           w.credits || 0,
+          w.payment_method?.toUpperCase() || "N/A",
           (w.status || "pending").toUpperCase(),
-          w.payment_method || "N/A",
-          details,
-          formatDateTime(w.requested_at),
-          w.note || ""
+          w.processed_at ? new Date(w.processed_at).toLocaleString() : "N/A"
         ];
       });
 
@@ -274,7 +310,7 @@ export default function PayoutReports() {
         XLSX.utils.book_append_sheet(wb, errorsWs, "Errors");
       }
 
-      const filename = `SmartBrain_Payout_Report_${report.id}_${new Date().getTime()}.xlsx`;
+      const filename = `SmartBrain_Payout_Report_${report.report_number || report.id}_${new Date().getTime()}.xlsx`;
       XLSX.writeFile(wb, filename);
     } catch (err) {
       console.error("Excel Export Error:", err);
@@ -303,7 +339,7 @@ export default function PayoutReports() {
       doc.text("PAYOUT SETTLEMENT REPORT", 15, 30);
       
       doc.setTextColor(255, 255, 255);
-      doc.text(`Report ID: #${report.id}`, 195, 22, { align: "right" });
+      doc.text(`Report Number: #${report.report_number || report.id}`, 195, 22, { align: "right" });
       doc.text(`Generated: ${formatDate(new Date())}`, 195, 30, { align: "right" });
 
       let yPos = 50;
@@ -331,11 +367,13 @@ export default function PayoutReports() {
       const uniqueTutors = new Set(withdrawals.map(w => w.tutor_id)).size;
 
       const summaryRows = [
-        ["Total Amount Disbursed", `PHP ${parseFloat(summary.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+        ["Total Amount (PHP)", `PHP ${parseFloat(summary.total_amount_php || summary.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+        ["Total Amount (USD)", `$${parseFloat(summary.total_amount_usd || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
         ["Total Payout Count", summary.total_payouts || 0],
         ["Unique Tutors Involved", uniqueTutors],
         ["Successful Transactions", summary.successful_payouts || 0],
         ["Failed / Blocked", summary.failed_payouts || 0],
+        ["Total Credits Involved", withdrawals.reduce((sum, w) => sum + (w.credits || 0), 0)],
         ["Current Credit Rate", `PHP ${summary.credit_rate || 90.00} / Credit`]
       ];
 
@@ -356,7 +394,7 @@ export default function PayoutReports() {
       yPos += 6;
 
       const tableData = withdrawals.map(w => {
-        const isIntl = w.pricing_region !== 'PH' && w.is_international !== false;
+        const isIntl = w.currency === 'USD' || (w.pricing_region !== 'PH' && w.is_international !== false && w.currency !== 'PHP');
         const amountStr = isIntl
           ? `$${parseFloat(w.amount || 0).toFixed(2)} USD`
           : `PHP ${parseFloat(w.amount || 0).toFixed(2)}`;
@@ -364,6 +402,7 @@ export default function PayoutReports() {
           w.tutor_name || "N/A",
           w.tutor_email || "N/A",
           amountStr,
+          w.credits || 0,
           w.payment_method?.toUpperCase() || "N/A",
           (w.status || "pending").toUpperCase()
         ];
@@ -371,14 +410,15 @@ export default function PayoutReports() {
 
       autoTable(doc, {
         startY: yPos,
-        head: [["TUTOR NAME", "EMAIL", "AMOUNT", "METHOD", "STATUS"]],
+        head: [["TUTOR NAME", "EMAIL", "AMOUNT", "CREDITS", "METHOD", "STATUS"]],
         body: tableData,
         theme: "striped",
         headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: "bold" },
         styles: { fontSize: 7 }, // slightly smaller to fit email
         columnStyles: {
           2: { halign: "right" },
-          4: { fontStyle: "bold" }
+          3: { halign: "center" },
+          5: { fontStyle: "bold" }
         },
         margin: { top: 10, bottom: 20 }
       });
@@ -475,7 +515,7 @@ export default function PayoutReports() {
                   <div className="flex items-center gap-3 mb-2">
                     <FileText className="text-blue-600" size={24} />
                     <h3 className="text-lg font-semibold text-slate-900">
-                      Payout Report #{report.id}
+                      Payout Report #{report.report_number || report.id}
                     </h3>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -491,9 +531,16 @@ export default function PayoutReports() {
                     <div className="flex items-center gap-2">
                       <div>
                         <p className="text-xs text-slate-500">Total Amount</p>
-                        <p className="text-sm font-medium text-slate-900">
-                          ₱{parseFloat(report.total_amount || 0).toFixed(2)}
-                        </p>
+                        <div className="flex flex-col">
+                            <p className="text-sm font-medium text-slate-900">
+                            ₱{parseFloat(report.total_amount_php || report.total_amount || 0).toFixed(2)}
+                            </p>
+                            {(report.total_amount_usd > 0 || (report.report_data?.summary?.total_amount_usd > 0)) && (
+                                <p className="text-xs text-slate-600">
+                                ${parseFloat(report.total_amount_usd || report.report_data?.summary?.total_amount_usd || 0).toFixed(2)} USD
+                                </p>
+                            )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -555,7 +602,7 @@ export default function PayoutReports() {
             <div className="p-6 border-b border-slate-200 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-semibold text-slate-900">
-                  Report Details - #{selectedReport.id}
+                  Report Details - #{selectedReport.report_number || selectedReport.id}
                 </h3>
                 <button
                   onClick={() => setShowReportDetails(false)}
@@ -620,20 +667,32 @@ export default function PayoutReports() {
                 </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={() => setShowGenerateModal(false)}
-                  className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleGenerateReport}
-                  disabled={generateLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {generateLoading ? "Generating..." : "Generate"}
-                </button>
+            <div className="mt-6 flex flex-col gap-3">
+                <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => setShowGenerateModal(false)}
+                      className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleGenerateReport}
+                      disabled={generateLoading}
+                      className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
+                    >
+                      Preview Only
+                    </button>
+                    <button
+                      onClick={handleProcessPayouts}
+                      disabled={generateLoading}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {generateLoading ? "Processing..." : "Process Payouts"}
+                    </button>
+                </div>
+                <p className="text-[10px] text-slate-400 text-center uppercase tracking-widest">
+                    Caution: "Process Payouts" triggers real transactions
+                </p>
             </div>
           </div>
         </div>
@@ -668,9 +727,15 @@ function ReportDetailsView({ report, formatDateTime, formatDate }) {
             <p className="text-2xl font-bold text-amber-600">{summary.pending_payouts || 0}</p>
           </div>
           <div>
-            <p className="text-sm text-slate-600">Total Amount</p>
+            <p className="text-sm text-slate-600">Total Amount (PHP)</p>
             <p className="text-2xl font-bold text-slate-900">
-              ₱{parseFloat(summary.total_amount || 0).toFixed(2)}
+              ₱{parseFloat(summary.total_amount_php || summary.total_amount || 0).toFixed(2)}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-slate-600">Total Amount (USD)</p>
+            <p className="text-2xl font-bold text-slate-900">
+              ${parseFloat(summary.total_amount_usd || 0).toFixed(2)}
             </p>
           </div>
           <div>
@@ -749,7 +814,7 @@ function ReportDetailsView({ report, formatDateTime, formatDate }) {
                         <div className="flex items-center gap-4 mt-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xl font-bold text-slate-900">
-                              {w.pricing_region !== 'PH' && w.is_international !== false
+                              {w.currency === 'USD' || (w.pricing_region !== 'PH' && w.is_international !== false && w.currency !== 'PHP')
                               ? `$${parseFloat(w.amount || 0).toFixed(2)} USD`
                               : `₱${parseFloat(w.amount || 0).toFixed(2)}`}
                             </span>
