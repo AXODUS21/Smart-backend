@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Users, Clock, TrendingUp, Award, Megaphone } from "lucide-react";
+import { Users, Clock, TrendingUp, Award, Megaphone, Wallet } from "lucide-react";
 
 export default function TutorHome() {
   const { user } = useAuth();
@@ -17,6 +17,7 @@ export default function TutorHome() {
     hoursTaught: 0,
     creditsEarned: 0,
   });
+  const [availableCredits, setAvailableCredits] = useState(0);
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
 
@@ -53,13 +54,13 @@ export default function TutorHome() {
     },
 
     {
-      title: tutorRegion === 'PH' ? "Credits Earned" : "Earnings (USD)",
-      value: tutorRegion === 'PH'
-        ? metrics.creditsEarned.toString()
-        : `$${(metrics.creditsEarned * 1.5).toFixed(2)}`,
-      icon: TrendingUp,
-      bgColor: "bg-orange-500",
-      lightBg: "bg-orange-50",
+      title: "Available Credits",
+      value: tutorRegion === 'PH' 
+        ? availableCredits.toFixed(2) 
+        : `$${(availableCredits * 1.5).toFixed(2)}`,
+      icon: Wallet,
+      bgColor: "bg-emerald-500",
+      lightBg: "bg-emerald-50",
     },
   ];
 
@@ -149,7 +150,7 @@ export default function TutorHome() {
         // Get tutor info (single query to get all needed data)
         const { data: tutorData, error: tutorError } = await supabase
           .from("Tutors")
-          .select("id, first_name, last_name, subjects, pricing_region")
+          .select("id, first_name, last_name, subjects, pricing_region, credits")
           .eq("user_id", user.id)
           .single();
 
@@ -167,6 +168,7 @@ export default function TutorHome() {
         // Store tutor ID and region
         setTutorId(tutorData.id);
         setTutorRegion(tutorData.pricing_region || 'US');
+        setAvailableCredits(tutorData.credits || 0);
         const fullName = `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim();
         setTutorName(fullName || user.email);
         
