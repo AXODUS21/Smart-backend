@@ -129,6 +129,8 @@ export default function StudentHome({ setActiveTab, overrideStudentId }) {
 
           if (sessions) {
             const relevantSessions = sessions.filter((session) => {
+              // If a session has a profile_id, it must match the filter
+              // If it doesn't have a profile_id, it's a primary profile session
               if (!session.profile_id) {
                 return profileIdFilter === DEFAULT_PROFILE_ID;
               }

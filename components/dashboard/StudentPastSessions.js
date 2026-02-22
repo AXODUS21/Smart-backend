@@ -111,6 +111,8 @@ export default function StudentPastSessions({ overrideStudentId }) {
           const profileFiltered = isSchoolView
             ? (data || [])
             : (data || []).filter((session) => {
+                // If a session has a profile_id, it must match the filter
+                // If it doesn't have a profile_id, it's a primary profile session
                 if (!session.profile_id) {
                   return profileIdFilter === DEFAULT_PROFILE_ID;
                 }
@@ -127,6 +129,7 @@ export default function StudentPastSessions({ overrideStudentId }) {
             date: formatDate(session.start_time_utc),
             time: formatTime(session.start_time_utc, session.end_time_utc),
             status: session.session_status || "completed",
+            session_status: session.session_status,
             action: session.session_action || null,
             credits_required: session.credits_required || 0,
             tutor_id: session.tutor_id,
@@ -440,7 +443,7 @@ export default function StudentPastSessions({ overrideStudentId }) {
                   className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
                     session.no_show_type === "student-no-show"
                       ? "bg-orange-100 text-orange-700"
-                      : session.status === "completed" || session.status === "successful"
+                      : session.status === "successful" || (session.session_status === "successful")
                       ? "bg-green-100 text-green-700"
                       : session.no_show_type === "tutor-no-show"
                       ? "bg-red-100 text-red-700"
