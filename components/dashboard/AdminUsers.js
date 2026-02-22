@@ -64,6 +64,8 @@ export default function AdminUsers() {
             // Tutor specific fields
             subjects: user.subjects,
             bio: user.bio,
+            first_name: user.first_name,
+            last_name: user.last_name,
           };
 
           if (user.role === 'student') {
@@ -290,16 +292,33 @@ export default function AdminUsers() {
     }
   };
 
-  const getRoleBadge = (role) => {
+  const getRoleBadge = (user) => {
+    const role = user.role;
     const colors = {
       student: "bg-blue-100 text-blue-800",
       tutor: "bg-green-100 text-green-800",
       admin: "bg-purple-100 text-purple-800",
       principal: "bg-indigo-100 text-indigo-800",
     };
+    
+    let label = role.charAt(0).toUpperCase() + role.slice(1);
+    
+    if (role === 'principal') {
+      const firstName = user.first_name || '';
+      const lastName = user.last_name || '';
+      const fullName = (firstName + ' ' + lastName).trim();
+      
+      if (fullName) {
+        label = `Principal (${fullName})`;
+      } else if (user.name && user.name !== user.email) {
+        // Fallback to generic name if first/last are missing but we have a custom name
+        label = `Principal (${user.name})`;
+      }
+    }
+
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[role] || ""}`}>
-        {role.charAt(0).toUpperCase() + role.slice(1)}
+        {label}
       </span>
     );
   };
@@ -603,7 +622,7 @@ export default function AdminUsers() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {getRoleBadge(user.role)}
+                    {getRoleBadge(user)}
                     {user.has_profile === false && (
                       <span className="ml-2 text-xs text-amber-600">(Incomplete)</span>
                     )}
@@ -659,7 +678,7 @@ export default function AdminUsers() {
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">Role</p>
-                {getRoleBadge(viewingUser.role)}
+                {getRoleBadge(viewingUser)}
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">Joined</p>
