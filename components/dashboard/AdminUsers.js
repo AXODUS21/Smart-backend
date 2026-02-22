@@ -354,6 +354,7 @@ export default function AdminUsers() {
             // Merge payment details into the user object for viewing
             const enrichedUser = {
                 ...user,
+                credits: tutorData.credits, // Ensure correct credits are used from the Tutors table
                 payment_method: tutorData.payment_method,
                 bank_account_name: tutorData.bank_account_name,
                 bank_account_number: tutorData.bank_account_number,
