@@ -479,6 +479,9 @@ export default function SessionManagement({ overrideStudentId }) {
         credits_required: selectedSession.credits_required,
         status: "pending",
         rescheduled_from_id: selectedSession.id,
+        school_id: selectedSession.school_id,
+        profile_id: selectedSession.profile_id,
+        profile_name: selectedSession.profile_name,
       };
       if (selectedSession.principal_user_id) insertPayload.principal_user_id = selectedSession.principal_user_id;
 
