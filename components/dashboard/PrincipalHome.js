@@ -37,15 +37,22 @@ export default function PrincipalHome({ setActiveTab }) {
           setPrincipalName(fullName || user.email);
           
           // Get schools count
-          const { count } = await supabase
+          const { count: schoolCount } = await supabase
             .from("Schools")
             .select("*", { count: "exact", head: true })
             .eq("principal_id", user.id);
 
+          // Get total sessions count across all schools
+          // principal_user_id is set in Schedules when a principal or their school books a session
+          const { count: sessionCount } = await supabase
+            .from("Schedules")
+            .select("*", { count: "exact", head: true })
+            .eq("principal_user_id", user.id);
+
           setMetrics({
-            totalSchools: count || 0,
+            totalSchools: schoolCount || 0,
             creditsAvailable: principalData.credits || 0,
-            totalSessions: 0, // Placeholder as sessions logic might need update
+            totalSessions: sessionCount || 0,
           });
         }
       } catch (error) {
