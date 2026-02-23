@@ -25,6 +25,7 @@ export default function TutorAssignments() {
   const [students, setStudents] = useState([]); // List of accepted students with details
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [principals, setPrincipals] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -88,6 +89,17 @@ export default function TutorAssignments() {
         
         if (schoolsError) {
           console.error("Error fetching schools:", schoolsError);
+        }
+
+        // Get ALL principals
+        const { data: principalsData, error: principalsError } = await supabase
+          .from("Principals")
+          .select("user_id, first_name, last_name");
+
+        if (principalsError) {
+          console.error("Error fetching principals:", principalsError);
+        } else {
+          setPrincipals(principalsData || []);
         }
 
         const allRecipients = [];
@@ -177,6 +189,11 @@ export default function TutorAssignments() {
               id,
               name,
               email
+            ),
+            school:school_id (
+              id,
+              name,
+              principal_id
             )
           `
           )
@@ -328,6 +345,11 @@ export default function TutorAssignments() {
             id,
             name,
             email
+          ),
+          school:school_id (
+            id,
+            name,
+            principal_id
           )
         `
         )
@@ -397,6 +419,11 @@ export default function TutorAssignments() {
             id,
             name,
             email
+          ),
+          school:school_id (
+            id,
+            name,
+            principal_id
           )
         `
         )
@@ -412,20 +439,35 @@ export default function TutorAssignments() {
     }
   };
 
+  const getPrincipalName = (principalId) => {
+    if (!principalId) return null;
+    const principal = principals.find((p) => p.user_id === principalId);
+    if (!principal) return "Unknown Principal";
+    return `${principal.first_name} ${principal.last_name}`.trim() || principal.email || "Unknown Principal";
+  };
+
   // Filter and sort assignments
   const filteredAssignments = assignments
     .filter((assignment) => {
+      const studentName = assignment.student?.name || assignment.student?.email || "";
+      const schoolName = assignment.school?.name || "";
+      const principalName = assignment.school ? getPrincipalName(assignment.school.principal_id) : "";
+
       const matchesSearch =
         !searchTerm ||
         assignment.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        assignment.student?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        assignment.student?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        schoolName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        principalName.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus =
         statusFilter === "all" || assignment.status === statusFilter;
 
       const matchesStudent =
-        studentFilter === "all" || assignment.student_id === parseInt(studentFilter);
+        studentFilter === "all" ||
+        (studentFilter.startsWith("school_")
+          ? assignment.school_id === parseInt(studentFilter.replace("school_", ""))
+          : assignment.student_id === parseInt(studentFilter));
 
       return matchesSearch && matchesStatus && matchesStudent;
     })
@@ -436,8 +478,16 @@ export default function TutorAssignments() {
         case "oldest":
           return new Date(a.created_at) - new Date(b.created_at);
         case "student":
-          const nameA = (a.student?.name || a.student?.email || "").toLowerCase();
-          const nameB = (b.student?.name || b.student?.email || "").toLowerCase();
+          const getName = (assignment) => {
+            if (assignment.student) return (assignment.student.name || assignment.student.email || "").toLowerCase();
+            if (assignment.school) {
+              const pName = getPrincipalName(assignment.school.principal_id) || "";
+              return `${pName} ${assignment.school.name}`.toLowerCase();
+            }
+            return "";
+          };
+          const nameA = getName(a);
+          const nameB = getName(b);
           return nameA.localeCompare(nameB);
         case "dueDate":
           if (!a.due_date && !b.due_date) return 0;
@@ -748,20 +798,32 @@ export default function TutorAssignments() {
                 >
                   <option value="all">All Students</option>
                   {(() => {
-                    const studentMap = new Map();
-                    assignments
-                      .filter((a) => a.student_id)
-                      .forEach((a) => {
-                        if (!studentMap.has(a.student_id)) {
-                          const studentName = a.student?.name || a.student?.email || "Unknown";
-                          studentMap.set(a.student_id, studentName);
+                    const filterOptions = new Map();
+                    assignments.forEach((a) => {
+                      if (a.student_id && a.student) {
+                        const key = a.student_id.toString();
+                        if (!filterOptions.has(key)) {
+                          filterOptions.set(key, {
+                            id: key,
+                            name: a.student.name || a.student.email || "Unknown Student",
+                          });
                         }
-                      });
-                    return Array.from(studentMap.entries())
-                      .sort((a, b) => a[1].localeCompare(b[1]))
-                      .map(([id, name]) => (
-                        <option key={id} value={id}>
-                          {name}
+                      } else if (a.school_id && a.school) {
+                        const key = `school_${a.school_id}`;
+                        if (!filterOptions.has(key)) {
+                          const principalName = getPrincipalName(a.school.principal_id);
+                          filterOptions.set(key, {
+                            id: key,
+                            name: `${principalName} (${a.school.name})`,
+                          });
+                        }
+                      }
+                    });
+                    return Array.from(filterOptions.values())
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.name}
                         </option>
                       ));
                   })()}
@@ -831,9 +893,15 @@ export default function TutorAssignments() {
                     </div>
 
                     <div className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
-                      <span className="font-medium">Student:</span>
+                      <span className="font-medium">
+                        {assignment.student ? "Student:" : "Principal:"}
+                      </span>
                       <span className="truncate">
-                        {assignment.student?.name || assignment.student?.email || "Unknown"}
+                        {assignment.student
+                          ? (assignment.student.name || assignment.student.email)
+                          : (assignment.school
+                            ? `${getPrincipalName(assignment.school.principal_id)} (${assignment.school.name})`
+                            : "Unknown")}
                       </span>
                       {assignment.profile_name && (
                         <>
@@ -969,10 +1037,14 @@ export default function TutorAssignments() {
                 </h4>
                 <div className="text-xs text-slate-600 space-y-0.5">
                   <div>
-                    <span className="font-medium">Student:</span>{" "}
-                    {selectedAssignmentForGrading.student?.name || 
-                     selectedAssignmentForGrading.student?.email || 
-                     "Unknown"}
+                    <span className="font-medium">
+                      {selectedAssignmentForGrading.student ? "Student:" : "Principal:"}
+                    </span>{" "}
+                    {selectedAssignmentForGrading.student
+                      ? (selectedAssignmentForGrading.student.name || selectedAssignmentForGrading.student.email)
+                      : (selectedAssignmentForGrading.school
+                        ? `${getPrincipalName(selectedAssignmentForGrading.school.principal_id)} (${selectedAssignmentForGrading.school.name})`
+                        : "Unknown")}
                   </div>
                   {selectedAssignmentForGrading.profile_name && (
                     <div>
