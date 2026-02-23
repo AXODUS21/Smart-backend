@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { handleNoShow } from "@/lib/sessionPolicies";
 import { DEFAULT_PROFILE_ID, getActiveProfile } from "@/lib/studentProfiles";
+import { formatCreditsAsCurrency } from "@/lib/currency";
 
 export default function StudentPastSessions({ overrideStudentId }) {
   const { user } = useAuth();
@@ -82,7 +83,8 @@ export default function StudentPastSessions({ overrideStudentId }) {
             tutor:tutor_id (
               name,
               first_name,
-              last_name
+              last_name,
+              pricing_region
             )
           `
           );
@@ -133,6 +135,7 @@ export default function StudentPastSessions({ overrideStudentId }) {
             action: session.session_action || null,
             credits_required: session.credits_required || 0,
             tutor_id: session.tutor_id,
+            tutor_region: session.tutor?.pricing_region || "US",
             start_time_utc: session.start_time_utc,
             duration_min: session.duration_min,
             no_show_type: session.no_show_type,
@@ -433,6 +436,10 @@ export default function StudentPastSessions({ overrideStudentId }) {
                     <p className="text-xs text-slate-500">{session.date}</p>
                     <span className="text-xs text-slate-400">•</span>
                     <p className="text-xs text-slate-500">{session.time}</p>
+                    <span className="text-xs text-slate-400">•</span>
+                    <p className="text-xs text-slate-500">
+                      Credits: {session.credits_required} ({formatCreditsAsCurrency(session.credits_required, session.tutor_region)})
+                    </p>
                   </div>
                 </div>
                 <span

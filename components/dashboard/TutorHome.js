@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Users, Clock, TrendingUp, Award, Megaphone, Wallet } from "lucide-react";
+import { formatCreditsAsCurrency } from "@/lib/currency";
 
 export default function TutorHome() {
   const { user } = useAuth();
@@ -55,7 +56,7 @@ export default function TutorHome() {
 
     {
       title: "Available Credits",
-      value: availableCredits.toFixed(2),
+      value: `${availableCredits.toFixed(2)} (${formatCreditsAsCurrency(availableCredits, tutorRegion)})`,
       icon: Wallet,
       bgColor: "bg-emerald-500",
       lightBg: "bg-emerald-50",

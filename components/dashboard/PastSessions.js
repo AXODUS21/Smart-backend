@@ -5,6 +5,7 @@ import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { handleNoShow } from "@/lib/sessionPolicies";
+import { formatCreditsAsCurrency } from "@/lib/currency";
 
 export default function PastSessions() {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function PastSessions() {
   const [showNoShowModal, setShowNoShowModal] = useState(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [tutorRegion, setTutorRegion] = useState("US");
 
   // Fetch past sessions for the tutor
   useEffect(() => {
@@ -27,11 +29,12 @@ export default function PastSessions() {
         // Get tutor ID first
         const { data: tutorData } = await supabase
           .from("Tutors")
-          .select("id")
+          .select("id, pricing_region")
           .eq("user_id", user.id)
           .single();
 
         if (!tutorData) return;
+        setTutorRegion(tutorData.pricing_region || "US");
 
         // Fetch sessions that have ended (past sessions) and are confirmed
         const { data, error } = await supabase
@@ -410,7 +413,7 @@ export default function PastSessions() {
                     <p className="text-xs text-slate-500">{session.time}</p>
                     <span className="text-xs text-slate-400">•</span>
                     <p className="text-xs text-slate-500">
-                      Credits: {session.credits_required} (₱{(session.credits_required * 90).toFixed(2)})
+                      Credits: {session.credits_required} ({formatCreditsAsCurrency(session.credits_required, tutorRegion)})
                     </p>
                     {session.profile_name && (
                       <>
@@ -449,7 +452,7 @@ export default function PastSessions() {
                 <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-xs font-medium text-green-900 mb-1">
-                      You will earn: {session.credits_required} credits (₱{(session.credits_required * 90).toFixed(2)})
+                      You will earn: {session.credits_required} credits ({formatCreditsAsCurrency(session.credits_required, tutorRegion)})
                     </p>
                     <p className="text-xs text-green-700">
                       {session.duration_min} minutes = {session.credits_required} credit{session.credits_required > 1 ? 's' : ''} (30 min = 1 credit, 1 hour = 2 credits)
