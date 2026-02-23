@@ -55,9 +55,7 @@ export default function TutorHome() {
 
     {
       title: "Available Credits",
-      value: tutorRegion === 'PH' 
-        ? availableCredits.toFixed(2) 
-        : `$${(availableCredits * 1.5).toFixed(2)}`,
+      value: availableCredits.toFixed(2),
       icon: Wallet,
       bgColor: "bg-emerald-500",
       lightBg: "bg-emerald-50",
