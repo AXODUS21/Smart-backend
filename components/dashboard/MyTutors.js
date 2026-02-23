@@ -54,7 +54,7 @@ export default function MyTutors() {
         const tutorIds = acceptedTutors.map(tutor => tutor.tutor_id);
         const { data, error } = await supabase
           .from('Tutors')
-          .select('user_id, name, subjects, availability')
+          .select('user_id, first_name, last_name, subjects, availability')
           .in('user_id', tutorIds);
 
         if (error) {
@@ -110,7 +110,7 @@ export default function MyTutors() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h4 className="text-lg font-semibold text-gray-900">
-                          {tutor.name || 'Tutor'}
+                          {`${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() || 'Tutor'}
                         </h4>
                         <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
                           Accepted

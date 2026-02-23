@@ -24,7 +24,7 @@ export default function FindTutors() {
         // Fetch tutors
         const { data: tutorsData, error: tutorsError } = await supabase
           .from("Tutors")
-          .select("*")
+          .select("user_id, first_name, last_name, name, subjects, availability")
           .not("user_id", "eq", user?.id); // Exclude current user
 
         if (tutorsError) {
@@ -80,8 +80,7 @@ export default function FindTutors() {
 
     const matchesSearch =
       !searchTerm ||
-      tutor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tutor.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      tutor.name?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesSubject =
       !selectedSubject ||
@@ -215,7 +214,7 @@ export default function FindTutors() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-slate-900">
-                            {tutor.name || "Tutor"}
+                            {`${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() || tutor.name || "Tutor"}
                           </p>
                         </div>
                         <ChevronRight className="text-slate-400" />

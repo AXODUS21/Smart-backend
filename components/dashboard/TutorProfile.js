@@ -33,6 +33,8 @@ export default function TutorProfile() {
   const [stripeStatus, setStripeStatus] = useState({ isConnected: false, isOnboarded: false });
   const [connecting, setConnecting] = useState(false);
   const [stripeLoginLoading, setStripeLoginLoading] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
 
   // Form state
   const [bio, setBio] = useState("");
@@ -113,6 +115,8 @@ export default function TutorProfile() {
           console.error("Error fetching tutor profile:", tutorError);
         } else {
           setTutorData(tutorData);
+          setFirstName(tutorData?.first_name || "");
+          setLastName(tutorData?.last_name || "");
           // Initialize payment info state from DB so the UI reflects saved values
           setPaymentInfo({
             payment_method: tutorData?.payment_method || "bank",
@@ -420,6 +424,8 @@ export default function TutorProfile() {
     setBio(tutorData?.bio || "");
     setExperiences(tutorData?.experience || []);
     setSkills(tutorData?.skills || []);
+    setFirstName(tutorData?.first_name || "");
+    setLastName(tutorData?.last_name || "");
     setPhotoUrl(tutorData?.photo_url || "");
     setPhotoFile(null);
     setPhotoRemoved(false);
@@ -507,6 +513,11 @@ export default function TutorProfile() {
       // Prepare update data - always include photo_url if photo was changed
       const updateData = {};
       if (bio !== undefined) updateData.bio = bio;
+      if (firstName !== undefined) updateData.first_name = firstName;
+      if (lastName !== undefined) updateData.last_name = lastName;
+      // Update the concatenated name field for legacy support
+      updateData.name = `${firstName || ""} ${lastName || ""}`.trim();
+      
       if (experiences !== undefined) updateData.experience = experiences;
       if (skills !== undefined) updateData.skills = skills;
       // Always include photo_url if photo was changed (uploaded, removed, or kept)
@@ -644,8 +655,8 @@ export default function TutorProfile() {
               )}
               <h3 className="text-xl font-semibold text-slate-900 mb-1">
                 {tutorData 
-                  ? `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim() || user?.email || "Tutor"
-                  : user?.email || "Tutor"}
+                  ? `${tutorData.first_name || ''} ${tutorData.last_name || ''}`.trim() || "Tutor"
+                  : "Tutor"}
               </h3>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1216,6 +1227,37 @@ export default function TutorProfile() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Personal Information */}
+        <div className="lg:col-span-2 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Personal Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                First Name
+              </label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Enter your first name"
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Last Name
+              </label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Enter your last name"
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Bio */}
         <div className="lg:col-span-2 bg-white rounded-lg p-6 shadow-sm border border-slate-200">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Bio</h3>

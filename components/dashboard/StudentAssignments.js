@@ -102,8 +102,8 @@ export default function StudentAssignments({ overrideStudentId }) {
             *,
             tutor:tutor_id (
               id,
-              name,
-              email
+              first_name,
+              last_name
             )
           `
           );
@@ -212,8 +212,8 @@ export default function StudentAssignments({ overrideStudentId }) {
           *,
           tutor:tutor_id (
             id,
-            name,
-            email
+            first_name,
+            last_name
           )
         `
         );
@@ -289,8 +289,7 @@ export default function StudentAssignments({ overrideStudentId }) {
       const matchesSearch =
         !searchTerm ||
         assignment.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        assignment.tutor?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        assignment.tutor?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `${assignment.tutor?.first_name || ""} ${assignment.tutor?.last_name || ""}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
         assignment.subject?.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Status filter
@@ -313,8 +312,8 @@ export default function StudentAssignments({ overrideStudentId }) {
         case "oldest":
           return new Date(a.created_at) - new Date(b.created_at);
         case "tutor": {
-          const ta = (a.tutor?.name || a.tutor?.email || "").toLowerCase();
-          const tb = (b.tutor?.name || b.tutor?.email || "").toLowerCase();
+          const ta = `${a.tutor?.first_name || ""} ${a.tutor?.last_name || ""}`.trim().toLowerCase() || "tutor";
+          const tb = `${b.tutor?.first_name || ""} ${b.tutor?.last_name || ""}`.trim().toLowerCase() || "tutor";
           return ta.localeCompare(tb);
         }
         case "dueDate":
@@ -465,7 +464,7 @@ export default function StudentAssignments({ overrideStudentId }) {
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
                       <span className="font-medium">Tutor:</span>
-                      <span className="truncate">{assignment.tutor?.name || assignment.tutor?.email || 'Unknown'}</span>
+                      <span className="truncate">{`${assignment.tutor?.first_name || ""} ${assignment.tutor?.last_name || ""}`.trim() || 'Tutor'}</span>
                       {assignment.subject && <><span className="text-slate-400">•</span><BookOpen className="w-3 h-3 flex-shrink-0" /><span className="truncate">{assignment.subject}</span></>}<span className="text-slate-400">•</span><Calendar className="w-3 h-3 flex-shrink-0" /><span className="truncate">Due: {formatDate(assignment.due_date)}</span>{assignment.max_points && <><span className="text-slate-400">•</span><span className="font-medium">Points:</span><span>{assignment.points !== null && assignment.points !== undefined ? `${assignment.points}` : 'Not graded'}{assignment.max_points && ` / ${assignment.max_points}`}</span></>}
                       {assignment.profile_name && (
                         <>

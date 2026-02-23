@@ -203,8 +203,6 @@ export default function StudentPastSessions({ overrideStudentId }) {
             `
             *,
             tutor:tutor_id (
-              name,
-              email,
               first_name,
               last_name
             )
@@ -238,8 +236,6 @@ export default function StudentPastSessions({ overrideStudentId }) {
           `
           *,
           tutor:tutor_id (
-            name,
-            email,
             first_name,
             last_name
           )
