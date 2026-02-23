@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Save, Plus, X, Edit, User, Briefcase, Award, BookOpen, CheckCircle, Wallet, CreditCard, AlertCircle } from "lucide-react";
+import { formatCreditsAsCurrency, CREDIT_TO_PHP_RATE, CREDIT_TO_USD_RATE } from "@/lib/currency";
 import { ImageUpload } from "@/components/ImageUpload";
 
 const PROFILE_PHOTOS_BUCKET = "profile-photos";
@@ -689,17 +690,17 @@ export default function TutorProfile() {
                     <>
                       <p className="text-sm text-slate-600 mb-1">Equivalent in PHP</p>
                       <p className="text-2xl font-bold text-emerald-600">
-                        ₱{balanceInfo?.credits !== undefined ? (balanceInfo.credits * 90).toFixed(2) : (credits * 90).toFixed(2)}
+                        {formatCreditsAsCurrency(balanceInfo?.credits !== undefined ? balanceInfo.credits : credits, "PH")}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1">1 credit = ₱90 PHP</p>
+                      <p className="text-xs text-slate-500 mt-1">1 credit = ₱{CREDIT_TO_PHP_RATE} PHP</p>
                     </>
                   ) : (
                     <>
                       <p className="text-sm text-slate-600 mb-1">Equivalent in USD</p>
                       <p className="text-2xl font-bold text-emerald-600">
-                        ${balanceInfo?.credits !== undefined ? (balanceInfo.credits * 1.5).toFixed(2) : (credits * 1.5).toFixed(2)}
+                        {formatCreditsAsCurrency(balanceInfo?.credits !== undefined ? balanceInfo.credits : credits, "US")}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1">1 credit = $1.50 USD</p>
+                      <p className="text-xs text-slate-500 mt-1">1 credit = ${CREDIT_TO_USD_RATE.toFixed(2)} USD</p>
                     </>
                   )}
                 </div>

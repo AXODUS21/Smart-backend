@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { formatCreditsAsCurrency } from "@/lib/currency";
 
 export default function PastSessions() {
   const { user } = useAuth();
@@ -11,6 +12,7 @@ export default function PastSessions() {
   const [showReview, setShowReview] = useState(null);
   const [reviews, setReviews] = useState({});
   const [processing, setProcessing] = useState({});
+  const [tutorRegion, setTutorRegion] = useState("US");
 
   // Fetch past sessions for the tutor
   useEffect(() => {
@@ -21,11 +23,12 @@ export default function PastSessions() {
         // Get tutor ID first
         const { data: tutorData } = await supabase
           .from("Tutors")
-          .select("id")
+          .select("id, pricing_region")
           .eq("user_id", user.id)
           .single();
 
         if (!tutorData) return;
+        setTutorRegion(tutorData.pricing_region || "US");
 
         // Fetch sessions that have ended (past sessions) and are confirmed
         const { data, error } = await supabase
@@ -279,6 +282,9 @@ export default function PastSessions() {
                     {session.subject} • {session.date}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">{session.time}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Credits: {session.credits_required} ({formatCreditsAsCurrency(session.credits_required, tutorRegion)})
+                  </p>
                   {session.profile_name && (
                     <p className="text-xs text-slate-500">
                       Profile: <span className="font-medium">{session.profile_name}</span>

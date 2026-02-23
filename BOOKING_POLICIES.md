@@ -111,17 +111,22 @@ The platform enforces several key policies to ensure fair and reliable tutoring 
 - **File**: `components/dashboard/PastSessions.js` (Tutor view)
 - **Function**: `handleMarkNoShow(id, type)`
 - **Utility**: `lib/sessionPolicies.js` - `handleNoShow(sessionId, noShowType)`
+- **Note**: Students use the "Report Issue" button in `StudentPastSessions.js` to report tutor no-shows, which are then reviewed by an Admin. Students no longer have a direct "Mark No-Show" button to trigger automatic refunds.
 
 ### User Flow (Tutor)
 1. Tutor navigates to "Past Sessions" tab
 2. For completed sessions, clicks "Mark No-Show" button
-3. Modal appears with two options:
+3. Modal appears with the option:
    - **Student No-Show**: Student didn't attend
-   - **Tutor No-Show**: Tutor didn't attend
 4. Upon selection:
    - Session status is updated
-   - Credits are either forfeited or refunded
-   - Notification is sent to affected party
+   - Credits are forfeited (paid to tutor)
+   - Notification is sent to the student
+
+### User Flow (Student)
+1. Student navigates to "Past Sessions" tab
+2. If a session was not attended by the tutor, or there is another issue, clicks "Report Issue"
+3. Support reviews the report and manually processes refunds or corrections if necessary.
 
 ### Database Changes
 - `Schedules` table columns:

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { AlertCircle, X, MessageSquare, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { handleNoShow } from "@/lib/sessionPolicies";
 import { DEFAULT_PROFILE_ID, getActiveProfile } from "@/lib/studentProfiles";
 import { formatCreditsAsCurrency } from "@/lib/currency";
 
@@ -14,7 +13,6 @@ export default function StudentPastSessions({ overrideStudentId }) {
   const [allSessions, setAllSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState({});
-  const [showNoShowModal, setShowNoShowModal] = useState(null);
   const [reportModal, setReportModal] = useState({ isOpen: false, sessionId: null });
   const [reportMessage, setReportMessage] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -189,85 +187,6 @@ export default function StudentPastSessions({ overrideStudentId }) {
     }
     setSessions(filtered);
   }, [startDate, endDate, allSessions]);
-
-  const handleMarkTutorNoShow = async (sessionId) => {
-    setProcessing((prev) => ({ ...prev, [sessionId]: true }));
-    setShowNoShowModal(null);
-
-    try {
-      const result = await handleNoShow(sessionId, "tutor-no-show");
-      
-      if (result && result.isConflict) {
-        alert(result.message);
-        // Refresh session to show updated status
-        const { data } = await supabase
-          .from("Schedules")
-          .select(
-            `
-            *,
-            tutor:tutor_id (
-              first_name,
-              last_name
-            )
-          `
-          )
-          .eq("id", sessionId)
-          .single();
-          
-        if (data) {
-          setSessions((prev) =>
-            prev.map((s) =>
-              s.id === sessionId
-                ? {
-                    ...s,
-                    status: data.session_status || "completed",
-                    action: data.session_action || null,
-                  }
-                : s
-            )
-          );
-        }
-        return;
-      }
-
-      alert("Tutor no-show recorded. Credits have been refunded to your account.");
-      
-      // Refresh sessions
-      const { data } = await supabase
-        .from("Schedules")
-        .select(
-          `
-          *,
-          tutor:tutor_id (
-            first_name,
-            last_name
-          )
-        `
-        )
-        .eq("id", sessionId)
-        .single();
-      
-      if (data) {
-        setSessions((prev) =>
-          prev.map((s) =>
-            s.id === sessionId
-              ? {
-                  ...s,
-                  status: "tutor-no-show",
-                  action: "tutor-no-show",
-                  no_show_type: "tutor-no-show",
-                }
-              : s
-          )
-        );
-      }
-    } catch (error) {
-      console.error("Error marking tutor no-show:", error);
-      alert("Error marking tutor no-show. Please try again.");
-    } finally {
-      setProcessing((prev) => ({ ...prev, [sessionId]: false }));
-    }
-  };
 
   const handleReportIssue = async () => {
     if (!reportMessage.trim()) {
@@ -492,66 +411,30 @@ export default function StudentPastSessions({ overrideStudentId }) {
                     Report Issue
                   </button>
                   <p className="text-xs text-slate-500 mt-1">
-                    The tutor has marked this session as successful. Contact support if this is incorrect.
+                    Something went wrong? Report it here for support.
                   </p>
                 </div>
               )}
 
-              {/* No-show button - only show if session is completed (but not successful) and no no-show has been marked */}
+              {/* Report Issue for pending/completed sessions */}
               {!session.no_show_type && session.status === "completed" && (
-                  <div className="mt-2 pt-2 border-t border-slate-200">
-                    <button
-                      onClick={() => setShowNoShowModal(session.id)}
-                      disabled={processing[session.id]}
-                      className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                    >
-                      <AlertCircle className="w-3 h-3" />
-                      {processing[session.id]
-                        ? "Processing..."
-                        : "Mark Tutor as No-Show"}
-                    </button>
-                    <p className="text-xs text-slate-500 mt-1">
-                      If the tutor didn't attend this session, mark them as no-show to get your credits refunded.
-                    </p>
-                  </div>
-                )}
+                <div className="mt-2 pt-2 border-t border-slate-200">
+                  <button
+                    onClick={() => setReportModal({ isOpen: true, sessionId: session.id })}
+                    className="px-3 py-1.5 text-xs bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-1"
+                  >
+                    <AlertCircle className="w-3 h-3" />
+                    Report Issue
+                  </button>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Report issues like tutor no-show or other problems here.
+                  </p>
+                </div>
+              )}
             </div>
           ))
         )}
       </div>
-
-      {/* No-Show Confirmation Modal */}
-      {showNoShowModal && (
-        <div className="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">
-                Mark Tutor as No-Show
-              </h3>
-            </div>
-            <div className="p-4">
-              <p className="text-sm text-slate-700 mb-4">
-                Are you sure the tutor did not attend this session? Marking them as no-show will refund your credits.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleMarkTutorNoShow(showNoShowModal)}
-                  disabled={processing[showNoShowModal]}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                >
-                  {processing[showNoShowModal] ? "Processing..." : "Yes, Mark No-Show"}
-                </button>
-                <button
-                  onClick={() => setShowNoShowModal(null)}
-                  className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Report Issue Modal */}
       {reportModal.isOpen && (
@@ -571,7 +454,7 @@ export default function StudentPastSessions({ overrideStudentId }) {
             </div>
             <div className="p-4">
               <p className="text-sm text-slate-600 mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                You are reporting an issue for a session marked as "Successful" by the tutor. Please describe why you are disputing this session.
+                Please describe the issue you encountered with this session (e.g., tutor was a no-show, technical issues, etc.). Support will review your report.
               </p>
               
               <div className="mb-4">
