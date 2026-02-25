@@ -355,10 +355,6 @@ export default function StudentPastSessions({ overrideStudentId }) {
                     <p className="text-xs text-slate-500">{session.date}</p>
                     <span className="text-xs text-slate-400">•</span>
                     <p className="text-xs text-slate-500">{session.time}</p>
-                    <span className="text-xs text-slate-400">•</span>
-                    <p className="text-xs text-slate-500">
-                      Credits: {session.credits_required} ({formatCreditsAsCurrency(session.credits_required, session.tutor_region)})
-                    </p>
                   </div>
                 </div>
                 <span
