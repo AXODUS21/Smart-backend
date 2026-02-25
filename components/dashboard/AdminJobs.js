@@ -188,8 +188,7 @@ export default function AdminJobs() {
 
     // Date range filter
     if (startDateFilter) {
-      const startDate = new Date(startDateFilter);
-      startDate.setHours(0, 0, 0, 0);
+      const startDate = new Date(startDateFilter + "T00:00:00");
       filtered = filtered.filter((b) => {
         const bookingDate = new Date(b.start_time_utc);
         return bookingDate >= startDate;
@@ -197,8 +196,7 @@ export default function AdminJobs() {
     }
 
     if (endDateFilter) {
-      const endDate = new Date(endDateFilter);
-      endDate.setHours(23, 59, 59, 999);
+      const endDate = new Date(endDateFilter + "T23:59:59.999");
       filtered = filtered.filter((b) => {
         const bookingDate = new Date(b.start_time_utc);
         return bookingDate <= endDate;

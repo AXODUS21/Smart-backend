@@ -93,9 +93,8 @@ export default function TutorHome() {
     // Filter sessions by date range if dates are set
     let filteredSessions = sessions;
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // Include the entire end date
+      const start = new Date(startDate + "T00:00:00");
+      const end = new Date(endDate + "T23:59:59.999");
       filteredSessions = sessions.filter((s) => {
         const sessionDate = new Date(s.start_time_utc);
         return sessionDate >= start && sessionDate <= end;
