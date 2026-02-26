@@ -58,11 +58,17 @@ export async function POST(request) {
     // Check if principal profile already exists
     const { data: existing } = await supabase
       .from('Principals')
-      .select('id')
+      .select('id, pricing_region')
       .eq('user_id', userId)
       .maybeSingle();
 
     if (existing) {
+      if (pricingRegion && existing.pricing_region !== pricingRegion) {
+        await supabase
+          .from('Principals')
+          .update({ pricing_region: pricingRegion === 'PH' ? 'PH' : 'US' })
+          .eq('id', existing.id);
+      }
       return Response.json({ success: true, id: existing.id });
     }
 

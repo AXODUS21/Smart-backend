@@ -66,6 +66,7 @@ export default function TutorSignupPage() {
             first_name: firstName,
             last_name: lastName,
             user_type: 'tutor',
+            pricing_region: location === 'PH' ? 'PH' : 'US',
           },
         },
       });

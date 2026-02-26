@@ -66,6 +66,7 @@ export default function StudentSignupPage() {
             first_name: firstName,
             last_name: lastName,
             user_type: 'student',
+            pricing_region: location === 'PH' ? 'PH' : 'US',
           },
         },
       });
