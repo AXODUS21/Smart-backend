@@ -1,4 +1,17 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Smart Tutoring Platform
+
+## Introduction
+The Smart Tutoring Platform is a professional, feature-rich web application facilitating tutoring sessions. It integrates advanced booking logic, multiple user roles, and secure payment processing.
+
+---
+
+## 📘 Client Documentation
+For a complete guide to understanding, setting up, and maintaining this project, please refer to:
+- **[FEATURES_GUIDE.md](docs/FEATURES_GUIDE.md)**: Central index for all functional modules and platform logic.
+- **[ROLE_BASED_GUIDE.md](docs/ROLE_BASED_GUIDE.md)**: Tailored instructions for Students, Tutors, Principals, and Admins.
+- **[Developer Quick Start](docs/guides/setup/DEVELOPER_QUICK_START.md)**: Technical setup, migrations, and environment configuration.
+
+---
 
 ## Getting Started
 
