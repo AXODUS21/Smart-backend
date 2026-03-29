@@ -247,7 +247,6 @@ export default function PrincipalSignupPage() {
                   value={middleName}
                   onChange={(e) => setMiddleName(e.target.value)}
                   placeholder="Middle name"
-                  required
                   className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
@@ -322,22 +321,15 @@ export default function PrincipalSignupPage() {
               <label htmlFor="district-school" className="text-sm font-medium text-gray-700">
                 District / School Name
               </label>
-              <select
+              <input
                 id="district-school"
+                type="text"
                 value={districtSchoolName}
                 onChange={(e) => setDistrictSchoolName(e.target.value)}
+                placeholder="Enter district / school name"
                 required
-                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                <option value="" disabled>
-                  Select your district / school
-                </option>
-                {schoolOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
             </div>
 
             <div className="space-y-2">
