@@ -716,7 +716,7 @@ export default function BookSession({ overrideStudentId }) {
         <p className="text-slate-500">Step {step} of 6</p>
         {activeProfileLabel && (
           <p className="text-xs text-slate-500 mt-1">
-            Booking for <span className="font-medium">{activeProfileLabel}</span>. Change active profile in Student Settings.
+            Booking for <span className="font-medium">{activeProfileLabel}</span>.
           </p>
         )}
       </div>
