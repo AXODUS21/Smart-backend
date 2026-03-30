@@ -487,7 +487,7 @@ export default function StudentProfile({ studentModeEnabled, onChangeStudentMode
           <div className="flex-1">
             <label className="block text-sm text-slate-600 mb-1">Location</label>
             <div className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 text-slate-600">
-              {pricingRegion === "PH" ? "Philippines" : "International"}
+              {pricingRegion === "PH" ? "Philippines" : "US/Other Countries"}
             </div>
             <p className="text-xs text-slate-500 mt-1">
               Location is set during signup and cannot be edited.

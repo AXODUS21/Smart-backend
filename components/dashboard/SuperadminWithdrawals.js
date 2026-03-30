@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
@@ -314,7 +314,7 @@ export default function SuperadminWithdrawals() {
         w.id,
         tutor ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() : "Unknown",
         tutor?.email || "N/A",
-        tutor?.pricing_region === 'PH' ? 'Philippines' : 'International',
+        tutor?.pricing_region === 'PH' ? 'Philippines' : 'US/Other Countries',
         parseFloat(w.amount || 0).toFixed(2),
         tutor?.pricing_region === 'PH' ? 'PHP' : 'USD',
         credits,

@@ -13,7 +13,7 @@ const statusSpanWithBadge = `                            {w.status?.toUpperCase(
                           </span>
                           {w.pricing_region !== 'PH' && w.is_international !== false && (
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-300">
-                              \u{1F310} International
+                              \u{1F310} US/Other Countries
                             </span>
                           )}
                         </div>`;

@@ -162,7 +162,7 @@ export default function PrincipalProfile() {
                 ) : (
                   <>
                     <span className="text-2xl">🌏</span>
-                    <span className="font-medium">International</span>
+                    <span className="font-medium">US/Other Countries</span>
                   </>
                 )}
               </div>

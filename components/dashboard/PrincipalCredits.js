@@ -189,7 +189,7 @@ export default function PrincipalCredits() {
           {userCountry && (
             <span className="ml-2 text-sm text-gray-500">
               (Pricing for{" "}
-              {userCountry === "PH" ? "Philippines" : "International"})
+              {userCountry === "PH" ? "Philippines" : "US/Other Countries"})
             </span>
           )}
         </p>

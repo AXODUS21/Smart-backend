@@ -665,7 +665,7 @@ export default function TutorProfile() {
                     ? 'bg-blue-100 text-blue-800' 
                     : 'bg-purple-100 text-purple-800'
                 }`}>
-                  {tutorData?.pricing_region === 'PH' ? '🇵🇭 Philippines' : '🌐 International'}
+                  {tutorData?.pricing_region === 'PH' ? '🇵🇭 Philippines' : '🌐 US/Other Countries'}
                 </span>
               </div>
             </div>

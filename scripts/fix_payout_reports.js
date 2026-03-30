@@ -77,7 +77,7 @@ const oldExcelRow = `          w.withdrawal_id,
 const newExcelRow = `          w.withdrawal_id,
           tutorName,
           w.tutor_email || "N/A",
-          w.pricing_region !== 'PH' && w.is_international !== false ? 'International' : 'Philippines',
+          w.pricing_region !== 'PH' && w.is_international !== false ? 'US/Other Countries' : 'Philippines',
           w.amount || 0,
           w.credits || 0,`;
 

@@ -217,7 +217,7 @@ export default function Credits({ overrideStudentId }) {
           {userCountry && (
             <span className="ml-2 text-sm text-gray-500">
               (Pricing for{" "}
-              {userCountry === "PH" ? "Philippines" : "International"})
+              {userCountry === "PH" ? "Philippines" : "US/Other Countries"})
             </span>
           )}
         </p>

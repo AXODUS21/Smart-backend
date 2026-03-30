@@ -309,7 +309,7 @@ export default function PrincipalSignupPage() {
                 required
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
-                <option value="US">International</option>
+                <option value="US">US/Other Countries</option>
                 <option value="PH">Philippines</option>
               </select>
               <p className="text-xs text-gray-500">

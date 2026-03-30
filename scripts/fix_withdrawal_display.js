@@ -13,7 +13,7 @@ const oldBlock = `                        </div>
 const newBlock = `                        </div>
                         {isInternationalTutor(tutor) && (
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-300">
-                            \u{1F310} International
+                            \u{1F310} US/Other Countries
                           </span>
                         )}
                         <div className="text-sm text-slate-500">

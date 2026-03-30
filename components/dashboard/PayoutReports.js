@@ -224,7 +224,7 @@ export default function PayoutReports() {
             const isIntl = w.currency === 'USD' || (w.pricing_region !== 'PH' && w.is_international !== false && w.currency !== 'PHP');
             return [
               w.tutor_name || (w.first_name && w.last_name ? `${w.first_name} ${w.last_name}` : null) || w.tutor_email || "N/A",
-              isIntl ? 'International' : 'Philippines',
+              isIntl ? 'US/Other Countries' : 'Philippines',
               isIntl ? `$${parseFloat(w.amount || 0).toFixed(2)} USD` : `PHP ${parseFloat(w.amount || 0).toFixed(2)}`,
               w.credits || 0
             ];
@@ -271,7 +271,7 @@ export default function PayoutReports() {
           w.withdrawal_id,
           tutorName,
           w.tutor_email || "N/A",
-          isIntl ? 'International' : 'Philippines',
+          isIntl ? 'US/Other Countries' : 'Philippines',
           isIntl ? `$${parseFloat(w.amount || 0).toFixed(2)} USD` : parseFloat(w.amount || 0).toFixed(2),
           w.credits || 0,
           w.payment_method?.toUpperCase() || "N/A",
