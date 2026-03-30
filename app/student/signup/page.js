@@ -250,7 +250,7 @@ export default function StudentSignupPage() {
                 <option value="PH">Philippines</option>
               </select>
               <p className="text-xs text-gray-500">
-                This determines your credit pricing and cannot be changed later.
+                Credits vary by region to support global access and educational sponsorship programs.
               </p>
             </div>
 
