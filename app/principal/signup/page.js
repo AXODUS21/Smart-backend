@@ -13,6 +13,9 @@ export default function PrincipalSignupPage() {
   const [email, setEmail] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [province, setProvince] = useState('');
+  const [zipCode, setZipCode] = useState('');
   const [districtSchoolName, setDistrictSchoolName] = useState('');
   const [typeOfSchool, setTypeOfSchool] = useState('');
   const [typeOfStudents, setTypeOfStudents] = useState([]);
@@ -113,6 +116,9 @@ export default function PrincipalSignupPage() {
             pricing_region: location === 'PH' ? 'PH' : 'US',
             contact_number: contactNumber,
             address,
+            city,
+            province,
+            zip_code: zipCode,
             district_school_name: districtSchoolName,
             type_of_school: typeOfSchool,
             type_of_students: studentsToSave,
@@ -135,6 +141,9 @@ export default function PrincipalSignupPage() {
               middleName,
               contactNumber,
               address,
+              city,
+              province,
+              zipCode,
               districtSchoolName,
               typeOfSchool,
               typeOfStudents: studentsToSave,
@@ -161,6 +170,9 @@ export default function PrincipalSignupPage() {
         setEmail('');
         setContactNumber('');
         setAddress('');
+        setCity('');
+        setProvince('');
+        setZipCode('');
         setDistrictSchoolName('');
         setTypeOfSchool('');
         setTypeOfStudents([]);
@@ -285,17 +297,62 @@ export default function PrincipalSignupPage() {
 
             <div className="space-y-2">
               <label htmlFor="address" className="text-sm font-medium text-gray-700">
-                Address
+                Street Address
               </label>
               <input
                 id="address"
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Enter your address"
+                placeholder="Enter your street address"
                 required
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2 col-span-1">
+                <label htmlFor="city" className="text-sm font-medium text-gray-700">
+                  City
+                </label>
+                <input
+                  id="city"
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="City"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div className="space-y-2 col-span-1">
+                <label htmlFor="province" className="text-sm font-medium text-gray-700">
+                  State / Province
+                </label>
+                <input
+                  id="province"
+                  type="text"
+                  value={province}
+                  onChange={(e) => setProvince(e.target.value)}
+                  placeholder="State / Province"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div className="space-y-2 col-span-1">
+                <label htmlFor="zip-code" className="text-sm font-medium text-gray-700">
+                  ZIP / Postal Code
+                </label>
+                <input
+                  id="zip-code"
+                  type="text"
+                  value={zipCode}
+                  onChange={(e) => setZipCode(e.target.value)}
+                  placeholder="ZIP / Postal Code"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -28,7 +28,7 @@ export default function PrincipalProfile() {
         const { data, error } = await supabase
           .from("Principals")
           .select(
-            "first_name, last_name, middle_name, email, contact_number, address, district_school_name, type_of_school, type_of_students, pricing_region"
+            "first_name, last_name, middle_name, email, contact_number, address, city, province, zip_code, district_school_name, type_of_school, type_of_students, pricing_region"
           )
           .eq("user_id", user.id)
           .single();
@@ -107,7 +107,12 @@ export default function PrincipalProfile() {
               <label className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1">
                 <MapPin className="w-3 h-3" /> Address
               </label>
-              <div className="text-slate-900">{profile.address || "Not provided"}</div>
+              <div className="text-slate-900">
+                {profile.address || "Not provided"}
+                {profile.city && `, ${profile.city}`}
+                {profile.province && `, ${profile.province}`}
+                {profile.zip_code && ` ${profile.zip_code}`}
+              </div>
             </div>
           </div>
         </div>
