@@ -77,6 +77,7 @@ import AdminWhyChooseUs from "./dashboard/AdminWhyChooseUs";
 import AdminReviews from "./dashboard/AdminReviews";
 import AdminFAQs from "./dashboard/AdminFAQs";
 import Header from "./Header";
+import AdminManualTopups from "./dashboard/AdminManualTopups";
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -415,13 +416,14 @@ export default function Dashboard() {
       label: "Tutor Applications",
       icon: ClipboardList,
     },
+    "manual-topups": { id: "manual-topups", label: "Manual Top-ups", icon: Wallet },
     cms: cmsDropdown,
   };
 
   // Build admin tabs from configuration or use defaults
   const getAdminTabs = () => {
     if (userRole === "admin" && adminSidebarConfig.length > 0) {
-      return adminSidebarConfig
+      const configuredTabs = adminSidebarConfig
         .map((config) => {
           // Special handling for CMS which was previously split
           if (config.tab_id === "cms") return cmsDropdown;
@@ -436,6 +438,13 @@ export default function Dashboard() {
           return null;
         })
         .filter(Boolean);
+
+      // Ensure Manual Top-ups is always visible for admin verification flow
+      if (!configuredTabs.some((tab) => tab.id === "manual-topups")) {
+        configuredTabs.push(adminTabsMap["manual-topups"]);
+      }
+
+      return configuredTabs;
     }
     // Default tabs - use CMS dropdown + others excluding split items
     const defaultTabs = Object.values(adminTabsMap).filter(
@@ -457,6 +466,7 @@ export default function Dashboard() {
     { id: "announcements", label: "Announcements", icon: Megaphone },
     { id: "parents-review", label: "Parents Review", icon: MessageSquare },
     { id: "voucher-requests", label: "Voucher Requests", icon: Ticket },
+    { id: "manual-topups", label: "Manual Top-ups", icon: Wallet },
     { id: "payout-reports", label: "Payout Reports", icon: FileText },
     { id: "sidebar-config", label: "Sidebar Config", icon: Settings },
     { id: "assign-tasks", label: "Assign Tasks", icon: ListTodo },
@@ -889,6 +899,9 @@ export default function Dashboard() {
           )}
           {activeTab === "reviews" && userRole === "admin" && <AdminReviews />}
           {activeTab === "faqs" && userRole === "admin" && <AdminFAQs />}
+          {activeTab === "manual-topups" && (userRole === "admin" || userRole === "superadmin") && (
+            <AdminManualTopups />
+          )}
           {activeTab === "credits" && userRole === "student" && (
             <Credits />
           )}
