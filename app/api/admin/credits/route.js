@@ -11,14 +11,34 @@ export async function POST(request) {
   try {
     // 1. Authenticate and Validate Request
     const body = await request.json();
-    const { userId, role, amount, type, adminId } = body;
+    const { userId, role, amount, type } = body;
 
-    if (!userId || !role || !amount || !type || !adminId) {
+    if (!userId || !role || !amount || !type) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
+
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Missing or invalid token' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !authUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Invalid token' },
+        { status: 401 }
+      );
+    }
+
+    const adminId = authUser.id;
 
     if (amount <= 0) {
       return NextResponse.json(

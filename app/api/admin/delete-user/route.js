@@ -2,8 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request) {
   try {
-
-    // Initialize Supabase with service role key
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -15,7 +13,11 @@ export async function POST(request) {
       }
     );
 
-    const { email, newPassword } = await request.json();
+    const { userId } = await request.json();
+
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: User ID required' }), { status: 400 });
+    }
 
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -44,19 +46,10 @@ export async function POST(request) {
       return new Response(JSON.stringify({ error: 'Unauthorized: Access restricted to Admins and Superadmins' }), { status: 403 });
     }
 
-    // Get the user by email
-    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) throw listError;
-
-    const user = users.find(u => u.email === email);
-    if (!user) {
-      throw new Error('User not found');
-    }
-
     // Check target user's roles
     const [targetAdminCheck, targetSuperAdminCheck] = await Promise.all([
-      supabase.from('admins').select('id').eq('user_id', user.id).maybeSingle(),
-      supabase.from('superadmins').select('id').eq('user_id', user.id).maybeSingle()
+      supabase.from('admins').select('id').eq('user_id', userId).maybeSingle(),
+      supabase.from('superadmins').select('id').eq('user_id', userId).maybeSingle()
     ]);
 
     const targetIsAdmin = !!targetAdminCheck.data;
@@ -64,33 +57,37 @@ export async function POST(request) {
 
     // Strict role segregation rules:
     if (isSuperAdmin && !targetIsAdmin && !targetIsSuperAdmin) {
-      return new Response(JSON.stringify({ error: 'Unauthorized: Superadmins can only manage Admins and Superadmins. Please ask a normal Admin to change passwords for Students/Tutors/Principals.' }), { status: 403 });
+      return new Response(JSON.stringify({ error: 'Unauthorized: Superadmins can only delete Admins and Superadmins. Please ask a normal Admin to manage Students/Tutors/Principals.' }), { status: 403 });
     }
 
     if (!isSuperAdmin && isAdmin && (targetIsAdmin || targetIsSuperAdmin)) {
-      return new Response(JSON.stringify({ error: 'Unauthorized: Only Superadmins can alter passwords of other Admins and Superadmins.' }), { status: 403 });
+      return new Response(JSON.stringify({ error: 'Unauthorized: Only Superadmins can delete other Admins and Superadmins.' }), { status: 403 });
     }
 
-    // Update the password
-    const { data, error: updateError } = await supabase.auth.admin.updateUserById(
-      user.id,
-      { password: newPassword }
-    );
+    // Attempt to delete auth user. This cascades to other tables typically, or we can just delete it in auth
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
 
-    if (updateError) throw updateError;
+    if (deleteError) {
+       // if the user doesn't exist in auth, maybe they still exist in the public role table. But usually it's best to delete them from auth.
+       console.error("Error deleting auth user:", deleteError);
+       // we continue to at least return an error to client if it completely fails
+       if (!deleteError.message.includes('User not found')) {
+         throw deleteError;
+       }
+    }
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Password updated successfully' 
+      message: 'User deleted successfully' 
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('Error updating password:', error);
+    console.error('Error deleting user:', error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'Failed to update password',
+      error: error.message || 'Failed to delete user',
       details: error
     }), {
       status: 500,

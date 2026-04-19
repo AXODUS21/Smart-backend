@@ -24,6 +24,12 @@ export default function AdminUsers() {
   const [creditType, setCreditType] = useState("add"); // 'add' or 'remove'
   const [isUpdatingCredits, setIsUpdatingCredits] = useState(false);
   const [creditMessage, setCreditMessage] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteMessage, setDeleteMessage] = useState(null);
 
   
   useEffect(() => {
@@ -378,6 +384,10 @@ export default function AdminUsers() {
     setViewingUser(user);
     setCreditAmount("");
     setCreditMessage(null);
+    setNewPassword("");
+    setPasswordMessage(null);
+    setDeleteConfirmation("");
+    setDeleteMessage(null);
   };
 
   const handleCreditUpdate = async () => {
@@ -390,18 +400,21 @@ export default function AdminUsers() {
     setCreditMessage(null);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!session || sessionError) throw new Error("Not authenticated");
 
       const response = await fetch('/api/admin/credits', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           userId: viewingUser.user_id, // Use user_id for auth consistency
           role: viewingUser.role,
           amount: Number(creditAmount),
           type: creditType,
-          adminId: user.id
+          adminId: session.user.id
         }),
       });
 
@@ -445,6 +458,105 @@ export default function AdminUsers() {
       setCreditMessage({ type: 'error', text: error.message || "Failed to update credits." });
     } finally {
       setIsUpdatingCredits(false);
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordMessage({ type: 'error', text: 'Password must be at least 6 characters long.' });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    setPasswordMessage(null);
+
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!session || sessionError) throw new Error("Not authenticated");
+
+      const response = await fetch('/api/update-password', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ 
+          email: viewingUser.email, 
+          newPassword, 
+          adminId: session.user.id 
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update password');
+      }
+
+      setPasswordMessage({ type: 'success', text: 'Password updated successfully!' });
+      setNewPassword(""); // Clear input on success
+      
+      setTimeout(() => {
+        setPasswordMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error("Password update error:", error);
+      setPasswordMessage({ type: 'error', text: error.message || "Failed to update password." });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (deleteConfirmation !== viewingUser.email) {
+      setDeleteMessage({ type: 'error', text: 'Email does not match. User was NOT deleted.' });
+      return;
+    }
+
+    setIsDeletingUser(true);
+    setDeleteMessage(null);
+
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!session || sessionError) throw new Error("Not authenticated");
+
+      const response = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ 
+          userId: viewingUser.user_id, 
+          adminId: session.user.id 
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete user');
+      }
+
+      setDeleteMessage({ type: 'success', text: 'User deleted successfully!' });
+      
+      // Update global user lists by removing the deleted user
+      setUsers(prev => {
+        const newState = { ...prev };
+        for (const roleKey in newState) {
+          newState[roleKey] = newState[roleKey].filter(u => u.user_id !== viewingUser.user_id);
+        }
+        return newState;
+      });
+      
+      setTimeout(() => {
+        setViewingUser(null);
+      }, 2000);
+    } catch (error) {
+      console.error("Delete user error:", error);
+      setDeleteMessage({ type: 'error', text: error.message || "Failed to delete user." });
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -859,6 +971,77 @@ export default function AdminUsers() {
                   </div>
                 </>
               )}
+
+              {/* Password Management UI */}
+              <div className="pt-4 mt-4 border-t border-slate-100">
+                <h3 className="text-md font-semibold text-slate-900 mb-3">Manage Password</h3>
+                <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                  {passwordMessage && (
+                    <div className={`p-3 rounded text-sm ${passwordMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {passwordMessage.text}
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500 mb-2">Update this user's login password. They can use the new password immediately.</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="New password (min 6 chars)"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                    <button
+                      onClick={handlePasswordUpdate}
+                      disabled={isUpdatingPassword || !newPassword || newPassword.length < 6}
+                      className={`px-4 py-2 rounded-lg text-white font-medium text-sm transition-colors ${
+                          isUpdatingPassword || !newPassword || newPassword.length < 6
+                            ? 'bg-slate-400 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
+                    >
+                      {isUpdatingPassword ? 'Updating...' : 'Set Password'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Delete User Management UI */}
+              <div className="pt-4 mt-4 border-t border-red-100">
+                <h3 className="text-md font-semibold text-red-700 mb-3">Danger Zone</h3>
+                <div className="bg-red-50 p-4 rounded-lg space-y-3 border border-red-200">
+                  {deleteMessage && (
+                    <div className={`p-3 rounded text-sm ${deleteMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {deleteMessage.text}
+                    </div>
+                  )}
+                  <p className="text-sm font-medium text-red-800">Delete User Account</p>
+                  <p className="text-xs text-red-600 mb-2">
+                    This action is permanent and will completely remove this user's profile and authentication from the system.
+                    To confirm, please type their email: <strong>{viewingUser.email}</strong>
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder={viewingUser.email}
+                      value={deleteConfirmation}
+                      onChange={(e) => setDeleteConfirmation(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                    />
+                    <button
+                      onClick={handleDeleteUser}
+                      disabled={isDeletingUser || deleteConfirmation !== viewingUser.email}
+                      className={`px-4 py-2 rounded-lg text-white font-medium text-sm transition-colors ${
+                          isDeletingUser || deleteConfirmation !== viewingUser.email
+                            ? 'bg-red-300 cursor-not-allowed'
+                            : 'bg-red-600 hover:bg-red-700'
+                      }`}
+                    >
+                      {isDeletingUser ? 'Deleting...' : 'Delete User'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
             </div>
             <div className="p-6 border-t border-slate-200">
               <button
