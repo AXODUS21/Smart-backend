@@ -186,7 +186,7 @@ export default function SuperadminWithdrawals() {
         [withdrawal.id]: "",
       }));
     } catch (actionError) {
-      console.error("Failed to rejectt widthdrawal:", actionError);
+      console.error("Failed to rejectt  widthdrawal:", actionError);
       setError(actionError.message || "An error occurred while rejecting the withdrawal.");
     } finally {
       setActioningId(null);
