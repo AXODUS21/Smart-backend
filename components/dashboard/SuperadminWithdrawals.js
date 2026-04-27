@@ -186,7 +186,7 @@ export default function SuperadminWithdrawals() {
         [withdrawal.id]: "",
       }));
     } catch (actionError) {
-      console.error("Failed to reject withdrawal:", actionError);
+      console.error("Failedd to reject withdrawal:", actionError);
       setError(actionError.message || "An error occurred while rejecting the withdrawal.");
     } finally {
       setActioningId(null);
@@ -229,10 +229,10 @@ export default function SuperadminWithdrawals() {
 
   const getPaymentDetails = (tutor) => {
     if (!tutor) return { method: "Unknown", details: [] };
-    
+
     // Handle array response from Supabase join
     const tutorData = Array.isArray(tutor) ? tutor[0] : tutor;
-    
+
     if (tutorData.payment_method === "bank") {
       return {
         method: "Bank Transfer",
@@ -300,7 +300,7 @@ export default function SuperadminWithdrawals() {
       const tutorRaw = w.tutor;
       const tutor = Array.isArray(tutorRaw) ? tutorRaw[0] : tutorRaw;
       const paymentDetails = getPaymentDetails(tutor);
-      
+
       const paymentInfo = paymentDetails.details
         .map(d => `${d.label}: ${d.value}`)
         .join("; ");
@@ -330,7 +330,7 @@ export default function SuperadminWithdrawals() {
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    
+
     // Add some column widths
     const wscols = [
       { wch: 10 }, // ID
@@ -358,15 +358,15 @@ export default function SuperadminWithdrawals() {
     if (!filteredWithdrawals.length) return;
 
     const doc = new jsPDF();
-    
+
     // Title
     doc.setFontSize(18);
     doc.text("Withdrawal Requests Report", 14, 20);
-    
+
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
     doc.text(`Status Filter: ${filterStatus.toUpperCase()}`, 14, 35);
-    
+
     if (searchTerm) {
       doc.text(`Search Term: "${searchTerm}"`, 14, 40);
     }
@@ -382,13 +382,13 @@ export default function SuperadminWithdrawals() {
         : Math.round((parseFloat(w.amount || 0)) / CREDIT_TO_PHP_RATE);
 
       return [
-         w.id,
-         tutor ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() : "Unknown",
-         parseFloat(w.amount || 0).toFixed(2),
-         credits,
-         w.status || "pending",
-         formatDate(w.requested_at),
-         paymentDetails.method,
+        w.id,
+        tutor ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() : "Unknown",
+        parseFloat(w.amount || 0).toFixed(2),
+        credits,
+        w.status || "pending",
+        formatDate(w.requested_at),
+        paymentDetails.method,
       ];
     });
 
@@ -507,11 +507,11 @@ export default function SuperadminWithdrawals() {
             // Handle Supabase join - tutor might be an object or array
             const tutorRaw = withdrawal.tutor;
             const tutor = Array.isArray(tutorRaw) ? tutorRaw[0] : tutorRaw;
-            
+
             const tutorName = tutor
               ? `${tutor.first_name || ""} ${tutor.last_name || ""}`.trim() ||
-                tutor.email ||
-                "Unknown Tutor"
+              tutor.email ||
+              "Unknown Tutor"
               : "Unknown Tutor";
             const paymentDetails = tutor ? getPaymentDetails(tutor) : null;
             const isExpanded = expandedId === withdrawal.id;
